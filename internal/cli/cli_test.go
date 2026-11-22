@@ -14,16 +14,24 @@ import (
 
 const usageLine = "usage: emergup <command>"
 
-func run(t *testing.T, invokedAs string, args ...string) (code int, stdout, stderr string) {
+// run calls cli.Main as the program invokedAs with args, and returns the exit
+// status and what was written to stdout and stderr.
+func run(t *testing.T, invokedAs string, args ...string) (int, string, string) {
 	t.Helper()
-	var out, errOut bytes.Buffer
-	code = cli.Main(t.Context(), &out, &errOut, invokedAs, args)
-	return code, out.String(), errOut.String()
+
+	var stdout, stderr bytes.Buffer
+
+	code := cli.Main(t.Context(), &stdout, &stderr, invokedAs, args)
+
+	return code, stdout.String(), stderr.String()
 }
 
 func TestVersion(t *testing.T) {
+	t.Parallel()
+
 	for _, arg := range []string{"version", "--version"} {
 		t.Run(arg, func(t *testing.T) {
+			t.Parallel()
 			code, stdout, stderr := run(t, "/usr/bin/emergup", arg)
 			assert.Equal(t, 0, code)
 			assert.Equal(t, "emergup "+version.String()+"\n", stdout)
@@ -33,8 +41,11 @@ func TestVersion(t *testing.T) {
 }
 
 func TestHelp(t *testing.T) {
+	t.Parallel()
+
 	for _, arg := range []string{"help", "-h", "--help"} {
 		t.Run(arg, func(t *testing.T) {
+			t.Parallel()
 			code, stdout, stderr := run(t, "/usr/bin/emergup", arg)
 			assert.Equal(t, 0, code)
 			assert.Contains(t, stdout, usageLine)
@@ -45,6 +56,8 @@ func TestHelp(t *testing.T) {
 }
 
 func TestUsageErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -58,6 +71,7 @@ func TestUsageErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			code, stdout, stderr := run(t, "/usr/bin/emergup", tt.args...)
 			assert.Equal(t, 2, code)
 			assert.Empty(t, stdout)
@@ -68,6 +82,7 @@ func TestUsageErrors(t *testing.T) {
 }
 
 func TestUsageNamesTheInvokedProgram(t *testing.T) {
+	t.Parallel()
 	code, stdout, _ := run(t, "/opt/test/emergup-dev", "help")
 	assert.Equal(t, 0, code)
 	assert.Contains(t, stdout, "usage: emergup-dev <command>")
