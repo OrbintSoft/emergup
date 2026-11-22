@@ -38,6 +38,7 @@ func Main(_ context.Context, stdout, stderr io.Writer, invokedAs string, args []
 	prog := filepath.Base(invokedAs)
 	if len(args) == 0 {
 		printUsage(stderr, prog)
+
 		return exitUsage
 	}
 
@@ -47,28 +48,39 @@ func Main(_ context.Context, stdout, stderr io.Writer, invokedAs string, args []
 		if len(rest) > 0 {
 			return unexpectedArgument(stderr, prog, command, rest[0])
 		}
+
 		_, _ = fmt.Fprintf(stdout, "emergup %s\n", version.String())
+
 		return exitOK
 	case "help", "-h", "--help":
 		if len(rest) > 0 {
 			return unexpectedArgument(stderr, prog, command, rest[0])
 		}
+
 		printUsage(stdout, prog)
+
 		return exitOK
 	default:
-		kind := "command"
-		if strings.HasPrefix(command, "-") {
-			kind = "option"
-		}
-		_, _ = fmt.Fprintf(stderr, "%s: unknown %s %q\n\n", prog, kind, command)
-		printUsage(stderr, prog)
-		return exitUsage
+		return unknownCommand(stderr, prog, command)
 	}
+}
+
+func unknownCommand(stderr io.Writer, prog, command string) int {
+	kind := "command"
+	if strings.HasPrefix(command, "-") {
+		kind = "option"
+	}
+
+	_, _ = fmt.Fprintf(stderr, "%s: unknown %s %q\n\n", prog, kind, command)
+	printUsage(stderr, prog)
+
+	return exitUsage
 }
 
 func unexpectedArgument(stderr io.Writer, prog, command, arg string) int {
 	_, _ = fmt.Fprintf(stderr, "%s %s: unexpected argument %q\n\n", prog, strings.TrimLeft(command, "-"), arg)
 	printUsage(stderr, prog)
+
 	return exitUsage
 }
 

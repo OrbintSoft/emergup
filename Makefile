@@ -57,14 +57,13 @@ vet: ## Run go vet
 
 lint: lint-go lint-make ## Run every linter
 
-lint-go: ## Lint the Go code and check its formatting
+lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
-	$(GOLANGCI_LINT) fmt --diff
 
 lint-make: ## Lint this Makefile
 	$(CHECKMAKE) Makefile
 
-fmt: ## Format the Go code
+fmt: ## Format the Go code with gofumpt
 	$(GOLANGCI_LINT) fmt
 
 check: build vet lint race ## Run the whole quality gate

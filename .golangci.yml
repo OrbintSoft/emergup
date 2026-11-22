@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# golangci-lint configuration, used by `make lint-go`, `make fmt` and CI.
+version: "2"
+
+linters:
+  # Every linter is enabled; one is disabled only where its rule is
+  # counterproductive for this project, with the reason next to it.
+  default: all
+  disable:
+    # Without a policy it rejects the project's own internal/* packages; the
+    # dependencies are governed by DEPENDENCIES.md and review instead.
+    - depguard
+    # Superseded by wsl_v5, which `default: all` also enables.
+    - wsl
+    # Deprecated and superseded by gomodguard_v2 and exhaustruct_v5, which
+    # `default: all` also enables; the old ones only print a warning.
+    - gomodguard
+    - exhaustruct
+    # Bans the idiomatic `if err := f(); err != nil { ... }`, which keeps err
+    # scoped to the check.
+    - noinlineerr
+    # Unexported helpers are unit-tested from inside their package (white-box);
+    # a separate <pkg>_test package is used only where a test needs nothing but
+    # the exported API.
+    - testpackage
+  settings:
+    varnamelen:
+      ignore-names:
+        # The conventional name of the case in a table-driven test.
+        - tt
+  exclusions:
+    rules:
+      # Test fixtures set only the fields the test is about.
+      - path: _test\.go
+        linters:
+          - exhaustruct_v5
+
+# Report every finding instead of golangci-lint's capped summary.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+# gofumpt is a stricter superset of gofmt: `golangci-lint run` reports files it
+# would change and `golangci-lint fmt` rewrites them.
+formatters:
+  enable:
+    - gofumpt

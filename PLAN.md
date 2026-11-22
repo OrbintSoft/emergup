@@ -89,7 +89,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       `install`/`uninstall` with `PREFIX`/`DESTDIR` for an ebuild, `help`), built
       with the `go.mod` toolchain; linters pinned and run with `go run`. checkmake
       passes with its defaults, so there is no `checkmake.ini`.
-- [ ] **1.3** `.golangci.yml` (starting from redo-backups').
+- [x] **1.3** `.golangci.yml` (starting from redo-backups'): every linter on, a
+      few disabled with the reason; gofumpt as the formatter.
 - [ ] **1.4** markdownlint-cli2 and YAML linting wired into `make lint`.
 - [ ] **1.5** CI workflow: build, vet, test (race), golangci-lint, actionlint,
       checkmake, markdown; DCO sign-off check on pull requests.

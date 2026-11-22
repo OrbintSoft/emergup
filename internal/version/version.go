@@ -13,7 +13,7 @@ const unknown = "unknown"
 //	go build -ldflags "-X github.com/OrbintSoft/emergup/internal/version.stamped=1.2.3"
 //
 // It is empty in an ordinary go build or go install.
-var stamped string
+var stamped string //nolint:gochecknoglobals // -X can set only a package-level variable
 
 // String returns the version of this build: the value stamped at link time,
 // else the module version the Go toolchain recorded (a release tag for
@@ -27,8 +27,10 @@ func resolve(stamped string, readBuildInfo func() (*debug.BuildInfo, bool)) stri
 	if stamped != "" {
 		return stamped
 	}
+
 	if info, ok := readBuildInfo(); ok && info.Main.Version != "" {
 		return info.Main.Version
 	}
+
 	return unknown
 }
