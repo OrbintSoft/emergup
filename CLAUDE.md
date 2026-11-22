@@ -9,10 +9,10 @@ binding for AI-assisted changes and recommended for all contributors.
 ## What this repo is
 
 `emergup` is a Go command-line tool that drives the routine Gentoo update
-workflow — sync, news, `@world` update, rebuilds, config-file updates, depclean —
-with configurable steps, package exclusions, hooks, failure diagnostics and
-optional AI assistance. It is started as an ordinary user and elevates only the
-commands that need root.
+workflow — sync, news, `@world` update, rebuilds, config-file updates,
+depclean — with configurable steps, package exclusions, hooks, failure
+diagnostics and optional AI assistance. It is started as an ordinary user and
+elevates only the commands that need root.
 
 ## Starting a session
 
@@ -81,14 +81,14 @@ commands that need root.
     MPL-2.0, LGPL are fine; GPL-2.0-only is not) and list it in COPYRIGHT.md.
 18. **Document and automate every dependency.** A new Go module, build tool, CI
     action, container image or runtime-invoked command is recorded in
-    DEPENDENCIES.md in the same change, and wired into Dependabot or Renovate — or
-    PLAN.md says why it can't be and how it is updated instead.
-19. **New file type → consider a linter.** When a new kind of file enters the repo,
-    evaluate a linter for it and wire it into `make lint` and CI if reasonable;
-    record the decision (including "no linter") in PLAN.md.
-20. **Don't embed one language inside another.** A config body, a script or other
-    structured content is authored as its own file and referenced, never inlined in
-    a heredoc or string literal of the host language.
+    DEPENDENCIES.md in the same change, and wired into Dependabot or Renovate —
+    or PLAN.md says why it can't be and how it is updated instead.
+19. **New file type → consider a linter.** When a new kind of file enters the
+    repo, evaluate a linter for it and wire it into `make lint` and CI if
+    reasonable; record the decision (including "no linter") in PLAN.md.
+20. **Don't embed one language inside another.** A config body, a script or
+    other structured content is authored as its own file and referenced, never
+    inlined in a heredoc or string literal of the host language.
 21. **Least-privilege `GITHUB_TOKEN`.** Every workflow declares an explicit
     top-level `permissions:` block (default `contents: read`); wider scopes only
     per job, where a step needs them. GitHub Actions are pinned to a full commit

@@ -1,8 +1,8 @@
 # Plan — emergup
 
 Roadmap from an empty repository to a released tool that replaces a hand-written
-Gentoo update script. Rules for assistants live in [CLAUDE.md](CLAUDE.md); what the
-tool promises is in [docs/FEATURES.md](docs/FEATURES.md).
+Gentoo update script. Rules for assistants live in [CLAUDE.md](CLAUDE.md); what
+the tool promises is in [docs/FEATURES.md](docs/FEATURES.md).
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done
 
@@ -17,16 +17,17 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   Authorized languages: Go; Bash for example hooks, test harness and CI glue.
   Anything else needs the maintainer's approval first.
 - **Go versions:** the `go` line in `go.mod` is the minimum supported Go
-  (`1.26.0`) and is kept one Go release behind the latest; the `toolchain` line is
-  the toolchain builds use (`go1.27.4`) and follows the latest release.
+  (`1.26.0`) and is kept one Go release behind the latest; the `toolchain` line
+  is the toolchain builds use (`go1.27.4`) and follows the latest release.
 - **Licence `GPL-3.0-or-later`**; contributions under the **DCO only** (no CLA).
 - **Configuration:** TOML, **system-wide only**: `/etc/emergup/config.toml` plus
-  `/etc/emergup/config.d/*.toml`, always supported, read in lexical order. Drop-ins
-  avoid editing a shared file, so there are no merge conflicts between packages or
-  admins. No per-user configuration.
-- **Privileges:** the process runs as the invoking user; only privileged commands
-  go through an elevation wrapper — auto-detected (`sudo` → `doas` → `run0`) or set
-  in the configuration. Hooks and AI run unprivileged.
+  `/etc/emergup/config.d/*.toml`, always supported, read in lexical order.
+  Drop-ins avoid editing a shared file, so there are no merge conflicts between
+  packages or admins. No per-user configuration.
+- **Privileges:** the process runs as the invoking user; only privileged
+  commands go through an elevation wrapper — auto-detected
+  (`sudo` → `doas` → `run0`) or set in the configuration. Hooks and AI run
+  unprivileged.
 - **CLI without a library:** subcommand dispatch, option parsing and the usage
   text are hand-written in `internal/cli`, so all of it is unit-tested;
   `cmd/emergup` holds only `os.Exit(cli.Main(ctx, …))`.
@@ -41,31 +42,32 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   integration tests in Docker (`gentoo/stage3`), against a local test repository
   with synthetic ebuilds and news items so they are offline and deterministic.
 - **Dependency bots:** Dependabot and Renovate both, on different days and hours
-  (proposed: Dependabot Monday 06:00, Renovate Thursday afternoon, Europe/Rome; a
-  half-day Renovate window rather than a single hour, so the hosted app's run
+  (proposed: Dependabot Monday 06:00, Renovate Thursday afternoon, Europe/Rome;
+  a half-day Renovate window rather than a single hour, so the hosted app's run
   lands inside it).
 - **Repository:** public on GitHub, `OrbintSoft/emergup`, branch `master`;
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).
-- **Linters (CLAUDE.md rule 19):** Markdown and YAML are in the repo from the first
-  commit; markdownlint-cli2 and actionlint/yamllint are wired in Phase 1. Go is
-  linted by golangci-lint (1.3); `go.mod`/`go.sum` need no linter beyond a
-  `go mod tidy` check in CI (1.5); the Makefile is linted by checkmake
-  (`make lint-make`). TOML (taplo), shell (shellcheck) and
-  Dockerfile (hadolint) linters are evaluated when those file types arrive.
+- **Linters (CLAUDE.md rule 19):** `make lint` runs golangci-lint on Go,
+  checkmake on the Makefile, markdownlint-cli2 on Markdown and yamllint on
+  YAML; actionlint joins for the workflows (1.5). `go.mod`/`go.sum` need no
+  linter beyond a `go mod tidy` check in CI (1.5). TOML (taplo), shell
+  (shellcheck) and Dockerfile (hadolint) linters are evaluated when those file
+  types arrive.
 
 ## Open questions
 
 1. ~~**CLI library**~~ — answered: hand-written, see Decisions taken.
-2. **List merging across `config.d`:** does a drop-in's `exclude = [...]` append to
-   the earlier lists or replace them, and how is an entry removed? (Phase 2)
+2. **List merging across `config.d`:** does a drop-in's `exclude = [...]` append
+   to the earlier lists or replace them, and how is an entry removed? (Phase 2)
 3. **Where run logs and failure reports live:** the user's state directory
    (`~/.local/state/emergup/`) or `/var/log/emergup/` (needs root)? (Phase 3)
 4. **emerge `--ask`:** keep emerge's own prompt, or run `--pretend` first and ask
    in emergup? (Phase 4)
-5. **Running as root** (root shell, cron): allowed? If so, AI is disabled. (Phase 3)
-6. **Applying AI fixes:** emergup applies a proposed change after confirmation, or
-   hands off to an interactive Claude Code session? (Phase 9)
+5. **Running as root** (root shell, cron): allowed? If so, AI is disabled.
+   (Phase 3)
+6. **Applying AI fixes:** emergup applies a proposed change after confirmation,
+   or hands off to an interactive Claude Code session? (Phase 9)
 7. **`haskell-updater`:** built-in optional step skipped when not installed
    (proposed), or only an example custom step? (Phase 4)
 
@@ -91,9 +93,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       passes with its defaults, so there is no `checkmake.ini`.
 - [x] **1.3** `.golangci.yml` (starting from redo-backups'): every linter on, a
       few disabled with the reason; gofumpt as the formatter.
-- [ ] **1.4** markdownlint-cli2 and YAML linting wired into `make lint`.
+- [x] **1.4** markdownlint-cli2 (pinned, through `npx`) and yamllint (from
+      `PATH`) wired into `make lint`, each with its configuration file.
 - [ ] **1.5** CI workflow: build, vet, test (race), golangci-lint, actionlint,
-      checkmake, markdown; DCO sign-off check on pull requests.
+      checkmake, markdownlint-cli2, yamllint (its version pinned there); DCO
+      sign-off check on pull requests.
 - [ ] **1.6** Dependabot + Renovate (different days and hours), Renovate config
       validated in CI; Renovate keeps the `go` line one Go release behind the
       latest and moves `toolchain` to the latest. Until then the dependencies in
@@ -149,8 +153,8 @@ From here on, every feature lands with its integration test.
       environment (HOOK-1, HOOK-4).
 - [ ] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
 - [ ] **6.3** Custom steps (HOOK-3).
-- [ ] **6.4** Example hook: backup freshness check (generic: age of a file or of a
-      command's output), with a remedy that starts the configured backup tool.
+- [ ] **6.4** Example hook: backup freshness check (generic: age of a file or of
+      a command's output), with a remedy that starts the configured backup tool.
 
 ## Phase 7 — News  `[ ]`  (NEWS-*)
 

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# markdownlint-cli2 configuration, used by `make lint-markdown` and CI.
+# Rules: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+globs:
+  - "**/*.md"
+# Honour .gitignore, so scratch files such as *-steps.md are not linted.
+gitignore: true
+config:
+  default: true
+  # Prose is wrapped at 80 columns; table rows and code blocks cannot be.
+  MD013:
+    line_length: 80
+    tables: false
+    code_blocks: false
+  # The rules in CLAUDE.md are numbered across its sections and cited by
+  # number, which a per-list numbering check cannot model.
+  MD029: false

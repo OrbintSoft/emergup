@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# yamllint configuration, used by `make lint-yaml` and CI.
+# Rules: https://yamllint.readthedocs.io/en/stable/rules.html
+extends: default
+
+# Honour .gitignore, so build output and scratch files are not linted.
+ignore-from-file: .gitignore
+
+rules:
+  # Configuration files read by GitHub and by tools (FUNDING.yml,
+  # .golangci.yml) are conventionally written without a "---" document start.
+  document-start: disable
