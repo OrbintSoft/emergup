@@ -20,6 +20,14 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | UPD-7 | At the end, a summary lists each step as succeeded, skipped or failed. | planned |
 | UPD-8 | Only one emergup run can be active at a time; a second one refuses to start and says why. | planned |
 
+## Repository sync (SYNC)
+
+| Id | Feature | Status |
+| --- | --- | --- |
+| SYNC-1 | The sync step skips a repository synced more recently than a configurable interval (24 hours by default) and says when it was last synced; a repository whose last sync time cannot be determined is synced, and an interval of 0 syncs every time. | planned |
+| SYNC-2 | `emergup run --force-sync` syncs the repositories regardless of the interval. | planned |
+| SYNC-3 | Repositories listed in the configuration are synced on every run regardless of the interval (e.g. an overlay the user publishes to). | planned |
+
 ## Privileges (PRIV)
 
 | Id | Feature | Status |
