@@ -48,6 +48,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Repository:** public on GitHub, `OrbintSoft/emergup`, branch `master`;
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).
+- **Branch protection:** the "Protect master" ruleset on the default branch,
+  with no bypass: changes only through pull requests with every review thread
+  resolved and the `make test` and `make lint` checks passing (from GitHub
+  Actions; the branch need not be up to date); no force push, no deletion.
+  The DCO check is added to it once the DCO app is installed.
 - **Linters (CLAUDE.md rule 19):** `make lint` runs golangci-lint on Go,
   checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
   actionlint on the workflows and `go mod tidy -diff` on `go.mod`/`go.sum`.
@@ -128,7 +133,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
 
-- [ ] **4.1** Sync (`emaint --auto sync`, configurable).
+- [ ] **4.1** Sync (`emaint --auto sync`, configurable), per repository: a
+      repository synced within the minimum interval is skipped, unless it is
+      listed as always synced or `--force-sync` is given (SYNC-1–3). The last
+      sync time is read from the repository on disk (git: `.git/FETCH_HEAD`,
+      rsync: `metadata/timestamp.chk`), so syncs done outside emergup count
+      and no state file is needed; other sync types are always synced.
 - [ ] **4.2** `@world` update with configurable options and exclusions (EXC-1).
 - [ ] **4.3** Live-package rebuild (`smart-live-rebuild`, skipped if absent) (UPD-4).
 - [ ] **4.4** Preserved-library rebuild, only when needed; `haskell-updater`
