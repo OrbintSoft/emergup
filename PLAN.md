@@ -49,11 +49,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).
 - **Linters (CLAUDE.md rule 19):** `make lint` runs golangci-lint on Go,
-  checkmake on the Makefile, markdownlint-cli2 on Markdown and yamllint on
-  YAML; actionlint joins for the workflows (1.5). `go.mod`/`go.sum` need no
-  linter beyond a `go mod tidy` check in CI (1.5). TOML (taplo), shell
-  (shellcheck) and Dockerfile (hadolint) linters are evaluated when those file
-  types arrive.
+  checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
+  actionlint on the workflows and `go mod tidy -diff` on `go.mod`/`go.sum`.
+  TOML (taplo), shell (shellcheck) and Dockerfile (hadolint) linters are
+  evaluated when those file types arrive.
 
 ## Open questions
 
@@ -95,9 +94,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       few disabled with the reason; gofumpt as the formatter.
 - [x] **1.4** markdownlint-cli2 (pinned, through `npx`) and yamllint (from
       `PATH`) wired into `make lint`, each with its configuration file.
-- [ ] **1.5** CI workflow: build, vet, test (race), golangci-lint, actionlint,
-      checkmake, markdownlint-cli2, yamllint (its version pinned there); DCO
-      sign-off check on pull requests.
+- [x] **1.5** CI workflow running the Makefile targets: build, vet, test
+      (race) and `make lint` (golangci-lint, `go mod tidy`, checkmake,
+      actionlint, markdownlint-cli2, yamllint pinned there); DCO sign-off check
+      on pull requests by the DCO GitHub App.
 - [ ] **1.6** Dependabot + Renovate (different days and hours), Renovate config
       validated in CI; Renovate keeps the `go` line one Go release behind the
       latest and moves `toolchain` to the latest. Until then the dependencies in

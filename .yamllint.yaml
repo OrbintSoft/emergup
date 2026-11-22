@@ -11,3 +11,15 @@ rules:
   # Configuration files read by GitHub and by tools (FUNDING.yml,
   # .golangci.yml) are conventionally written without a "---" document start.
   document-start: disable
+  # GitHub workflows use the key `on`, which YAML 1.1 would read as a boolean;
+  # values are still checked.
+  truthy:
+    check-keys: false
+  # An action pinned to a commit SHA carries its version as a comment written
+  # with one space, `uses: owner/action@<sha> # vX.Y.Z`, which is how
+  # Dependabot and Renovate write and update it; such a line is also longer
+  # than 80 columns.
+  comments:
+    min-spaces-from-content: 1
+  line-length:
+    max: 120
