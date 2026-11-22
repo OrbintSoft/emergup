@@ -50,7 +50,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Linters (CLAUDE.md rule 19):** Markdown and YAML are in the repo from the first
   commit; markdownlint-cli2 and actionlint/yamllint are wired in Phase 1. Go is
   linted by golangci-lint (1.3); `go.mod`/`go.sum` need no linter beyond a
-  `go mod tidy` check in CI (1.5). TOML (taplo), shell (shellcheck) and
+  `go mod tidy` check in CI (1.5); the Makefile is linted by checkmake
+  (`make lint-make`). TOML (taplo), shell (shellcheck) and
   Dockerfile (hadolint) linters are evaluated when those file types arrive.
 
 ## Open questions
@@ -84,8 +85,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [x] **1.1** `go.mod` (minimum Go and build toolchain), `cmd/emergup/main.go`
       and `internal/cli` with `emergup version` and `help` (CLI-1, CLI-2); SPDX
       headers; testify; a first `DEPENDENCIES.md`.
-- [ ] **1.2** Makefile (`build`, `test`, `lint`, `fmt`, `install` with
-      `PREFIX`/`DESTDIR` for an ebuild, `help`) + `checkmake.ini`.
+- [x] **1.2** Makefile (`build`, `test`, `race`, `vet`, `lint`, `fmt`, `check`,
+      `install`/`uninstall` with `PREFIX`/`DESTDIR` for an ebuild, `help`), built
+      with the `go.mod` toolchain; linters pinned and run with `go run`. checkmake
+      passes with its defaults, so there is no `checkmake.ini`.
 - [ ] **1.3** `.golangci.yml` (starting from redo-backups').
 - [ ] **1.4** markdownlint-cli2 and YAML linting wired into `make lint`.
 - [ ] **1.5** CI workflow: build, vet, test (race), golangci-lint, actionlint,
