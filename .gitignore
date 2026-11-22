@@ -1,0 +1,20 @@
+# Scratch and working-memory files: per-activity step trackers and ad-hoc notes.
+# These are free-form and never committed.
+*-steps.md
+*.scratch
+scratch/
+
+# Go build output
+/bin/
+/dist/
+*.test
+
+# Go coverage / profiling
+*.out
+coverage.html
+*.prof
+
+# Editor / OS cruft
+.idea/
+*.swp
+.DS_Store
