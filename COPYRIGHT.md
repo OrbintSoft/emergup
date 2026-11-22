@@ -29,4 +29,12 @@ Compiled into the distributed binary:
 
 - **Go standard library** — BSD-3-Clause.
 
+Used only by the tests, not compiled into the binary:
+
+- **[testify](https://github.com/stretchr/testify)** (`github.com/stretchr/testify`)
+  — MIT. It bundles copies of **go-difflib** (BSD-3-Clause) and **go-spew**
+  (ISC).
+- **[yaml](https://github.com/yaml/go-yaml)** (`go.yaml.in/yaml/v3`), required
+  by testify — MIT and Apache-2.0.
+
 Every further dependency is listed here, with its licence, when it is added.

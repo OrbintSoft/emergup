@@ -16,6 +16,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Language Go**, module `github.com/OrbintSoft/emergup`, binary `emergup`.
   Authorized languages: Go; Bash for example hooks, test harness and CI glue.
   Anything else needs the maintainer's approval first.
+- **Go versions:** the `go` line in `go.mod` is the minimum supported Go
+  (`1.26.0`) and is kept one Go release behind the latest; the `toolchain` line is
+  the toolchain builds use (`go1.27.4`) and follows the latest release.
 - **Licence `GPL-3.0-or-later`**; contributions under the **DCO only** (no CLA).
 - **Configuration:** TOML, **system-wide only**: `/etc/emergup/config.toml` plus
   `/etc/emergup/config.d/*.toml`, always supported, read in lexical order. Drop-ins
@@ -24,6 +27,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Privileges:** the process runs as the invoking user; only privileged commands
   go through an elevation wrapper — auto-detected (`sudo` → `doas` → `run0`) or set
   in the configuration. Hooks and AI run unprivileged.
+- **CLI without a library:** subcommand dispatch, option parsing and the usage
+  text are hand-written in `internal/cli`, so all of it is unit-tested;
+  `cmd/emergup` holds only `os.Exit(cli.Main(ctx, …))`.
 - **Interface:** a step-by-step CLI with confirmations and colours (honouring
   `NO_COLOR`), `--yes` for unattended runs, and subcommands (`run`, `news`,
   `config`, `version`, …).
@@ -42,14 +48,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).
 - **Linters (CLAUDE.md rule 19):** Markdown and YAML are in the repo from the first
-  commit; markdownlint-cli2 and actionlint/yamllint are wired in Phase 1. TOML
-  (taplo), shell (shellcheck) and Dockerfile (hadolint) linters are evaluated when
-  those file types arrive.
+  commit; markdownlint-cli2 and actionlint/yamllint are wired in Phase 1. Go is
+  linted by golangci-lint (1.3); `go.mod`/`go.sum` need no linter beyond a
+  `go mod tidy` check in CI (1.5). TOML (taplo), shell (shellcheck) and
+  Dockerfile (hadolint) linters are evaluated when those file types arrive.
 
 ## Open questions
 
-1. **CLI library:** standard `flag` with a small dispatcher, `cobra`, or the
-   `OrbintSoft/mow.cli` fork? (needed in Phase 1.1)
+1. ~~**CLI library**~~ — answered: hand-written, see Decisions taken.
 2. **List merging across `config.d`:** does a drop-in's `exclude = [...]` append to
    the earlier lists or replace them, and how is an entry removed? (Phase 2)
 3. **Where run logs and failure reports live:** the user's state directory
@@ -74,18 +80,23 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       description and topics; enable the Sponsor button (repo settings).
       _Repository, description and topics done; Sponsor button pending._
 
-## Phase 1 — Scaffolding and quality tooling  `[ ]`
+## Phase 1 — Scaffolding and quality tooling  `[~]`
 
-- [ ] **1.1** `go.mod`, `cmd/emergup/main.go` with `emergup version`; SPDX headers.
+- [x] **1.1** `go.mod` (minimum Go and build toolchain), `cmd/emergup/main.go`
+      and `internal/cli` with `emergup version` and `help` (CLI-1, CLI-2); SPDX
+      headers; testify; a first `DEPENDENCIES.md`.
 - [ ] **1.2** Makefile (`build`, `test`, `lint`, `fmt`, `install` with
       `PREFIX`/`DESTDIR` for an ebuild, `help`) + `checkmake.ini`.
-- [ ] **1.3** `.golangci.yml` (starting from redo-backups') and testify.
+- [ ] **1.3** `.golangci.yml` (starting from redo-backups').
 - [ ] **1.4** markdownlint-cli2 and YAML linting wired into `make lint`.
 - [ ] **1.5** CI workflow: build, vet, test (race), golangci-lint, actionlint,
       checkmake, markdown; DCO sign-off check on pull requests.
 - [ ] **1.6** Dependabot + Renovate (different days and hours), Renovate config
-      validated in CI.
-- [ ] **1.7** `DEPENDENCIES.md` and `docs/DEVELOPMENT.md`.
+      validated in CI; Renovate keeps the `go` line one Go release behind the
+      latest and moves `toolchain` to the latest. Until then the dependencies in
+      `DEPENDENCIES.md` are updated by hand.
+- [ ] **1.7** `DEPENDENCIES.md` completed with the tooling, and
+      `docs/DEVELOPMENT.md`.
 
 ## Phase 2 — Configuration  `[ ]`  (CFG-*)
 

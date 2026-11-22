@@ -85,3 +85,10 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | AI-4 | After a failure, the AI can analyse the failure report and propose a fix; a proposed change is shown and applied only after the user confirms it. | planned |
 | AI-5 | For a pending config-file update, the AI can explain the differences or propose a merged file, shown as a diff for approval. | planned |
 | AI-6 | AI backends are never run with root privileges. | planned |
+
+## Command line (CLI)
+
+| Id | Feature | Status |
+|---|---|---|
+| CLI-1 | `emergup version` (or `--version`) prints the emergup version. | done |
+| CLI-2 | `emergup help` (or `-h`, `--help`) prints the usage on standard output; a missing or unknown command, or an unexpected argument, prints the usage on standard error and exits with status 2. | done |
