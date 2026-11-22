@@ -70,15 +70,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 ---
 
-## Phase 0 — Project definition  `[~]`
+## Phase 0 — Project definition  `[x]`
 
 - [x] **0.1** Repository skeleton: README draft, LICENSE, COPYRIGHT, AUTHORS,
       CONTRIBUTING + DCO, CLAUDE.md, PLAN.md, docs/FEATURES.md, FUNDING.yml,
       `.gitignore` / `.gitattributes` / `.editorconfig`. No code. Landed as an
       initial commit plus one small PR per topic.
-- [~] **0.2** Create the public GitHub repository, push the first commit; set the
+- [x] **0.2** Create the public GitHub repository, push the first commit; set the
       description and topics; enable the Sponsor button (repo settings).
-      _Repository, description and topics done; Sponsor button pending._
 
 ## Phase 1 — Scaffolding and quality tooling  `[~]`
 
