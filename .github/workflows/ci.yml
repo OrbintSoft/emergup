@@ -58,9 +58,17 @@ jobs:
         with:
           node-version: lts/*
 
-      # The Makefile takes yamllint from PATH; CI pins its version here.
+      # The Makefile takes yamllint from PATH; CI pins its version here. The
+      # runner image carries its own yamllint in a pipx home the job cannot
+      # modify, so the pinned one goes into a private pipx home that is put
+      # first on PATH for the following steps.
       - name: Install yamllint
-        run: pipx install yamllint==1.38.0
+        env:
+          PIPX_HOME: ${{ runner.temp }}/pipx
+          PIPX_BIN_DIR: ${{ runner.temp }}/pipx/bin
+        run: |
+          pipx install yamllint==1.38.0
+          echo "$PIPX_BIN_DIR" >> "$GITHUB_PATH"
 
       - name: Lint
         run: make lint
