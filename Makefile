@@ -28,18 +28,22 @@ export GOTOOLCHAIN
 VERSION ?=
 LDFLAGS := $(if $(VERSION),-X github.com/OrbintSoft/emergup/internal/version.stamped=$(VERSION))
 
-# The linters run at pinned versions, built with the toolchain above, so the
-# result does not depend on what happens to be installed. Override either to
-# use another binary.
+# The Go linters run at pinned versions, built with the toolchain above, and
+# markdownlint-cli2 at a pinned version through npx, so the result does not
+# depend on what happens to be installed. yamllint is taken from PATH: Python
+# has no standard runner that fetches a pinned version. Override any of them
+# to use another binary.
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 CHECKMAKE     ?= $(GO) run github.com/checkmake/checkmake/cmd/checkmake@v0.3.2
+MARKDOWNLINT  ?= npx --yes markdownlint-cli2@0.24.2
+YAMLLINT      ?= yamllint
 
 BUILDDIR := bin
 BINARY   := emergup
 
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet lint lint-go lint-make fmt check install uninstall help
+.PHONY: all clean test build race vet lint lint-go lint-make lint-markdown lint-yaml fmt check install uninstall help
 
 all: build ## Build the binary (the default)
 
@@ -55,13 +59,19 @@ race: ## Run the unit tests with the race detector
 vet: ## Run go vet
 	$(GO) vet ./...
 
-lint: lint-go lint-make ## Run every linter
+lint: lint-go lint-make lint-markdown lint-yaml ## Run every linter
 
 lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
 
 lint-make: ## Lint this Makefile
 	$(CHECKMAKE) Makefile
+
+lint-markdown: ## Lint the Markdown files
+	$(MARKDOWNLINT)
+
+lint-yaml: ## Lint the YAML files
+	$(YAMLLINT) --strict .
 
 fmt: ## Format the Go code with gofumpt
 	$(GOLANGCI_LINT) fmt
@@ -79,4 +89,4 @@ clean: ## Remove the build output
 	rm -rf $(BUILDDIR)
 
 help: ## List the targets
-	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
