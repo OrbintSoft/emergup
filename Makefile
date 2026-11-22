@@ -35,6 +35,7 @@ LDFLAGS := $(if $(VERSION),-X github.com/OrbintSoft/emergup/internal/version.sta
 # to use another binary.
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 CHECKMAKE     ?= $(GO) run github.com/checkmake/checkmake/cmd/checkmake@v0.3.2
+ACTIONLINT    ?= $(GO) run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 MARKDOWNLINT  ?= npx --yes markdownlint-cli2@0.24.2
 YAMLLINT      ?= yamllint
 
@@ -43,7 +44,7 @@ BINARY   := emergup
 
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet lint lint-go lint-make lint-markdown lint-yaml fmt check install uninstall help
+.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml fmt check install uninstall help
 
 all: build ## Build the binary (the default)
 
@@ -59,13 +60,19 @@ race: ## Run the unit tests with the race detector
 vet: ## Run go vet
 	$(GO) vet ./...
 
-lint: lint-go lint-make lint-markdown lint-yaml ## Run every linter
+lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml ## Run every linter
 
 lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
 
+lint-mod: ## Check that go.mod and go.sum are tidy
+	$(GO) mod tidy -diff
+
 lint-make: ## Lint this Makefile
 	$(CHECKMAKE) Makefile
+
+lint-actions: ## Lint the GitHub Actions workflows (with shellcheck, if installed)
+	$(ACTIONLINT)
 
 lint-markdown: ## Lint the Markdown files
 	$(MARKDOWNLINT)
