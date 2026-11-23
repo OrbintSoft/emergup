@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Example drop-in: packages kept out of the @world update, here a proprietary
+# graphics driver and the kernel sources and headers, which some prefer to
+# update by hand. emergup lists at the end of a run the excluded packages that
+# have an update, so nothing is held back silently.
+#
+# The list adds up with the exclusions of the other files; another drop-in can
+# take one back with "-sys-kernel/linux-headers", or all of them with "-*".
+
+[steps.update]
+exclude = [
+  "x11-drivers/nvidia-drivers",
+  "sys-kernel/gentoo-sources",
+  "sys-kernel/linux-headers",
+]

@@ -72,9 +72,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
   actionlint on the workflows, `go mod tidy -diff` on `go.mod`/`go.sum` and
   `renovate-config-validator --strict` on `renovate.json5` (the only JSON5
-  file; no general JSON5 linter).
-  TOML (taplo), shell (shellcheck) and Dockerfile (hadolint) linters are
-  evaluated when those file types arrive.
+  file; no general JSON5 linter). TOML has no linter: the only TOML files are
+  the example configuration, which `make test` loads with emergup's own strict
+  loader (syntax, unknown keys, types, values) and compares with the defaults
+  in the code, more than a generic TOML linter checks; they are formatted by
+  hand. Shell (shellcheck) and Dockerfile (hadolint) linters are evaluated
+  when those file types arrive.
 
 ## Open questions
 
@@ -131,7 +134,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       `docs/DEVELOPMENT.md` (requirements, targets, layout, conventions,
       dependencies, pull requests).
 
-## Phase 2 — Configuration  `[~]`  (CFG-*)
+## Phase 2 — Configuration  `[x]`  (CFG-*)
 
 - [x] **2.1** Configuration schema as Go types, with generic defaults (CFG-2),
       in `internal/config`: elevation and the built-in steps of Phase 4.
@@ -154,7 +157,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       `config.Inspect` also returns the origin of every value and entry, which
       `config show` writes as a comment after each value. Its output reads
       back to the same configuration.
-- [ ] **2.5** Example configuration under `examples/etc/emergup/`.
+- [x] **2.5** Example configuration under `examples/etc/emergup/`: the main
+      file shows every setting with its default, commented out, and two
+      drop-ins hold the maintainer's choices (excluded packages, an
+      always-synced overlay). A test loads them and checks that the main
+      file, uncommented, gives exactly the defaults and shows every setting.
 
 ## Phase 3 — Core engine  `[ ]`  (PRIV-*, UPD-2, UPD-6–8)
 
