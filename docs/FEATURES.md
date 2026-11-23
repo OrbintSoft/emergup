@@ -19,6 +19,8 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | UPD-6 | `--pretend` shows the steps and commands that would run, without running them. | planned |
 | UPD-7 | At the end, a summary lists each step as succeeded, skipped or failed. | planned |
 | UPD-8 | Only one emergup run can be active at a time; a second one refuses to start and says why. | planned |
+| UPD-9 | The live-package rebuild has a mode: `smart` runs smart-live-rebuild; `interval` rebuilds each live package built longer ago than a configurable interval (24 hours by default); `always` rebuilds every live package; `auto`, the default, is `smart` when smart-live-rebuild is installed and `interval` otherwise. | planned |
+| UPD-10 | Before the `@world` update and the depclean, emergup shows what emerge would do (`--pretend`) and asks for confirmation itself; with `--yes` it goes ahead without asking. | planned |
 
 ## Repository sync (SYNC)
 
@@ -44,6 +46,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | CFG-2 | emergup works with no configuration file at all, using generic defaults. | planned |
 | CFG-3 | `emergup config check` validates the configuration and reports errors with file and line; unknown keys are errors. | planned |
 | CFG-4 | `emergup config show` prints the effective configuration and which file each value came from. | planned |
+| CFG-5 | Lists of entries (excluded packages, always-synced repositories) add up across the configuration files, like `USE` in `make.conf`: a later file adds entries, `-entry` removes one added earlier and `-*` clears the list; any other value set by a later file replaces the earlier one. | planned |
 
 ## Package exclusions (EXC)
 
