@@ -58,9 +58,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   donations).
 - **Branch protection:** the "Protect master" ruleset on the default branch,
   with no bypass: changes only through pull requests with every review thread
-  resolved and the `make test` and `make lint` checks passing (from GitHub
-  Actions; the branch need not be up to date); no force push, no deletion.
-  The DCO check is added to it once the DCO app is installed.
+  resolved and the required checks passing (`make test` and `make lint` from
+  GitHub Actions, `DCO` from the DCO app; the branch need not be up to date);
+  no force push, no deletion.
 - **Linters (CLAUDE.md rule 19):** `make lint` runs golangci-lint on Go,
   checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
   actionlint on the workflows, `go mod tidy -diff` on `go.mod`/`go.sum` and
@@ -98,7 +98,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [x] **0.2** Create the public GitHub repository, push the first commit; set the
       description and topics; enable the Sponsor button (repo settings).
 
-## Phase 1 — Scaffolding and quality tooling  `[~]`
+## Phase 1 — Scaffolding and quality tooling  `[x]`
 
 - [x] **1.1** `go.mod` (minimum Go and build toolchain), `cmd/emergup/main.go`
       and `internal/cli` with `emergup version` and `help` (CLI-1, CLI-2); SPDX
@@ -114,15 +114,16 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [x] **1.5** CI workflow running the Makefile targets: build, vet, test
       (race) and `make lint` (golangci-lint, `go mod tidy`, checkmake,
       actionlint, markdownlint-cli2, yamllint pinned there); DCO sign-off check
-      on pull requests by the DCO GitHub App.
+      on pull requests by the DCO GitHub App, required by the master ruleset.
 - [x] **1.6** Dependabot (`.github/dependabot.yml`) and Renovate
       (`renovate.json5`, with custom managers for the tool pins) on different
       days and hours; the Renovate configuration is validated by
       `make lint-renovate`, part of `make lint` and so of CI. Renovate keeps
       the `go` line one Go release behind the latest and moves `toolchain` to
       the latest. Checked with a local `renovate --platform=local` dry run.
-- [ ] **1.7** `DEPENDENCIES.md` completed with the tooling, and
-      `docs/DEVELOPMENT.md`.
+- [x] **1.7** `DEPENDENCIES.md` completed with the tooling, and
+      `docs/DEVELOPMENT.md` (requirements, targets, layout, conventions,
+      dependencies, pull requests).
 
 ## Phase 2 — Configuration  `[ ]`  (CFG-*)
 

@@ -46,8 +46,9 @@ git push --force-with-lease
 - Keep changes small and focused; one logical change per pull request.
 - Prefer [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat(news): …`, `fix(config): …`) for commit messages.
-- Run the linters and the tests before opening the pull request (`make lint`,
-  `make test`, once the Makefile exists).
+- Run the quality gate before opening the pull request (`make check`); see
+  [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the requirements and the
+  other targets.
 - Add or update tests when your change affects behaviour.
 
 ## Reporting issues
