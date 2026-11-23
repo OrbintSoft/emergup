@@ -141,7 +141,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       in-memory file system. TOML read with go-toml/v2; durations and the
       named values (elevation method, live-rebuild mode) decode through
       `UnmarshalText`. Errors name the file; their line and key come in 2.3.
-- [ ] **2.3** Validation with file and line, unknown keys rejected (CFG-3).
+- [x] **2.3** Validation with file and line, unknown keys rejected (CFG-3).
+      Every problem is a `config.Error` (`file:line:column: key: reason`);
+      `Load` reports the problems of all the files and applies none of a file
+      that has one. Besides the decoder's (unknown keys, types, syntax,
+      invalid names and durations), it rejects an integer where a name or a
+      duration is expected, an empty command or target, and an entry that is
+      empty, a lone `-` or holds a space. Key positions come from go-toml's
+      `unstable` parser, used only for that in `internal/config/keys.go`.
 - [ ] **2.4** `emergup config check` and `emergup config show` (CFG-3, CFG-4).
 - [ ] **2.5** Example configuration under `examples/etc/emergup/`.
 

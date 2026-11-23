@@ -4,6 +4,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -30,6 +31,10 @@ const dropInSuffix = ".toml"
 // in lexical order. A file changes only the values it sets, and the lists of
 // entries add up as Entries describes. A missing MainFile or DropInDir is
 // not an error: without either, the configuration is the generic defaults.
+//
+// Every file is checked before it is applied. Load reports the problems of
+// all the files, each one an *Error joined with errors.Join, and returns a
+// configuration only when there are none.
 func Load(ctx context.Context, fsys fs.FS) (Config, error) {
 	files, err := configurationFiles(fsys)
 	if err != nil {
@@ -38,16 +43,21 @@ func Load(ctx context.Context, fsys fs.FS) (Config, error) {
 
 	cfg := Default()
 
+	var problems []error
+
 	for _, name := range files {
 		err := ctx.Err()
 		if err != nil {
 			return Config{}, fmt.Errorf("reading the configuration: %w", err)
 		}
 
-		err = apply(fsys, name, &cfg)
-		if err != nil {
-			return Config{}, err
+		for _, problem := range apply(fsys, name, &cfg) {
+			problems = append(problems, problem)
 		}
+	}
+
+	if len(problems) > 0 {
+		return Config{}, errors.Join(problems...)
 	}
 
 	return cfg, nil
@@ -63,13 +73,13 @@ func configurationFiles(fsys fs.FS) ([]string, error) {
 	case err == nil:
 		files = append(files, MainFile)
 	case !errors.Is(err, fs.ErrNotExist):
-		return nil, fmt.Errorf("%s: %w", displayPath(MainFile), err)
+		return nil, fileError(displayPath(MainFile), err)
 	}
 
 	// ReadDir returns the entries sorted by name, the lexical order.
 	dropIns, err := fs.ReadDir(fsys, DropInDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("%s: %w", displayPath(DropInDir), err)
+		return nil, fileError(displayPath(DropInDir), err)
 	}
 
 	for _, dropIn := range dropIns {
@@ -83,12 +93,29 @@ func configurationFiles(fsys fs.FS) ([]string, error) {
 	return files, nil
 }
 
-// apply decodes the file name of fsys over cfg, then adds up the lists of
-// entries the file sets to the ones cfg had before.
-func apply(fsys fs.FS, name string, cfg *Config) error {
+// apply checks the file name of fsys and returns its problems. A file without
+// problems is decoded over cfg, and the lists of entries it sets are added up
+// to the earlier ones.
+func apply(fsys fs.FS, name string, cfg *Config) []*Error {
+	file := displayPath(name)
+
 	data, err := fs.ReadFile(fsys, name)
 	if err != nil {
-		return fmt.Errorf("%s: %w", displayPath(name), err)
+		return []*Error{fileError(file, err)}
+	}
+
+	keys := fileKeys(data)
+
+	var set Config
+
+	err = toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields().Decode(&set)
+	if err != nil {
+		return sortedProblems(withoutRepeatedKeys(checkFile(file, keys, nil), decodeProblems(file, keys, err)))
+	}
+
+	problems := checkFile(file, keys, &set)
+	if len(problems) > 0 {
+		return sortedProblems(problems)
 	}
 
 	lists := cfg.entryLists()
@@ -100,7 +127,7 @@ func apply(fsys fs.FS, name string, cfg *Config) error {
 
 	err = toml.NewDecoder(bytes.NewReader(data)).Decode(cfg)
 	if err != nil {
-		return fmt.Errorf("%s: %w", displayPath(name), err)
+		return []*Error{fileError(file, err)}
 	}
 
 	// A list the file does not set still holds the earlier entries, and
@@ -110,6 +137,32 @@ func apply(fsys fs.FS, name string, cfg *Config) error {
 	}
 
 	return nil
+}
+
+// withoutRepeatedKeys returns first and then the problems of second about a
+// key that first does not already report.
+func withoutRepeatedKeys(first, second []*Error) []*Error {
+	result := slices.Clone(first)
+
+	for _, problem := range second {
+		repeated := problem.Key != "" && slices.ContainsFunc(first, func(earlier *Error) bool {
+			return earlier.Key == problem.Key
+		})
+		if !repeated {
+			result = append(result, problem)
+		}
+	}
+
+	return result
+}
+
+// sortedProblems orders problems by their place in the file.
+func sortedProblems(problems []*Error) []*Error {
+	slices.SortStableFunc(problems, func(a, b *Error) int {
+		return cmp.Or(cmp.Compare(a.Line, b.Line), cmp.Compare(a.Column, b.Column))
+	})
+
+	return problems
 }
 
 // entryLists returns the lists of c that add up across files.

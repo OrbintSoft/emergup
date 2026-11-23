@@ -29,6 +29,11 @@ linters:
       ignore-names:
         # The conventional name of the case in a table-driven test.
         - tt
+    recvcheck:
+      exclusions:
+        # A type read through UnmarshalText (pointer receiver) is printed
+        # through String on a value, which fmt needs.
+        - "*.String"
   exclusions:
     rules:
       # Test fixtures set only the fields the test is about.
