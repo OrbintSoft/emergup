@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Renovate configuration. Renovate opens a pull request when a dependency has
+// an update. It is run by the Mend-hosted Renovate GitHub App installed on the
+// repository, so it needs no token and no workflow. It runs on Thursday
+// afternoons, a different day from Dependabot (.github/dependabot.yml); the
+// window spans half a day so that the app's periodic run for the repository
+// lands inside it.
+//
+// It manages go.mod (the go and toolchain lines and the modules), the GitHub
+// Actions, and, through the custom managers below, the tool versions pinned in
+// the Makefile and in the CI workflow.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  extends: [
+    "config:recommended",
+    // Keep every action pinned to a commit SHA, with its full version in the
+    // trailing `# vX.Y.Z` comment.
+    "helpers:pinGitHubActionDigestsToSemver",
+  ],
+
+  timezone: "Europe/Rome",
+  schedule: ["* 12-23 * * 4"],
+
+  labels: ["dependencies"],
+  semanticCommits: "enabled",
+
+  // Keep go.mod and go.sum tidy after an update.
+  postUpdateOptions: ["gomodTidy"],
+
+  packageRules: [
+    {
+      // Commit types as used in the repository history: tooling and modules
+      // are `build`, actions are `ci`.
+      matchPackageNames: ["*"],
+      semanticCommitType: "build",
+    },
+    {
+      matchManagers: ["github-actions"],
+      semanticCommitType: "ci",
+    },
+    {
+      // The go line is the minimum supported Go and stays one release behind
+      // the latest, always at X.Y.0. Go ships a release about every six
+      // months, so a release older than that already has a successor; the
+      // margin covers a late release.
+      matchManagers: ["gomod"],
+      matchDepNames: ["go"],
+      matchDepTypes: ["golang"],
+      rangeStrategy: "bump",
+      allowedVersions: "/^1\\.[0-9]+\\.0$/",
+      minimumReleaseAge: "200 days",
+    },
+  ],
+
+  customManagers: [
+    {
+      customType: "regex",
+      description: "Go tools run by the Makefile with `go run <module>/cmd/<tool>@<version>`",
+      managerFilePatterns: ["/^Makefile$/"],
+      matchStrings: [
+        "\\$\\(GO\\) run (?<depName>\\S+?)/cmd/\\S+@(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)",
+      ],
+      datasourceTemplate: "go",
+    },
+    {
+      customType: "regex",
+      description: "npm packages run by the Makefile with `npx`",
+      managerFilePatterns: ["/^Makefile$/"],
+      matchStrings: [
+        "npx --yes (?:--package )?(?<depName>[^@\\s]+)@(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)",
+      ],
+      datasourceTemplate: "npm",
+    },
+    {
+      customType: "regex",
+      description: "Python tools installed by the workflows with `pipx install`",
+      managerFilePatterns: ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      matchStrings: [
+        "pipx install (?<depName>[^=\\s]+)==(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)",
+      ],
+      datasourceTemplate: "pypi",
+    },
+  ],
+}

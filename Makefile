@@ -29,14 +29,16 @@ VERSION ?=
 LDFLAGS := $(if $(VERSION),-X github.com/OrbintSoft/emergup/internal/version.stamped=$(VERSION))
 
 # The Go linters run at pinned versions, built with the toolchain above, and
-# markdownlint-cli2 at a pinned version through npx, so the result does not
-# depend on what happens to be installed. yamllint is taken from PATH: Python
-# has no standard runner that fetches a pinned version. Override any of them
-# to use another binary.
+# markdownlint-cli2 and the Renovate configuration validator at pinned versions
+# through npx, so the result does not depend on what happens to be installed.
+# yamllint is taken from PATH: Python has no standard runner that fetches a
+# pinned version. Renovate updates every pin. Override any of them to use
+# another binary.
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 CHECKMAKE     ?= $(GO) run github.com/checkmake/checkmake/cmd/checkmake@v0.3.2
 ACTIONLINT    ?= $(GO) run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 MARKDOWNLINT  ?= npx --yes markdownlint-cli2@0.24.2
+RENOVATE_VALIDATE ?= npx --yes --package renovate@44.257.9 -- renovate-config-validator --strict
 YAMLLINT      ?= yamllint
 
 BUILDDIR := bin
@@ -44,7 +46,7 @@ BINARY   := emergup
 
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml fmt check install uninstall help
+.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate fmt check install uninstall help
 
 all: build ## Build the binary (the default)
 
@@ -60,7 +62,7 @@ race: ## Run the unit tests with the race detector
 vet: ## Run go vet
 	$(GO) vet ./...
 
-lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml ## Run every linter
+lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate ## Run every linter
 
 lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
@@ -79,6 +81,9 @@ lint-markdown: ## Lint the Markdown files
 
 lint-yaml: ## Lint the YAML files
 	$(YAMLLINT) --strict .
+
+lint-renovate: ## Validate the Renovate configuration
+	$(RENOVATE_VALIDATE)
 
 fmt: ## Format the Go code with gofumpt
 	$(GOLANGCI_LINT) fmt

@@ -19,6 +19,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Go versions:** the `go` line in `go.mod` is the minimum supported Go
   (`1.26.0`) and is kept one Go release behind the latest; the `toolchain` line
   is the toolchain builds use (`go1.27.4`) and follows the latest release.
+  Renovate moves the `go` line to the next `X.Y.0` once that release is 200
+  days old (Go ships every six months, so its successor is out) and the
+  `toolchain` line to the latest release.
 - **Licence `GPL-3.0-or-later`**; contributions under the **DCO only** (no CLA).
 - **Configuration:** TOML, **system-wide only**: `/etc/emergup/config.toml` plus
   `/etc/emergup/config.d/*.toml`, always supported, read in lexical order.
@@ -42,9 +45,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   integration tests in Docker (`gentoo/stage3`), against a local test repository
   with synthetic ebuilds and news items so they are offline and deterministic.
 - **Dependency bots:** Dependabot and Renovate both, on different days and hours
-  (proposed: Dependabot Monday 06:00, Renovate Thursday afternoon, Europe/Rome;
-  a half-day Renovate window rather than a single hour, so the hosted app's run
-  lands inside it).
+  (Europe/Rome): Dependabot on Monday at 06:00 for the Go modules and the
+  actions; Renovate on Thursday from 12:00 to midnight, a half-day window so
+  the hosted app's run lands inside it, for go.mod, the actions and the tool
+  pins in the Makefile and the workflow. Bot commits carry no sign-off: the
+  DCO app exempts bots.
 - **Repository:** public on GitHub, `OrbintSoft/emergup`, branch `master`;
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).
@@ -55,7 +60,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   The DCO check is added to it once the DCO app is installed.
 - **Linters (CLAUDE.md rule 19):** `make lint` runs golangci-lint on Go,
   checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
-  actionlint on the workflows and `go mod tidy -diff` on `go.mod`/`go.sum`.
+  actionlint on the workflows, `go mod tidy -diff` on `go.mod`/`go.sum` and
+  `renovate-config-validator --strict` on `renovate.json5` (the only JSON5
+  file; no general JSON5 linter).
   TOML (taplo), shell (shellcheck) and Dockerfile (hadolint) linters are
   evaluated when those file types arrive.
 
@@ -103,10 +110,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       (race) and `make lint` (golangci-lint, `go mod tidy`, checkmake,
       actionlint, markdownlint-cli2, yamllint pinned there); DCO sign-off check
       on pull requests by the DCO GitHub App.
-- [ ] **1.6** Dependabot + Renovate (different days and hours), Renovate config
-      validated in CI; Renovate keeps the `go` line one Go release behind the
-      latest and moves `toolchain` to the latest. Until then the dependencies in
-      `DEPENDENCIES.md` are updated by hand.
+- [x] **1.6** Dependabot (`.github/dependabot.yml`) and Renovate
+      (`renovate.json5`, with custom managers for the tool pins) on different
+      days and hours; the Renovate configuration is validated by
+      `make lint-renovate`, part of `make lint` and so of CI. Renovate keeps
+      the `go` line one Go release behind the latest and moves `toolchain` to
+      the latest. Checked with a local `renovate --platform=local` dry run.
 - [ ] **1.7** `DEPENDENCIES.md` completed with the tooling, and
       `docs/DEVELOPMENT.md`.
 
