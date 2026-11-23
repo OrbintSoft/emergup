@@ -78,6 +78,7 @@ one, so an older golangci-lint installed on the system may fail where
 | --- | --- |
 | `cmd/emergup` | `main`: creates the root context and calls `cli.Main`; nothing else. |
 | `internal/cli` | Subcommand dispatch, option parsing and the usage text, hand-written and unit-tested. |
+| `internal/config` | The configuration: its types, the generic defaults, and the loader that reads `config.toml` and `config.d`. |
 | `internal/version` | The version `emergup version` reports. |
 | `docs/FEATURES.md` | What emergup promises its users, one entry per feature. |
 

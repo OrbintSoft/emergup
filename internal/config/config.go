@@ -18,16 +18,17 @@ type Elevation struct {
 	Method ElevationMethod `toml:"method"`
 }
 
-// ElevationMethod names the program that runs a command as root.
-type ElevationMethod string
+// ElevationMethod names the program that runs a command as root; the
+// configuration writes it by name, see String.
+type ElevationMethod int
 
 // The elevation methods; ElevationAuto uses the first of sudo, doas and run0
 // that is installed.
 const (
-	ElevationAuto ElevationMethod = "auto"
-	ElevationSudo ElevationMethod = "sudo"
-	ElevationDoas ElevationMethod = "doas"
-	ElevationRun0 ElevationMethod = "run0"
+	ElevationAuto ElevationMethod = iota
+	ElevationSudo
+	ElevationDoas
+	ElevationRun0
 )
 
 // Entries is a list of entries, such as package atoms or repository names,
@@ -60,7 +61,7 @@ type Sync struct {
 	Step
 
 	// MinInterval skips a repository synced more recently than this.
-	MinInterval time.Duration `toml:"min-interval"`
+	MinInterval Duration `toml:"min-interval"`
 	// AlwaysSync names the repositories synced on every run, whatever
 	// MinInterval says.
 	AlwaysSync Entries `toml:"always-sync"`
@@ -77,22 +78,23 @@ type Update struct {
 	Exclude Entries `toml:"exclude"`
 }
 
-// LiveRebuildMode chooses how the live packages are rebuilt.
-type LiveRebuildMode string
+// LiveRebuildMode chooses how the live packages are rebuilt; the
+// configuration writes it by name, see String.
+type LiveRebuildMode int
 
 // The live-rebuild modes.
 const (
 	// LiveRebuildAuto is LiveRebuildSmart when smart-live-rebuild is
 	// installed, LiveRebuildInterval otherwise.
-	LiveRebuildAuto LiveRebuildMode = "auto"
+	LiveRebuildAuto LiveRebuildMode = iota
 	// LiveRebuildSmart runs smart-live-rebuild, which rebuilds the live
 	// packages whose upstream has changed.
-	LiveRebuildSmart LiveRebuildMode = "smart"
+	LiveRebuildSmart
 	// LiveRebuildInterval rebuilds each live package built longer ago than
 	// the interval.
-	LiveRebuildInterval LiveRebuildMode = "interval"
+	LiveRebuildInterval
 	// LiveRebuildAlways rebuilds every live package.
-	LiveRebuildAlways LiveRebuildMode = "always"
+	LiveRebuildAlways
 )
 
 // LiveRebuild rebuilds the live packages. Command, followed by the packages
@@ -102,7 +104,7 @@ type LiveRebuild struct {
 	Step
 
 	Mode     LiveRebuildMode `toml:"mode"`
-	Interval time.Duration   `toml:"interval"`
+	Interval Duration        `toml:"interval"`
 
 	SmartCommand []string `toml:"smart-command"`
 }
@@ -112,7 +114,7 @@ const emerge = "emerge"
 
 // defaultInterval is how old a sync or a live package's build may be before
 // a run renews it.
-const defaultInterval = 24 * time.Hour
+const defaultInterval = Duration(24 * time.Hour)
 
 // Default returns the generic defaults, a new value on every call. They suit
 // any Gentoo system: every built-in step enabled, running Portage's own tools,
