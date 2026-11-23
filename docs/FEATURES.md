@@ -38,8 +38,9 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | PRIV-1 | emergup is started as an ordinary user and asks for elevation only for the commands that need root. | planned |
-| PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. | planned |
+| PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. When none is installed, emergup says so before a run that needs root starts, not halfway through it. | planned |
 | PRIV-3 | Hooks and AI backends run as the invoking user, unless a hook is explicitly configured to be elevated. | planned |
+| PRIV-4 | Started as root (a root shell, a root crontab), emergup runs the commands directly, turns AI assistance off, and says so once at the start. | planned |
 
 ## Configuration (CFG)
 

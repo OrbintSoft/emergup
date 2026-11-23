@@ -41,6 +41,9 @@ type Command struct {
 	// Args holds the program, then its arguments.
 	Args []string
 	Mode Mode
+	// Root marks a command that needs root; a runner that elevates runs it
+	// through sudo, doas or run0.
+	Root bool
 }
 
 // Result is how a command ended.

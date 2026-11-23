@@ -80,6 +80,7 @@ one, so an older golangci-lint installed on the system may fail where
 | `internal/cli` | Subcommand dispatch, option parsing and the usage text, hand-written and unit-tested. |
 | `internal/config` | The configuration: its types, the generic defaults, and the loader that reads `config.toml` and `config.d`. |
 | `internal/runner` | Running the external commands: output shown, collected or left to the terminal, copied to a log, stopped cleanly on Ctrl-C. `runnertest` holds the fake the other packages' tests use. |
+| `internal/elevation` | Running the commands that need root through sudo, doas or run0, or directly as root. |
 | `internal/version` | The version `emergup version` reports. |
 | `examples/etc/emergup` | The example configuration; `make test` checks that it loads and that the main file shows the generic defaults. |
 | `docs/FEATURES.md` | What emergup promises its users, one entry per feature. |
