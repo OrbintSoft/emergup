@@ -28,6 +28,9 @@ trailer certifying the [Developer Certificate of Origin](DCO.txt); see
 Compiled into the distributed binary:
 
 - **Go standard library** — BSD-3-Clause.
+- **[go-toml](https://github.com/pelletier/go-toml)**
+  (`github.com/pelletier/go-toml/v2`), which reads the configuration files —
+  MIT.
 
 Used only by the tests, not compiled into the binary:
 

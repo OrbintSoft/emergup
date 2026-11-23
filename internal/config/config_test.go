@@ -18,7 +18,7 @@ func TestDefault(t *testing.T) {
 		Steps: Steps{
 			Sync: Sync{
 				Step:        Step{Enabled: true, Command: []string{emerge, "--sync"}},
-				MinInterval: 24 * time.Hour,
+				MinInterval: Duration(24 * time.Hour),
 				AlwaysSync:  Entries{},
 			},
 			Update: Update{
@@ -30,7 +30,7 @@ func TestDefault(t *testing.T) {
 			LiveRebuild: LiveRebuild{
 				Step:         Step{Enabled: true, Command: []string{emerge, "--oneshot"}},
 				Mode:         LiveRebuildAuto,
-				Interval:     24 * time.Hour,
+				Interval:     Duration(24 * time.Hour),
 				SmartCommand: []string{"smart-live-rebuild"},
 			},
 			PreservedRebuild: Step{Enabled: true, Command: []string{emerge, "@preserved-rebuild"}},

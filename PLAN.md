@@ -30,6 +30,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   Portage's `repos.conf`; commands are argument lists, never shell strings;
   durations use Go's syntax (`24h`). Lists of entries add up across files like
   `USE` (`-entry` removes, `-*` clears); other values are replaced (CFG-5).
+  The files are read with go-toml/v2 (MIT, no dependencies), which gives the
+  line of an unknown key or a bad value (CFG-3); BurntSushi/toml lists unknown
+  keys without their position.
 - **Privileges:** the process runs as the invoking user; only privileged
   commands go through an elevation wrapper — auto-detected
   (`sudo` → `doas` → `run0`) or set in the configuration. Hooks and AI run
@@ -133,8 +136,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [x] **2.1** Configuration schema as Go types, with generic defaults (CFG-2),
       in `internal/config`: elevation and the built-in steps of Phase 4.
       Hooks, news and AI add their sections in their phases.
-- [ ] **2.2** Loader: `config.toml` + `config.d/*.toml` in lexical order, lists
-      merged like `USE` (CFG-1, CFG-5).
+- [x] **2.2** Loader: `config.toml` + `config.d/*.toml` in lexical order, lists
+      merged like `USE` (CFG-1, CFG-5), through an `fs.FS` so tests use an
+      in-memory file system. TOML read with go-toml/v2; durations and the
+      named values (elevation method, live-rebuild mode) decode through
+      `UnmarshalText`. Errors name the file; their line and key come in 2.3.
 - [ ] **2.3** Validation with file and line, unknown keys rejected (CFG-3).
 - [ ] **2.4** `emergup config check` and `emergup config show` (CFG-3, CFG-4).
 - [ ] **2.5** Example configuration under `examples/etc/emergup/`.
