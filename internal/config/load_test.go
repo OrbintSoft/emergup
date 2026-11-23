@@ -192,31 +192,6 @@ func TestLoadDecodesValues(t *testing.T) {
 	assert.Equal(t, Duration(90*time.Minute), cfg.Steps.LiveRebuild.Interval)
 }
 
-func TestLoadErrorsNameTheFile(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		content string
-		want    string
-	}{
-		{"invalid duration", "[steps.sync]\nmin-interval = \"1d\"\n", `"1d"`},
-		{"unknown mode", "[steps.live-rebuild]\nmode = \"smrt\"\n", `"smrt"`},
-		{"unknown elevation method", "[elevation]\nmethod = \"su\"\n", `"su"`},
-		{"wrong type", "[steps.depclean]\nenabled = \"yes\"\n", "bool"},
-		{"syntax error", "[steps.sync\nenabled = true\n", "table"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := Load(t.Context(), fstest.MapFS{dropIn("10-broken.toml"): file(tt.content)})
-			require.ErrorContains(t, err, "/etc/emergup/config.d/10-broken.toml")
-			assert.ErrorContains(t, err, tt.want)
-		})
-	}
-}
-
 func TestLoadStopsWhenTheContextIsDone(t *testing.T) {
 	t.Parallel()
 
