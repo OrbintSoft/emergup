@@ -7,6 +7,8 @@ package main
 import (
 	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 )
@@ -14,7 +16,16 @@ import (
 // main is the process entry point and the program's only root context; all the
 // behaviour lives in cli.Main, which is testable, while a test cannot observe
 // os.Exit.
+//
+// SIGINT and SIGTERM end the root context instead of the process, so that a
+// running command can be stopped cleanly; the terminal also gives a Ctrl-C to
+// the command itself.
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
 	env := cli.Env{Stdout: os.Stdout, Stderr: os.Stderr, Root: os.DirFS("/")}
-	os.Exit(cli.Main(context.Background(), env, os.Args[0], os.Args[1:]))
+	code := cli.Main(ctx, env, os.Args[0], os.Args[1:])
+
+	stop()
+	os.Exit(code)
 }

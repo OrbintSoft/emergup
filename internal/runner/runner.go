@@ -1,0 +1,177 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Package runner starts the external commands emergup drives, such as emerge,
+// shows or collects their output, and copies it to a log.
+package runner
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os/exec"
+	"syscall"
+	"time"
+)
+
+// Errors for a Command that cannot be run.
+var (
+	errNoProgram   = errors.New("no program to run")
+	errUnknownMode = errors.New("unknown mode")
+)
+
+// Mode says what happens to the output of a command.
+type Mode int
+
+// The modes.
+const (
+	// Stream shows the output as it comes and copies it to the log.
+	Stream Mode = iota
+	// Capture collects standard output in Result.Output, shows standard
+	// error, and copies both to the log.
+	Capture
+	// Terminal connects the command to emergup's own standard streams, for
+	// an interactive tool; the log records only the command and its end.
+	Terminal
+)
+
+// Command is a program to run, with its arguments, and its Mode.
+type Command struct {
+	// Args holds the program, then its arguments.
+	Args []string
+	Mode Mode
+}
+
+// Result is how a command ended.
+type Result struct {
+	// ExitCode is the exit status, -1 when a signal ended the command.
+	ExitCode int
+	// Output is the standard output of a Capture command.
+	Output []byte
+	// Duration is the time from the start of the command to its end.
+	Duration time.Duration
+}
+
+// Runner runs commands.
+type Runner interface {
+	// Run runs cmd and returns how it ended. The error reports a command
+	// that could not start, or a ctx that ended while it ran; a command
+	// that fails is a non-zero Result.ExitCode, not an error.
+	Run(ctx context.Context, cmd Command) (Result, error)
+}
+
+// DefaultGracePeriod is how long a command gets to stop after it is asked
+// to, before it is killed.
+const DefaultGracePeriod = 30 * time.Second
+
+// Exec runs commands as child processes. When its context ends, a command
+// gets SIGTERM and GracePeriod to stop by itself before it is killed: the
+// terminal has already given it the SIGINT of a Ctrl-C, and a merge stopped
+// abruptly can leave a package half installed.
+type Exec struct {
+	// Stdin, Stdout and Stderr are emergup's own standard streams; a nil
+	// writer discards what is written to it.
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	// Log receives a copy of every command and its output; nil keeps none.
+	// The log is best effort: a failed write to it never stops the output
+	// to the terminal.
+	Log io.Writer
+	// GracePeriod is how long a command gets to stop once the context ends,
+	// before it is killed; zero means DefaultGracePeriod.
+	GracePeriod time.Duration
+	// Now gives the time written in the log; nil means time.Now.
+	Now func() time.Time
+}
+
+// Run implements Runner.
+func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
+	if len(cmd.Args) == 0 {
+		return Result{}, errNoProgram
+	}
+
+	log := newLogWriter(e.Log)
+	log.printf("==> %s %s\n", e.now().Format(time.RFC3339), commandLine(cmd.Args))
+
+	//nolint:gosec // running the commands the configuration names is what emergup is for
+	child := exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
+	child.Cancel = func() error { return child.Process.Signal(syscall.SIGTERM) }
+	child.WaitDelay = e.gracePeriod()
+
+	var output bytes.Buffer
+
+	switch cmd.Mode {
+	case Stream:
+		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), log)
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), log)
+	case Capture:
+		child.Stdout = io.MultiWriter(&output, log)
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), log)
+	case Terminal:
+		child.Stdin, child.Stdout, child.Stderr = e.Stdin, e.Stdout, e.Stderr
+	default:
+		return Result{}, fmt.Errorf("%w %d", errUnknownMode, cmd.Mode)
+	}
+
+	start := time.Now()
+	err := child.Run()
+	result := Result{ExitCode: 0, Output: nil, Duration: time.Since(start)}
+
+	if cmd.Mode == Capture {
+		result.Output = output.Bytes()
+	}
+
+	if err != nil {
+		exitErr, exited := errors.AsType[*exec.ExitError](err)
+		if !exited {
+			log.printf("==> could not start: %v\n", err)
+
+			return result, fmt.Errorf("running %s: %w", cmd.Args[0], err)
+		}
+
+		result.ExitCode = exitErr.ExitCode()
+	}
+
+	log.printf("==> %s after %s\n", ending(result.ExitCode), result.Duration.Round(time.Millisecond))
+
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return result, fmt.Errorf("running %s: %w", cmd.Args[0], ctxErr)
+	}
+
+	return result, nil
+}
+
+func (e *Exec) now() time.Time {
+	if e.Now == nil {
+		return time.Now()
+	}
+
+	return e.Now()
+}
+
+func (e *Exec) gracePeriod() time.Duration {
+	if e.GracePeriod == 0 {
+		return DefaultGracePeriod
+	}
+
+	return e.GracePeriod
+}
+
+// ending says how a command with the exit code ended.
+func ending(exitCode int) string {
+	if exitCode < 0 {
+		return "ended by a signal"
+	}
+
+	return fmt.Sprintf("exit status %d", exitCode)
+}
+
+func orDiscard(w io.Writer) io.Writer {
+	if w == nil {
+		return io.Discard
+	}
+
+	return w
+}

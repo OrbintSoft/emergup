@@ -163,18 +163,27 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       always-synced overlay). A test loads them and checks that the main
       file, uncommented, gives exactly the defaults and shows every setting.
 
-## Phase 3 — Core engine  `[ ]`  (PRIV-*, UPD-2, UPD-6–8)
+## Phase 3 — Core engine  `[~]`  (PRIV-*, UPD-2, UPD-6–8, UPD-11–13)
 
-- [ ] **3.1** Command runner interface (streamed output, tee to a log) and a fake
-      for tests.
+- [x] **3.1** Command runner interface (streamed output, tee to a log) and a fake
+      for tests: `internal/runner` with three modes (stream to the terminal
+      and the log, capture for parsing, terminal for interactive tools),
+      through pipes rather than a pty; on Ctrl-C a command gets SIGTERM and
+      30 seconds before SIGKILL (UPD-11); each Result has its duration, the
+      base of the step times (UPD-12). The root context ends on SIGINT and
+      SIGTERM. `runner/runnertest.Fake` scripts results for other tests.
 - [ ] **3.2** Elevation: auto-detection, configuration override, no-op as root
       (PRIV-1, PRIV-2).
 - [ ] **3.3** Terminal output and prompts: step headings, colours, confirmations,
-      `--yes` (UPD-2). A confirmation is an action menu (Enter for the usual
-      action, one key per action, `?` for the list), so later steps and the
-      AI actions of 9.0 add keys without changing it.
+      `--yes` (UPD-2, UPD-13). A confirmation is an action menu (Enter for the
+      usual action, one key per action, `?` for the list), so later steps and
+      the AI actions of 9.0 add keys without changing it. emerge gets
+      `--color=y` when emergup writes to a terminal and `NO_COLOR` is unset,
+      since its output reaches the terminal through a pipe. The colours are
+      configurable, one key per kind of output, so a light or dark theme can
+      be matched (CFG-6); the format of the values is defined in this step.
 - [ ] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
-      (UPD-3, UPD-6, UPD-7).
+      with the time of each step and of the run (UPD-3, UPD-6, UPD-7, UPD-12).
 - [ ] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
