@@ -14,6 +14,7 @@ when a dependency is not updated by them.
 | --- | --- | --- |
 | **Go** | Compiling and testing. | The `go` line in [go.mod](go.mod) is the minimum (`1.26.0`) and stays one Go release behind the latest: Renovate moves it to the next `X.Y.0` once that release is 200 days old, so its successor is out. The `toolchain` line (`go1.27.4`) is the toolchain builds use; Renovate moves it to the latest release. The [Makefile](Makefile) exports it as `GOTOOLCHAIN`, so the go command downloads it when it is not the installed one; `GOTOOLCHAIN=local` builds with the installed Go instead. |
 | **GNU make** | Running the [Makefile](Makefile) targets (`make help` lists them). | Any recent version. |
+| **git** | Getting the source; in a git checkout the go command also runs it to record the revision and the version in the binary. | Any recent version. |
 | **golangci-lint** | Linting the Go code and formatting it with its bundled gofumpt (`make lint-go`, `make fmt`), configured by [.golangci.yml](.golangci.yml). | Pinned in the [Makefile](Makefile) and run with `go run`, so nothing has to be installed; Renovate bumps the pin. |
 | **checkmake** | Linting the Makefile (`make lint-make`). | Pinned in the [Makefile](Makefile) and run with `go run`; Renovate bumps the pin. |
 | **actionlint** | Linting the GitHub Actions workflows (`make lint-actions`). | Pinned in the [Makefile](Makefile) and run with `go run`; Renovate bumps the pin. |
@@ -21,13 +22,15 @@ when a dependency is not updated by them.
 | **Node.js** and **npm** | Running markdownlint-cli2 and the Renovate configuration validator through `npx`. | A version both support: markdownlint-cli2 needs Node.js ≥ 22, renovate `^24.11.0` or `^26.13.0`. |
 | **markdownlint-cli2** | Linting the Markdown files (`make lint-markdown`), configured by [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). | Pinned in the [Makefile](Makefile) and run with `npx`, so nothing has to be installed; Renovate bumps the pin. |
 | **renovate** (npm) | Validating [renovate.json5](renovate.json5) with `renovate-config-validator --strict` (`make lint-renovate`). | Pinned in the [Makefile](Makefile) and run with `npx`; Renovate bumps the pin. |
-| **yamllint** | Linting the YAML files (`make lint-yaml`), configured by [.yamllint.yaml](.yamllint.yaml). | Taken from `PATH` (for example `dev-python/yamllint` or `pip install yamllint`), so the local version is not pinned; CI pins it in [ci.yml](.github/workflows/ci.yml), and Renovate bumps that pin. |
+| **yamllint** | Linting the YAML files (`make lint-yaml`), configured by [.yamllint.yaml](.yamllint.yaml). | Taken from `PATH` (for example `dev-util/yamllint` or `pip install yamllint`), so the local version is not pinned; CI pins it in [ci.yml](.github/workflows/ci.yml), and Renovate bumps that pin. |
 | **sed**, **awk**, **install** | Reading the toolchain from `go.mod`, `make help`, `make install`. | Any POSIX `sed`/`awk` and coreutils `install`. |
 
 ## Continuous integration
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs the Makefile targets
-on GitHub-hosted `ubuntu-latest` runners.
+on GitHub-hosted `ubuntu-latest` runners. The image moves with GitHub and is
+not pinned: the tools that decide a result are pinned in the workflow or in the
+Makefile, and only helpers such as pipx and shellcheck come from the image.
 
 | Dependency | Purpose | Version and updates |
 | --- | --- | --- |

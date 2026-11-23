@@ -109,18 +109,20 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       few disabled with the reason; gofumpt as the formatter.
 - [x] **1.4** markdownlint-cli2 (pinned, through `npx`) and yamllint (from
       `PATH`) wired into `make lint`, each with its configuration file.
-- [x] **1.5** CI workflow running the Makefile targets: build, vet, test
+- [~] **1.5** CI workflow running the Makefile targets: build, vet, test
       (race) and `make lint` (golangci-lint, `go mod tidy`, checkmake,
       actionlint, markdownlint-cli2, yamllint pinned there); DCO sign-off check
-      on pull requests by the DCO GitHub App.
+      on pull requests by the DCO GitHub App. Pending: the maintainer installs
+      the app; its check then joins the master ruleset.
 - [x] **1.6** Dependabot (`.github/dependabot.yml`) and Renovate
       (`renovate.json5`, with custom managers for the tool pins) on different
       days and hours; the Renovate configuration is validated by
       `make lint-renovate`, part of `make lint` and so of CI. Renovate keeps
       the `go` line one Go release behind the latest and moves `toolchain` to
       the latest. Checked with a local `renovate --platform=local` dry run.
-- [ ] **1.7** `DEPENDENCIES.md` completed with the tooling, and
-      `docs/DEVELOPMENT.md`.
+- [x] **1.7** `DEPENDENCIES.md` completed with the tooling, and
+      `docs/DEVELOPMENT.md` (requirements, targets, layout, conventions,
+      dependencies, pull requests).
 
 ## Phase 2 — Configuration  `[ ]`  (CFG-*)
 

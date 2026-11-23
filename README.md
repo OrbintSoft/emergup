@@ -57,7 +57,8 @@ remedy = "/usr/local/bin/my-backup"
 ## Contributing
 
 Contributions are welcome. Every commit must be signed off (DCO) — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md); building, testing and linting are described
+in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Support the project
 
