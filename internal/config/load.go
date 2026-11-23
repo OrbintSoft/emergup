@@ -7,7 +7,6 @@ import (
 	"cmp"
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"path"
 	"slices"
@@ -36,31 +35,9 @@ const dropInSuffix = ".toml"
 // all the files, each one an *Error joined with errors.Join, and returns a
 // configuration only when there are none.
 func Load(ctx context.Context, fsys fs.FS) (Config, error) {
-	files, err := configurationFiles(fsys)
-	if err != nil {
-		return Config{}, err
-	}
+	cfg, _, err := Inspect(ctx, fsys)
 
-	cfg := Default()
-
-	var problems []error
-
-	for _, name := range files {
-		err := ctx.Err()
-		if err != nil {
-			return Config{}, fmt.Errorf("reading the configuration: %w", err)
-		}
-
-		for _, problem := range apply(fsys, name, &cfg) {
-			problems = append(problems, problem)
-		}
-	}
-
-	if len(problems) > 0 {
-		return Config{}, errors.Join(problems...)
-	}
-
-	return cfg, nil
+	return cfg, err
 }
 
 // configurationFiles lists the files Load reads, in the order it reads them.
@@ -94,9 +71,9 @@ func configurationFiles(fsys fs.FS) ([]string, error) {
 }
 
 // apply checks the file name of fsys and returns its problems. A file without
-// problems is decoded over cfg, and the lists of entries it sets are added up
-// to the earlier ones.
-func apply(fsys fs.FS, name string, cfg *Config) []*Error {
+// problems is decoded over cfg, the lists of entries it sets are added up to
+// the earlier ones, and origins records the values it sets.
+func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 	file := displayPath(name)
 
 	data, err := fs.ReadFile(fsys, name)
@@ -122,7 +99,7 @@ func apply(fsys fs.FS, name string, cfg *Config) []*Error {
 	earlier := make([]Entries, len(lists))
 
 	for i, list := range lists {
-		earlier[i] = slices.Clone(*list)
+		earlier[i] = slices.Clone(*list.entries)
 	}
 
 	err = toml.NewDecoder(bytes.NewReader(data)).Decode(cfg)
@@ -133,8 +110,10 @@ func apply(fsys fs.FS, name string, cfg *Config) []*Error {
 	// A list the file does not set still holds the earlier entries, and
 	// adding them to themselves changes nothing.
 	for i, list := range lists {
-		*list = list.appliedTo(earlier[i])
+		*list.entries = list.entries.appliedTo(earlier[i], origins.entriesOf(list.key), file)
 	}
+
+	origins.setBy(file, keys)
 
 	return nil
 }
@@ -165,18 +144,24 @@ func sortedProblems(problems []*Error) []*Error {
 	return problems
 }
 
+// entryList is a list of entries of a configuration and its key.
+type entryList struct {
+	key     string
+	entries *Entries
+}
+
 // entryLists returns the lists of c that add up across files.
-func (c *Config) entryLists() []*Entries {
-	return []*Entries{
-		&c.Steps.Sync.AlwaysSync,
-		&c.Steps.Update.Exclude,
+func (c *Config) entryLists() []entryList {
+	return []entryList{
+		{key: "steps.sync.always-sync", entries: &c.Steps.Sync.AlwaysSync},
+		{key: "steps.update.exclude", entries: &c.Steps.Update.Exclude},
 	}
 }
 
-// appliedTo returns earlier changed by the entries e of a later file: an
+// appliedTo returns earlier changed by the entries e that file writes: an
 // entry is added unless it is already there, "-entry" removes it and "-*"
-// removes them all.
-func (e Entries) appliedTo(earlier Entries) Entries {
+// removes them all. origins, the file each entry came from, follows.
+func (e Entries) appliedTo(earlier Entries, origins map[string]string, file string) Entries {
 	result := slices.Clone(earlier)
 
 	for _, entry := range e {
@@ -185,10 +170,15 @@ func (e Entries) appliedTo(earlier Entries) Entries {
 		switch {
 		case entry == "-*":
 			result = result[:0]
+
+			clear(origins)
 		case isRemoval:
 			result = slices.DeleteFunc(result, func(candidate string) bool { return candidate == removed })
+
+			delete(origins, removed)
 		case !slices.Contains(result, entry):
 			result = append(result, entry)
+			origins[entry] = file
 		}
 	}
 

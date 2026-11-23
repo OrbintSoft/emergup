@@ -15,5 +15,6 @@ import (
 // behaviour lives in cli.Main, which is testable, while a test cannot observe
 // os.Exit.
 func main() {
-	os.Exit(cli.Main(context.Background(), os.Stdout, os.Stderr, os.Args[0], os.Args[1:]))
+	env := cli.Env{Stdout: os.Stdout, Stderr: os.Stderr, Root: os.DirFS("/")}
+	os.Exit(cli.Main(context.Background(), env, os.Args[0], os.Args[1:]))
 }

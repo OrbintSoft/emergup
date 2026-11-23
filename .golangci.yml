@@ -32,8 +32,10 @@ linters:
     recvcheck:
       exclusions:
         # A type read through UnmarshalText (pointer receiver) is printed
-        # through String on a value, which fmt needs.
+        # through String and written through MarshalText on a value, which fmt
+        # and encoders need.
         - "*.String"
+        - "*.MarshalText"
   exclusions:
     rules:
       # Test fixtures set only the fields the test is about.
