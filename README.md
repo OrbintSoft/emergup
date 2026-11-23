@@ -5,9 +5,10 @@ updates `@world`, rebuilds what needs rebuilding, walks you through the
 config-file updates and cleans up — pausing between steps, asking for root only
 when a step needs it, and helping you when something breaks.
 
-> **Status: early design — not usable yet.** The project is being defined; there
-> is no code to run. See [PLAN.md](PLAN.md) for the roadmap and
-> [docs/FEATURES.md](docs/FEATURES.md) for what emergup will do.
+> **Status: early development — not usable yet.** The configuration can be
+> written and checked, but the update itself does not run yet. See
+> [PLAN.md](PLAN.md) for the roadmap and [docs/FEATURES.md](docs/FEATURES.md)
+> for what emergup will do.
 
 ## Why
 
@@ -37,22 +38,23 @@ configurable, tested tool that works on any Gentoo system.
   explain or merge config-file updates. Off by default; you see what is sent, and
   nothing is applied without your confirmation.
 
-## Configuration (planned)
+## Configuration
 
 System-wide TOML in `/etc/emergup/config.toml`, plus drop-in files in
-`/etc/emergup/config.d/*.toml`, read in lexical order. The format is not final;
-an illustration:
+`/etc/emergup/config.d/*.toml`, read in lexical order; without any file,
+emergup uses generic defaults. A drop-in that keeps packages out of the
+update:
 
 ```toml
-[update]
+[steps.update]
 exclude = ["sys-kernel/gentoo-sources", "sys-kernel/linux-headers"]
-
-[[hooks]]
-name   = "backup-is-recent"
-before = "sync"
-check  = "/etc/emergup/hooks/backup-age.sh 7"
-remedy = "/usr/local/bin/my-backup"
 ```
+
+Lists such as `exclude` add up across files, like `USE` in `make.conf`.
+`emergup config check` validates the files and `emergup config show` prints
+the configuration in effect and where each value comes from.
+[examples/etc/emergup/](examples/etc/emergup/) shows every setting with its
+default.
 
 ## Contributing
 

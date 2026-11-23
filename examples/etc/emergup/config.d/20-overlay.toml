@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Example drop-in: a repository synced on every run, even when it was synced
+# less than min-interval ago, such as an overlay you publish to and want fresh.
+# The name is the repository's name for Portage, the section name in
+# /etc/portage/repos.conf, not the name of its git repository.
+
+[steps.sync]
+always-sync = ["orbintsoft"]

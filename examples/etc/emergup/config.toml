@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Example /etc/emergup/config.toml.
+#
+# emergup works without any configuration file. This one shows every setting
+# with its default value, commented out: uncomment and change only what you
+# need. Changes can also go in drop-in files, /etc/emergup/config.d/*.toml,
+# read after this file in lexical order; see the examples next to this file.
+#
+# A drop-in changes only the values it sets. The lists of entries (exclude,
+# always-sync) add up across files like USE in make.conf: a later file adds
+# its entries, "-entry" removes one added earlier and "-*" clears the list.
+# Every other value, a command line included, is replaced by the later file.
+#
+# `emergup config check` validates the files and reports each problem with
+# its file and line; `emergup config show` prints the configuration in effect
+# and where each value comes from.
+#
+# Commands are lists of arguments, never shell strings: write
+# ["sh", "-c", "..."] when a shell is needed. Durations are written as Go
+# writes them: "24h", "90m", "1h30m".
+
+[elevation]
+# How a command that needs root is run: "auto" uses the first of sudo, doas
+# and run0 that is installed; "sudo", "doas" or "run0" forces one.
+#method = "auto"
+
+[steps.sync]
+# Syncs the repositories; the names of the repositories due are appended to
+# the command.
+#enabled = true
+#command = ["emerge", "--sync"]
+# A repository synced more recently than this is skipped; "0s" syncs every
+# repository on every run.
+#min-interval = "24h"
+# Repositories synced on every run, whatever min-interval says.
+#always-sync = []
+
+[steps.update]
+# Updates the target set. The command is followed by the options, an
+# --exclude for each excluded package, and the target. emergup runs it with
+# --pretend first and asks before the update: never put --ask in the options.
+#enabled = true
+#command = ["emerge"]
+#options = ["--verbose", "--update", "--deep", "--newuse", "--verbose-conflicts"]
+#target = "@world"
+# Packages left out of the update, one package per entry.
+#exclude = []
+
+[steps.live-rebuild]
+# Rebuilds the live packages. mode is "smart" (smart-live-rebuild rebuilds
+# those whose upstream has changed), "interval" (each live package built
+# longer ago than the interval), "always" (every live package), or "auto":
+# smart when smart-live-rebuild is installed, interval otherwise.
+#enabled = true
+# Runs the interval and always modes, followed by the packages to rebuild or
+# by the @live-rebuild set.
+#command = ["emerge", "--oneshot"]
+#mode = "auto"
+#interval = "24h"
+# Runs the smart mode.
+#smart-command = ["smart-live-rebuild"]
+
+[steps.preserved-rebuild]
+# Rebuilds the packages that use preserved libraries, only when Portage
+# reports some.
+#enabled = true
+#command = ["emerge", "@preserved-rebuild"]
+
+[steps.config-files]
+# Merges the pending configuration-file updates.
+#enabled = true
+#command = ["dispatch-conf"]
+
+[steps.depclean]
+# Removes the packages nothing needs any more; emergup runs it with
+# --pretend first and asks before removing anything.
+#enabled = true
+#command = ["emerge", "--depclean"]
