@@ -41,6 +41,22 @@ func (d Duration) String() string {
 	return time.Duration(d).String()
 }
 
+// MarshalText writes the duration the way a configuration file does, without
+// the zero minutes and seconds Go adds: "24h" rather than "24h0m0s".
+func (d Duration) MarshalText() ([]byte, error) {
+	text := d.String()
+
+	if whole, isWhole := strings.CutSuffix(text, "m0s"); isWhole {
+		text = whole + "m"
+	}
+
+	if whole, isWhole := strings.CutSuffix(text, "h0m"); isWhole {
+		text = whole + "h"
+	}
+
+	return []byte(text), nil
+}
+
 // expected says what a duration looks like in a configuration file.
 func (*Duration) expected() string {
 	return `a duration such as "24h"`
@@ -55,6 +71,11 @@ func elevationMethodNames() []string {
 // String returns the name the configuration uses for the method.
 func (m ElevationMethod) String() string {
 	return nameOf("ElevationMethod", int(m), elevationMethodNames())
+}
+
+// MarshalText writes the name of the method.
+func (m ElevationMethod) MarshalText() ([]byte, error) {
+	return []byte(m.String()), nil
 }
 
 // expected says what an elevation method looks like in a configuration file.
@@ -83,6 +104,11 @@ func liveRebuildModeNames() []string {
 // String returns the name the configuration uses for the mode.
 func (m LiveRebuildMode) String() string {
 	return nameOf("LiveRebuildMode", int(m), liveRebuildModeNames())
+}
+
+// MarshalText writes the name of the mode.
+func (m LiveRebuildMode) MarshalText() ([]byte, error) {
+	return []byte(m.String()), nil
 }
 
 // expected says what a live-rebuild mode looks like in a configuration file.

@@ -42,11 +42,11 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| CFG-1 | Configuration is read from `/etc/emergup/config.toml` and then from `/etc/emergup/config.d/*.toml` in lexical order, so packages and admins can add drop-in files without editing a shared one. | planned |
-| CFG-2 | emergup works with no configuration file at all, using generic defaults. | planned |
-| CFG-3 | `emergup config check` validates the configuration and reports errors with file and line; unknown keys are errors. | planned |
-| CFG-4 | `emergup config show` prints the effective configuration and which file each value came from. | planned |
-| CFG-5 | Lists of entries (excluded packages, always-synced repositories) add up across the configuration files, like `USE` in `make.conf`: a later file adds entries, `-entry` removes one added earlier and `-*` clears the list; any other value set by a later file replaces the earlier one. | planned |
+| CFG-1 | Configuration is read from `/etc/emergup/config.toml` and then from `/etc/emergup/config.d/*.toml` in lexical order, so packages and admins can add drop-in files without editing a shared one. | done |
+| CFG-2 | emergup works with no configuration file at all, using generic defaults. | done |
+| CFG-3 | `emergup config check` validates the configuration and reports each problem with its file and line, exiting with status 1 when there is one; unknown keys are errors. | done |
+| CFG-4 | `emergup config show` prints the effective configuration as TOML, each value with the file it came from or `default`. | done |
+| CFG-5 | Lists of entries (excluded packages, always-synced repositories) add up across the configuration files, like `USE` in `make.conf`: a later file adds entries, `-entry` removes one added earlier and `-*` clears the list; any other value set by a later file replaces the earlier one. | done |
 
 ## Package exclusions (EXC)
 
