@@ -36,7 +36,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Privileges:** the process runs as the invoking user; only privileged
   commands go through an elevation wrapper — auto-detected
   (`sudo` → `doas` → `run0`) or set in the configuration. Hooks and AI run
-  unprivileged.
+  unprivileged. Started as root, emergup runs the commands directly and turns
+  AI off (PRIV-4).
 - **CLI without a library:** subcommand dispatch, option parsing and the usage
   text are hand-written in `internal/cli`, so all of it is unit-tested;
   `cmd/emergup` holds only `os.Exit(cli.Main(ctx, …))`.
@@ -88,8 +89,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
    (`~/.local/state/emergup/`) or `/var/log/emergup/` (needs root)? (Phase 3)
 4. ~~**emerge `--ask`**~~ — answered: `--pretend` first and emergup asks, see
    Decisions taken (UPD-10).
-5. **Running as root** (root shell, cron): allowed? If so, AI is disabled.
-   (Phase 3)
+5. ~~**Running as root**~~ — answered: allowed, see Decisions taken (PRIV-4).
 6. **Applying AI fixes:** emergup applies a proposed change after confirmation,
    or hands off to an interactive Claude Code session? (Phase 9) Proposed in
    9.0: both, one per action.
@@ -172,8 +172,13 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       30 seconds before SIGKILL (UPD-11); each Result has its duration, the
       base of the step times (UPD-12). The root context ends on SIGINT and
       SIGTERM. `runner/runnertest.Fake` scripts results for other tests.
-- [ ] **3.2** Elevation: auto-detection, configuration override, no-op as root
-      (PRIV-1, PRIV-2).
+- [x] **3.2** Elevation: auto-detection, configuration override, no-op as root
+      (PRIV-1, PRIV-2, PRIV-4). `runner.Command.Root` marks a command that
+      needs root; `elevation.Resolve` picks the prefix (none as root; `auto`
+      tries sudo, doas, run0 in that order; a named method must be
+      installed) through a small `System` interface, and `elevation.Runner`
+      applies it. opendoas becomes the command itself, so it cannot be sent
+      SIGTERM by unprivileged emergup; the terminal's Ctrl-C still reaches it.
 - [ ] **3.3** Terminal output and prompts: step headings, colours, confirmations,
       `--yes` (UPD-2, UPD-13). A confirmation is an action menu (Enter for the
       usual action, one key per action, `?` for the list), so later steps and
