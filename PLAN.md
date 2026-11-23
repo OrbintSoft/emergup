@@ -26,7 +26,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - **Configuration:** TOML, **system-wide only**: `/etc/emergup/config.toml` plus
   `/etc/emergup/config.d/*.toml`, always supported, read in lexical order.
   Drop-ins avoid editing a shared file, so there are no merge conflicts between
-  packages or admins. No per-user configuration.
+  packages or admins. No per-user configuration. Keys are kebab-case, as in
+  Portage's `repos.conf`; commands are argument lists, never shell strings;
+  durations use Go's syntax (`24h`). Lists of entries add up across files like
+  `USE` (`-entry` removes, `-*` clears); other values are replaced (CFG-5).
 - **Privileges:** the process runs as the invoking user; only privileged
   commands go through an elevation wrapper — auto-detected
   (`sudo` → `doas` → `run0`) or set in the configuration. Hooks and AI run
@@ -36,7 +39,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   `cmd/emergup` holds only `os.Exit(cli.Main(ctx, …))`.
 - **Interface:** a step-by-step CLI with confirmations and colours (honouring
   `NO_COLOR`), `--yes` for unattended runs, and subcommands (`run`, `news`,
-  `config`, `version`, …).
+  `config`, `version`, …). emergup asks, not emerge: it runs `--pretend`
+  first and confirms itself, and never passes `--ask` (UPD-10).
 - **AI:** pluggable backends behind one interface, off by default. Order:
   Claude Code CLI (`claude`) first, then the Anthropic API (official Go SDK,
   default model `claude-opus-5-5`), then a generic "prompt on stdin" command for
@@ -72,13 +76,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 ## Open questions
 
 1. ~~**CLI library**~~ — answered: hand-written, see Decisions taken.
-2. **List merging across `config.d`:** does a drop-in's `exclude = [...]` append
-   to the earlier lists or replace them, and how is an entry removed? (Phase 2)
+2. ~~**List merging across `config.d`**~~ — answered: lists add up like `USE`,
+   see Decisions taken (CFG-5).
 3. **Where run logs and failure reports live:** the user's state directory
    (`~/.local/state/emergup/`) or `/var/log/emergup/` (needs root)? (Phase 3)
-4. **emerge `--ask`:** keep emerge's own prompt, or run `--pretend` first and ask
-   in emergup? (Phase 4) Asking in emergup lets the AI explain the plan before
-   the update (9.0).
+4. ~~**emerge `--ask`**~~ — answered: `--pretend` first and emergup asks, see
+   Decisions taken (UPD-10).
 5. **Running as root** (root shell, cron): allowed? If so, AI is disabled.
    (Phase 3)
 6. **Applying AI fixes:** emergup applies a proposed change after confirmation,
@@ -125,11 +128,13 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       `docs/DEVELOPMENT.md` (requirements, targets, layout, conventions,
       dependencies, pull requests).
 
-## Phase 2 — Configuration  `[ ]`  (CFG-*)
+## Phase 2 — Configuration  `[~]`  (CFG-*)
 
-- [ ] **2.1** Configuration schema as Go types, with generic defaults (CFG-2).
-- [ ] **2.2** Loader: `config.toml` + `config.d/*.toml` in lexical order, merge
-      rules (open question 2) (CFG-1).
+- [x] **2.1** Configuration schema as Go types, with generic defaults (CFG-2),
+      in `internal/config`: elevation and the built-in steps of Phase 4.
+      Hooks, news and AI add their sections in their phases.
+- [ ] **2.2** Loader: `config.toml` + `config.d/*.toml` in lexical order, lists
+      merged like `USE` (CFG-1, CFG-5).
 - [ ] **2.3** Validation with file and line, unknown keys rejected (CFG-3).
 - [ ] **2.4** `emergup config check` and `emergup config show` (CFG-3, CFG-4).
 - [ ] **2.5** Example configuration under `examples/etc/emergup/`.
@@ -150,18 +155,23 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
 
-- [ ] **4.1** Sync (`emaint --auto sync`, configurable), per repository: a
+- [ ] **4.1** Sync (`emerge --sync <repo>...`, configurable), per repository: a
       repository synced within the minimum interval is skipped, unless it is
       listed as always synced or `--force-sync` is given (SYNC-1–3). The last
       sync time is read from the repository on disk (git: `.git/FETCH_HEAD`,
       rsync: `metadata/timestamp.chk`), so syncs done outside emergup count
       and no state file is needed; other sync types are always synced.
-- [ ] **4.2** `@world` update with configurable options and exclusions (EXC-1).
-- [ ] **4.3** Live-package rebuild (`smart-live-rebuild`, skipped if absent) (UPD-4).
+- [ ] **4.2** `@world` update with configurable options and exclusions, each
+      passed as `--exclude`; `--pretend` first, then emergup's confirmation
+      (EXC-1, UPD-10).
+- [ ] **4.3** Live-package rebuild by mode (UPD-4, UPD-9): `smart`
+      (smart-live-rebuild), `interval` (live packages of `@live-rebuild` whose
+      `BUILD_TIME` in the Portage database is older than the interval, rebuilt
+      `--oneshot`; no state file), `always`, `auto`.
 - [ ] **4.4** Preserved-library rebuild, only when needed; `haskell-updater`
       (UPD-5; open question 7).
 - [ ] **4.5** Config-file updates delegated to `dispatch-conf` (ETC-3).
-- [ ] **4.6** Depclean.
+- [ ] **4.6** Depclean, `--pretend` first (UPD-10).
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
 - [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
