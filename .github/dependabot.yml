@@ -1,29 +1,38 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Dependabot opens a pull request when a Go module or a GitHub Action has an
-# update. It runs on Monday mornings, a different day from Renovate
-# (renovate.json5), which also covers the tool versions pinned in the Makefile
-# and in the CI workflow.
+# update, one pull request per ecosystem with all its updates grouped. It runs
+# on Saturday mornings, two days after Renovate (renovate.json5), which covers
+# the same dependencies and the tool versions pinned in the Makefile and in the
+# CI workflow; an update already merged from Renovate is not proposed again.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
-      day: monday
+      day: saturday
       time: "06:00"
       timezone: Europe/Rome
     commit-message:
       prefix: build
       include: scope
+    groups:
+      go-modules:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-      day: monday
+      day: saturday
       time: "06:00"
       timezone: Europe/Rome
     commit-message:
       prefix: ci
       include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"

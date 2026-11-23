@@ -45,11 +45,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   integration tests in Docker (`gentoo/stage3`), against a local test repository
   with synthetic ebuilds and news items so they are offline and deterministic.
 - **Dependency bots:** Dependabot and Renovate both, on different days and hours
-  (Europe/Rome): Dependabot on Monday at 06:00 for the Go modules and the
-  actions; Renovate on Thursday from 12:00 to midnight, a half-day window so
-  the hosted app's run lands inside it, for go.mod, the actions and the tool
-  pins in the Makefile and the workflow. Bot commits carry no sign-off: the
-  DCO app exempts bots.
+  (Europe/Rome): Renovate on Thursday from 12:00 to midnight, a half-day window
+  so the hosted app's run lands inside it, for go.mod, the actions and the
+  tool pins in the Makefile and the workflow; Dependabot on Saturday at 06:00
+  for the Go modules and the actions. Updates are grouped (Dependabot one pull
+  request per ecosystem, Renovate one for the actions and the tool pins), and
+  the days are chosen so that the maintainer's repositories do not all open
+  pull requests on the same day. Bot commits carry no sign-off: the DCO app
+  exempts bots.
 - **Repository:** public on GitHub, `OrbintSoft/emergup`, branch `master`;
   sponsors as for the other OrbintSoft repos (GitHub Sponsors, PayPal, Gentoo
   donations).

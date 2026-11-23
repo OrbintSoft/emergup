@@ -36,8 +36,8 @@ on GitHub-hosted `ubuntu-latest` runners.
 | `actions/setup-node` | Installing Node.js for markdownlint-cli2 and the Renovate configuration validator. | Pinned to a commit SHA; Dependabot and Renovate bump it. The Node.js version is the latest LTS. |
 | **pipx** | Installing yamllint at the pinned version. | Preinstalled on the runner. |
 | **DCO** GitHub App | Checking that every commit of a pull request is signed off; commits by bots are exempt. | Installed on the repository; maintained by its authors. |
-| **Dependabot** | Opening update pull requests for the Go modules and the actions, on Monday mornings. | Configured by [.github/dependabot.yml](.github/dependabot.yml); part of GitHub. |
-| **Renovate** GitHub App (Mend-hosted) | Opening update pull requests for go.mod, the actions and the tool pins in the Makefile and the workflow, on Thursday afternoons. | Configured by [renovate.json5](renovate.json5); installed on the repository, so it needs no token or workflow. |
+| **Dependabot** | Opening update pull requests for the Go modules and the actions, one per ecosystem, on Saturday mornings. | Configured by [.github/dependabot.yml](.github/dependabot.yml); part of GitHub. |
+| **Renovate** GitHub App (Mend-hosted) | Opening update pull requests for go.mod, the actions and the tool pins in the Makefile and the workflow (actions and tool pins grouped in one), on Thursday afternoons. | Configured by [renovate.json5](renovate.json5); installed on the repository, so it needs no token or workflow. |
 
 ## Go modules
 
