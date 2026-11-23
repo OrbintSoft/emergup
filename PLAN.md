@@ -147,6 +147,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [ ] **4.6** Depclean.
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
+- [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
+      (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
+      packaged as soon as it can be used, and each pre-release bumps it.
 
 ## Phase 5 — Docker integration tests  `[ ]`
 
@@ -197,5 +200,5 @@ From here on, every feature lands with its integration test.
 
 - [ ] **11.1** User docs: configuration, hooks, AI, installation; README overhaul.
 - [ ] **11.2** GoReleaser and release workflow.
-- [ ] **11.3** Ebuild `app-portage/emergup` in the orbintsoft overlay.
+- [ ] **11.3** Ebuild bumped to the first stable release.
 - [ ] **11.4** Point the old script to emergup and retire it.
