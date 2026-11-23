@@ -3,9 +3,9 @@
 // Renovate configuration. Renovate opens a pull request when a dependency has
 // an update. It is run by the Mend-hosted Renovate GitHub App installed on the
 // repository, so it needs no token and no workflow. It runs on Thursday
-// afternoons, a different day from Dependabot (.github/dependabot.yml); the
-// window spans half a day so that the app's periodic run for the repository
-// lands inside it.
+// afternoons, two days before Dependabot (.github/dependabot.yml); the window
+// spans half a day so that the app's periodic run for the repository lands
+// inside it.
 //
 // It manages go.mod (the go and toolchain lines and the modules), the GitHub
 // Actions, and, through the custom managers below, the tool versions pinned in
@@ -39,6 +39,11 @@
     {
       matchManagers: ["github-actions"],
       semanticCommitType: "ci",
+    },
+    {
+      // One pull request a week for the actions and the tool pins together.
+      matchManagers: ["github-actions", "custom.regex"],
+      groupName: "CI and lint tools",
     },
     {
       // The go line is the minimum supported Go and stays one release behind
