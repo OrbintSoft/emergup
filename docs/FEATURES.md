@@ -26,6 +26,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | UPD-13 | On a terminal the output is coloured: step headings, prompts, successes, skips, failures and notices each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log, which is written without colours. `NO_COLOR`, or `TERM=dumb`, turns every colour off. | partial |
 | UPD-14 | A question is answered with one key, without Enter: the keys are shown after the question, Enter takes the usual action (the key in capitals), each other action has its letter and `?` lists them all. Keys pressed before the question appears are ignored, and Ctrl-C or the end of the input aborts instead of answering. When standard input is not a terminal, each answer is a line: a letter, or nothing for the usual action. | done |
 | UPD-15 | Each run keeps a log of what it showed, without colours: emergup's lines, the questions and their answers, and every command with its output. The log is in a directory of the run's own under the invoking user's state directory, `$XDG_STATE_HOME/emergup/runs/` (by default `~/.local/state/emergup/runs/`), and the end of the run says where. The last 10 run directories are kept; `[runs] keep` changes how many, 0 keeps them all. | done |
+| UPD-16 | In the `smart` mode of the live-package rebuild, emergup shows the packages smart-live-rebuild would rebuild and asks before rebuilding them; with none, the step is skipped. | planned |
 
 ## Repository sync (SYNC)
 
@@ -41,8 +42,9 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | --- | --- | --- |
 | PRIV-1 | emergup is started as an ordinary user and asks for elevation only for the commands that need root. | planned |
 | PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. When none is installed, emergup says so before a run that needs root starts, not halfway through it. | done |
-| PRIV-3 | Hooks and AI backends run as the invoking user, unless a hook is explicitly configured to be elevated. | planned |
+| PRIV-3 | Hooks, custom steps and AI backends run as the invoking user, unless a hook or a custom step is explicitly configured to be elevated (a backup tool, `haskell-updater`). | planned |
 | PRIV-4 | Started as root (a root shell, a root crontab), emergup runs the commands directly, turns AI assistance off, and says so once at the start. | done |
+| PRIV-5 | Environment variables listed in the configuration, such as `EDITOR` for `dispatch-conf`, are kept for the commands run as root, through `sudo --preserve-env` or `run0 --setenv`; doas has no such option, and emergup says that `doas.conf` must keep them. | planned |
 
 ## Configuration (CFG)
 
@@ -67,7 +69,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | HOOK-1 | User scripts can run before and after the whole run and before and after any step. | planned |
-| HOOK-2 | A *check* hook that fails stops the run, and can offer a configured remedy command (e.g. "the last backup is older than 7 days — run the backup now?"); after the remedy the check runs again. | planned |
+| HOOK-2 | When a *check* hook fails, emergup asks whether to run its configured remedy, if it has one, and check again (e.g. "the last backup is older than 20 days — run the backup now?"), to go on without it, or to abort the run. | planned |
 | HOOK-3 | Custom steps can be defined in the configuration and placed after any built-in step. | planned |
 | HOOK-4 | Hooks receive the run context in environment variables (step name, phase, run directory). | planned |
 
