@@ -74,8 +74,8 @@ func TestCLI3_AnAbortAtAQuestionStopsTheRunWithStatus130(t *testing.T) {
 	t.Parallel()
 
 	ctr := start(t)
-	// A change of the upstream that a sync would bring.
-	ctr.root("touch", "/srv/emergup-test/stopped")
+	// A snapshot that a sync would bring.
+	ctr.publish("stopped")
 
 	for _, stop := range []struct{ name, input string }{
 		{name: "the end of the input", input: ""},
@@ -87,5 +87,5 @@ func TestCLI3_AnAbortAtAQuestionStopsTheRunWithStatus130(t *testing.T) {
 		assert.Contains(t, got.stdout, "\n==> The run was stopped after ", stop.name)
 	}
 
-	assert.False(t, ctr.exists("/var/db/repos/emergup-test/stopped"), "the repository is not synced")
+	assert.False(t, ctr.exists(repository+"/stopped"), "the repository is not synced")
 }

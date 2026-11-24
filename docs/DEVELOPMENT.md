@@ -100,7 +100,10 @@ image holds:
 
 - the test repository `emergup-test`, with synthetic ebuilds that install a
   file each. It syncs with rsync from its upstream, `/srv/emergup-test`, where
-  a test puts what the next sync should bring; the Gentoo tree never syncs.
+  a test publishes what the next sync should bring; the Gentoo tree never
+  syncs. Portage syncs such a tree only when the upstream's
+  `metadata/timestamp.chk` has changed, so a test publishes a snapshot: its
+  files and a newer timestamp.
 - `/etc/emergup/config.toml`, which points the update at `@emergup-test`, so
   that no stage3 package is ever updated. Every stage3 package is in the world
   set, so the depclean removes only what a test leaves behind.

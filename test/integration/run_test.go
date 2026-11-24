@@ -16,8 +16,8 @@ func TestUPD6_PretendShowsTheStepsWithoutRunningThem(t *testing.T) {
 	t.Parallel()
 
 	ctr := start(t)
-	// A change of the upstream that a sync would bring.
-	ctr.root("touch", "/srv/emergup-test/pretend")
+	// A snapshot that a sync would bring.
+	ctr.publish("pretend")
 
 	got := ctr.emergup("run", "--pretend")
 	assert.Equal(t, 0, got.code, "the exit status, with the output:\n%s%s", got.stdout, got.stderr)
@@ -34,5 +34,5 @@ func TestUPD6_PretendShowsTheStepsWithoutRunningThem(t *testing.T) {
 		assert.Contains(t, got.stdout, line+"\n")
 	}
 
-	assert.False(t, ctr.exists("/var/db/repos/emergup-test/pretend"), "the repository is not synced")
+	assert.False(t, ctr.exists(repository+"/pretend"), "the repository is not synced")
 }

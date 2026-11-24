@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The test repository synced on every run, whatever the interval.
+
+[steps.sync]
+always-sync = ["emergup-test"]
