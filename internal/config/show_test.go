@@ -124,6 +124,9 @@ func TestWriteTOMLWritesTheDefaults(t *testing.T) {
 	assert.Contains(t, out, "[steps.live-rebuild]\nenabled = true  # default\n")
 	assert.Contains(t, out, "mode = \"auto\"  # default\ninterval = \"24h\"  # default\n"+
 		"smart-command = [\"smart-live-rebuild\"]  # default\n")
+	assert.Contains(t, out, "\n[colors]\nheading = \"bold blue\"  # default\nprompt = \"bold cyan\"  # default\n"+
+		"success = \"green\"  # default\nskip = \"yellow\"  # default\nfailure = \"bold red\"  # default\n"+
+		"notice = \"magenta\"  # default\n")
 	assert.NotContains(t, out, "[steps]\n", "a table without values of its own has no header")
 	assert.True(t, len(out) > 0 && out[len(out)-1] == '\n' && out[len(out)-2] != '\n', "ends with exactly one newline")
 }
@@ -162,9 +165,11 @@ func TestWriteTOMLReadsBackToTheSameConfiguration(t *testing.T) {
 		MainFile: file("[elevation]\nmethod = \"doas\"\n\n[steps.update]\n" +
 			"options = [\"--with=\\\"quoted\\\"\", \"back\\\\slash\", \"tab\\there\", \"café\"]\n" +
 			"exclude = [\"app-misc/a\"]\n\n[steps.live-rebuild]\nmode = \"interval\"\ninterval = \"1h30m\"\n"),
-		dropIn("10.toml"): file("[steps.update]\nexclude = [\"app-misc/b\"]\n\n[steps.depclean]\nenabled = false\n"),
+		dropIn("10.toml"): file("[steps.update]\nexclude = [\"app-misc/b\"]\n\n[steps.depclean]\nenabled = false\n" +
+			"\n[colors]\nheading = \"underline #ff8800 bright-black\"\nskip = \"\"\n"),
 	})
 	require.NoError(t, err)
+	assert.Equal(t, parseStyle(t, ""), cfg.Colors.Skip)
 
 	back, err := Load(t.Context(), fstest.MapFS{MainFile: file(shown(t, cfg, origins))})
 	require.NoError(t, err)

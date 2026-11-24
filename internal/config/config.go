@@ -11,6 +11,7 @@ import "time"
 type Config struct {
 	Elevation Elevation `toml:"elevation"`
 	Steps     Steps     `toml:"steps"`
+	Colors    Colors    `toml:"colors"`
 }
 
 // Elevation says how a command that needs root is run.
@@ -118,7 +119,8 @@ const defaultInterval = Duration(24 * time.Hour)
 
 // Default returns the generic defaults, a new value on every call. They suit
 // any Gentoo system: every built-in step enabled, running Portage's own tools,
-// and nothing excluded or always synced.
+// and nothing excluded or always synced. The colours are among the sixteen
+// that every terminal's theme sets, so they suit light and dark themes.
 func Default() Config {
 	return Config{
 		Elevation: Elevation{Method: ElevationAuto},
@@ -143,6 +145,14 @@ func Default() Config {
 			PreservedRebuild: Step{Enabled: true, Command: []string{emerge, "@preserved-rebuild"}},
 			ConfigFiles:      Step{Enabled: true, Command: []string{"dispatch-conf"}},
 			Depclean:         Step{Enabled: true, Command: []string{emerge, "--depclean"}},
+		},
+		Colors: Colors{
+			Heading: style(bold, named(blue)),
+			Prompt:  style(bold, named(cyan)),
+			Success: style(0, named(green)),
+			Skip:    style(0, named(yellow)),
+			Failure: style(bold, named(red)),
+			Notice:  style(0, named(magenta)),
 		},
 	}
 }

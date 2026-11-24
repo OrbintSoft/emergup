@@ -20,6 +20,7 @@ const (
 	keyExclude     = "steps.update.exclude"
 	keyMinInterval = "steps.sync.min-interval"
 	keyMode        = "steps.live-rebuild.mode"
+	keyHeading     = "colors.heading"
 	unknownKey     = "unknown key"
 	emptyCommand   = "empty command"
 	otherFile      = "/f.toml"
@@ -116,6 +117,14 @@ func TestLoadReportsWhereEachProblemIs(t *testing.T) {
 		{
 			"unknown name", "[steps.live-rebuild]\nmode = \"smrt\"\n",
 			2, 8, keyMode, `unknown live-rebuild mode "smrt"`,
+		},
+		{
+			"integer for a style", "[colors]\nheading = 4\n",
+			2, 1, keyHeading, `expected a style such as "bold blue", found an integer`,
+		},
+		{
+			"invalid style", "[colors]\nheading = \"blod blue\"\n",
+			2, 11, keyHeading, `unknown style word "blod"`,
 		},
 		{
 			"key set twice", "[steps.sync]\nenabled = true\nenabled = false\n",
@@ -224,7 +233,7 @@ func TestCheckedKeysExist(t *testing.T) {
 	}
 }
 
-func TestTextKeysAreTheNamedValuesAndDurations(t *testing.T) {
+func TestTextKeysAreTheNamedValuesDurationsAndStyles(t *testing.T) {
 	t.Parallel()
 
 	assert.ElementsMatch(t, []string{
@@ -232,5 +241,11 @@ func TestTextKeysAreTheNamedValuesAndDurations(t *testing.T) {
 		keyMinInterval,
 		keyMode,
 		"steps.live-rebuild.interval",
+		keyHeading,
+		"colors.prompt",
+		"colors.success",
+		"colors.skip",
+		"colors.failure",
+		"colors.notice",
 	}, textKeys())
 }

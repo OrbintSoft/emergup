@@ -77,3 +77,19 @@
 # --pretend first and asks before removing anything.
 #enabled = true
 #command = ["emerge", "--depclean"]
+
+[colors]
+# How emergup's own lines look on a terminal; emerge keeps its own colours.
+# A colour is written as words separated by spaces: attributes (bold, dim,
+# italic, underline, reverse) and up to two colours, the text's and then the
+# background's. A colour is a name (black, red, green, yellow, blue, magenta,
+# cyan, white), the same name with "bright-" before it, "default" for the
+# terminal's own, a number from 0 to 255 or "#rrggbb". "" leaves that kind of
+# line plain. The defaults use only the sixteen colours the terminal's theme
+# sets; NO_COLOR or TERM=dumb turns every colour off.
+#heading = "bold blue"    # the heading of each step
+#prompt = "bold cyan"     # a question, waiting for a key
+#success = "green"        # a step that succeeded
+#skip = "yellow"          # a step that was skipped, and why
+#failure = "bold red"     # a step or command that failed
+#notice = "magenta"       # a warning that is not a failure
