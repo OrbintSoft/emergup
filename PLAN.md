@@ -450,3 +450,48 @@ From here on, every feature lands with its integration test.
 - [ ] **11.2** GoReleaser and release workflow.
 - [ ] **11.3** Ebuild bumped to the first stable release.
 - [ ] **11.4** Point the old script to emergup and retire it.
+
+## Phase 12 — Ideas from gentup  `[ ]`  (to discuss)
+
+Evaluated on 2026-11-24 from [gentup](https://github.com/jhelliwe/gentup), a
+Gentoo updater in Rust (GPL-3.0). Nothing here is decided: each item is
+discussed when the phase comes, and may be dropped.
+
+- [ ] **12.1** Update first: a configurable list of packages updated before
+      `@world` when they have an update, `sys-apps/portage` by default, as
+      Portage itself advises; gentup also updates `sys-devel/gcc` first.
+- [ ] **12.2** The elog messages of the packages merged in a run, shown at its
+      end and kept in its log (gentup runs elogv).
+- [ ] **12.3** Notifications at the end of a run: a mail through `sendmail`,
+      or any configured command, with the summary and the news; it goes with
+      phase 13 and the hooks of 6.1.
+- [ ] **12.4** A clear error when the system is not Gentoo.
+- [ ] **12.5** As optional custom steps (6.3), shown in the example
+      configuration: `revdep-rebuild`, `eix-update`, `eix-test-obsolete`,
+      `eclean-dist` and `eclean-pkg`, `eclean-kernel`. To decide: whether
+      cleaning the distfiles and the old kernels deserves a built-in step,
+      with a pretend and a question as the depclean.
+- Not proposed: installing emergup's own dependencies (the ebuild's job),
+  baseline packages for a new install (provisioning, not updating),
+  pre-fetching the sources (Portage's `parallel-fetch` does it; at most a
+  `--fetchonly` option), an interactive `--setup` (the configuration files
+  and `config check`/`show` serve; perhaps a `config init` later).
+
+## Phase 13 — Unattended runs  `[ ]`  (to discuss)
+
+Asked on 2026-11-24: a silent mode with the logs, and a cron job for
+automatic updates.
+
+- [ ] **13.1** A quiet mode: the whole output in the run's log, and on the
+      terminal only the failures or the summary, so that cron mails only what
+      matters.
+- [ ] **13.2** What the interactive or destructive steps do with nobody
+      there: config-files is skipped already; the depclean perhaps only
+      shown, or as the configuration says.
+- [ ] **13.3** `emergup cron install` and its removal: shows the entry, then
+      writes it through elevation, as the AI setup of 9.0; finds the
+      scheduler (cronie and `/etc/cron.d`, fcron, dcron, a systemd timer).
+- [ ] **13.4** Elevation with nobody there: a sudo rule for those commands
+      only, or root's crontab (PRIV-4). A root run and a user's run are not
+      kept apart by the per-user lock.
+- [ ] **13.5** The notifications of 12.3 as the report of an unattended run.
