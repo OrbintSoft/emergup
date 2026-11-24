@@ -4,23 +4,15 @@ package steps_test
 
 import (
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/OrbintSoft/emergup/internal/config"
 	"github.com/OrbintSoft/emergup/internal/pipeline"
-	"github.com/OrbintSoft/emergup/internal/runner/runnertest"
 	"github.com/OrbintSoft/emergup/internal/steps"
-	"github.com/OrbintSoft/emergup/internal/ui"
 )
-
-// notAvailable is what a step whose work is not written yet says.
-const notAvailable = "not available yet in this version of emergup"
 
 // stepKeys returns the keys of the [steps] section, in order.
 func stepKeys() []string {
@@ -93,33 +85,4 @@ func TestBuiltInTitles(t *testing.T) {
 		"config-files":      "update the configuration files",
 		"depclean":          "remove the packages no longer needed",
 	}, titles)
-}
-
-func TestStepsNotWrittenYetRunNothing(t *testing.T) {
-	t.Parallel()
-
-	var fake runnertest.Fake
-
-	env := pipeline.Env{
-		Runner:  &fake,
-		Printer: ui.Printer{Out: nil, Colors: config.Default().Colors, Color: false},
-		Menu:    ui.Menu{},
-		Now:     time.Now,
-	}
-
-	all := steps.BuiltIn(config.Default(), steps.Options{})
-	require.NotEmpty(t, all)
-
-	for _, step := range all {
-		if slices.Contains([]string{syncName, updateName, liveName, preservedName, configFilesName}, step.Name()) {
-			continue // written
-		}
-
-		lines, err := step.Pretend(t.Context(), env)
-		require.NoError(t, err)
-		assert.Equal(t, []string{notAvailable}, lines, step.Name())
-		assert.Equal(t, pipeline.Skip(notAvailable), step.Run(t.Context(), env), step.Name())
-	}
-
-	assert.Empty(t, fake.Commands())
 }

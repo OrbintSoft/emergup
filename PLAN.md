@@ -231,8 +231,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         root says so once (PRIV-4).
       - Until phase 4 the built-in steps are placeholders that run nothing
         and are skipped as "not available yet"; each phase-4 item replaces
-        one. In phase 4 a step that confirms itself after its `--pretend`
-        (update, depclean) replaces the pipeline's question with its own.
+        one, and 4.6 replaced the last. In phase 4 a step that confirms
+        itself after its `--pretend` (update, depclean) replaces the
+        pipeline's question with its own.
 - [x] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
       Two PRs: the lock, then the run directory.
       - The lock is per user: the file `run.lock` in the user's state
@@ -327,7 +328,13 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         the tool elevated and attached to the terminal, since it reads the
         user's keys. With `--yes` the interactive tool cannot run, so the
         step is skipped and says to run it; `--pretend` elevates nothing.
-- [ ] **4.6** Depclean, `--pretend` first (UPD-10).
+- [x] **4.6** Depclean, `--pretend` first (UPD-10).
+      - As the update: the pretend runs unprivileged, shown as it comes and
+        read for "Number to remove: 0", which skips the step without a
+        question; then the step asks (remove them, skip the depclean, abort
+        the run) and runs the depclean elevated. `--yes` goes ahead, as
+        UPD-10 says; emerge itself refuses a depclean whose dependencies it
+        cannot resolve, which fails the step at the pretend.
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
       - The README gets its badges, as the other OrbintSoft repositories have

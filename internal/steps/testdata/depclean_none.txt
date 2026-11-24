@@ -1,0 +1,7 @@
+
+Calculating dependencies... done!
+Packages installed:   120
+Packages in world:    30
+Packages in system:   20
+Required packages:    120
+Number to remove:     0

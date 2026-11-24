@@ -5,10 +5,12 @@ updates `@world`, rebuilds what needs rebuilding, walks you through the
 config-file updates and cleans up — pausing between steps, asking for root only
 when a step needs it, and helping you when something breaks.
 
-> **Status: early development — not usable yet.** The configuration can be
-> written and checked, and `emergup run` goes through the steps, but the steps
-> do not do their work yet. See [PLAN.md](PLAN.md) for the roadmap and
-> [docs/FEATURES.md](docs/FEATURES.md) for what emergup will do.
+> **Status: early development, not released yet.** `emergup run` performs the
+> update: sync, `@world` update, live-package and preserved-library rebuilds,
+> config-file updates and depclean. The news, hooks, failure reports and AI
+> assistance are still to come, and no version is tagged yet. See
+> [PLAN.md](PLAN.md) for the roadmap and [docs/FEATURES.md](docs/FEATURES.md)
+> for what emergup does and will do.
 
 ## Why
 

@@ -4,14 +4,11 @@ package steps
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/OrbintSoft/emergup/internal/config"
 	"github.com/OrbintSoft/emergup/internal/pipeline"
-	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
 
@@ -44,53 +41,27 @@ func (u updateStep) Enabled() bool { return u.config.Enabled }
 // the pretend has shown what it would do.
 func (updateStep) ConfirmsItself() bool { return true }
 
-// Pretend implements pipeline.Step. It does not run the pretend of emerge,
-// which takes a while: it says what the step would run.
+// Pretend implements pipeline.Step.
 func (u updateStep) Pretend(_ context.Context, env pipeline.Env) ([]string, error) {
-	return []string{
-		strings.Join(u.command(env, true), " "),
-		"then, once confirmed: " + strings.Join(u.command(env, false), " "),
-	}, nil
+	return u.work().lines(env), nil
 }
 
-// Run implements pipeline.Step. The pretend changes nothing, so it runs
-// unprivileged; its output is shown as it comes, and read to know whether
-// there is anything to update.
+// Run implements pipeline.Step.
 func (u updateStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
-	pretend := u.command(env, true)
+	return u.work().run(ctx, env)
+}
 
-	result, err := env.Runner.Run(ctx, runner.Command{Args: pretend, Mode: runner.StreamCapture, Root: false})
-	if err != nil {
-		return pipeline.Fail(err.Error())
+// work is what the update does: --pretend, then emergup's question.
+func (u updateStep) work() pretended {
+	return pretended{
+		command:     u.command,
+		nothing:     nothingToMerge,
+		nothingDone: nothingToUpdate,
+		question:    "Update these packages?",
+		goOn:        ui.Action{Key: 'y', Name: "update them"},
+		skip:        ui.Action{Key: 's', Name: "skip the update"},
+		skipped:     notUpdated,
 	}
-
-	if result.ExitCode != 0 {
-		return pipeline.Fail(fmt.Sprintf("%s --pretend exited with status %d", pretend[0], result.ExitCode))
-	}
-
-	if nothingToMerge.MatchString(runner.StripEscapes(string(result.Output))) {
-		return pipeline.Skip(nothingToUpdate)
-	}
-
-	update := ui.Action{Key: 'y', Name: "update them"}
-	skip := ui.Action{Key: 's', Name: "skip the update"}
-
-	if outcome, goOn := confirm(ctx, env, "Update these packages?", update, skip, notUpdated); !goOn {
-		return outcome
-	}
-
-	command := u.command(env, false)
-
-	result, err = env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Stream, Root: true})
-	if err != nil {
-		return pipeline.Fail(err.Error())
-	}
-
-	if result.ExitCode != 0 {
-		return pipeline.Fail(fmt.Sprintf("%s exited with status %d", command[0], result.ExitCode))
-	}
-
-	return pipeline.Success()
 }
 
 // command returns the update's command line, with --pretend or not: the

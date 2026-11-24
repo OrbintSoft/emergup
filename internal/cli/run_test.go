@@ -29,7 +29,6 @@ import (
 const (
 	question        = "==> Run this step? [Y/s/a/?] "
 	withYes         = question + "run the step (--yes)\n"
-	notAvailable    = "not available yet in this version of emergup"
 	noRepository    = "no repository to sync"
 	portageq        = "portageq"
 	nothingToUpdate = "Total: 0 packages, Size of downloads: 0 KiB\n"
@@ -60,6 +59,14 @@ var listRepositories = runner.Command{
 //
 //nolint:gochecknoglobals // The query several tests expect.
 var queryVDB = runner.Command{Args: []string{portageq, "vdb_path"}, Mode: runner.Capture, Root: false}
+
+// depcleanPretend is the command the depclean shows what it would remove
+// with.
+//
+//nolint:gochecknoglobals // The command several tests expect.
+var depcleanPretend = runner.Command{
+	Args: []string{"emerge", "--depclean", optionPretend, "--color=n"}, Mode: runner.StreamCapture, Root: false,
+}
 
 // queryProtected is the command that asks which configuration Portage
 // protects.
@@ -197,6 +204,7 @@ func (s *store) Prune(keep int, current string) error {
 // The kinds of command portage answers.
 const (
 	kindPretend    = "pretend"
+	kindDepclean   = "depclean pretend"
 	kindVDB        = "portageq vdb_path"
 	kindRepository = "portageq repos_config"
 )
@@ -208,10 +216,13 @@ type portage struct {
 	outputs  map[string]string
 }
 
-// commandKind says what cmd does, for portage: kindPretend for a pretend,
-// otherwise its first two words.
+// commandKind says what cmd does, for portage: kindDepclean or
+// kindPretend for a pretend, otherwise its first two words.
 func commandKind(cmd runner.Command) string {
-	if slices.Contains(cmd.Args, "--pretend") {
+	switch {
+	case slices.Contains(cmd.Args, optionPretend) && slices.Contains(cmd.Args, "--depclean"):
+		return kindDepclean
+	case slices.Contains(cmd.Args, optionPretend):
 		return kindPretend
 	}
 
@@ -254,6 +265,7 @@ func newSession(t *testing.T, keys ...rune) *session {
 	sess.keys.keys = keys
 	sess.runner.outputs = map[string]string{
 		kindPretend:    nothingToUpdate,
+		kindDepclean:   "Number to remove:     0\n",
 		kindVDB:        "/var/db/pkg\n",
 		kindRepository: "",
 	}
@@ -309,9 +321,9 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 				"    sync               skipped       <1s  "+noRepository+"\n"+
 				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB, listPreserved, queryProtected},
-				sess.runner.Commands(),
-				"the queries and the pretend of the update, unprivileged; the steps not written yet run nothing")
+			assert.Equal(t, []runner.Command{
+				listRepositories, updatePretend, queryVDB, listPreserved, queryProtected, depcleanPretend,
+			}, sess.runner.Commands(), "the queries and the pretends, unprivileged; with nothing to do, nothing more")
 		})
 	}
 }
@@ -319,13 +331,13 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 func TestRunAsksBeforeEachStep(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, 'y', 's')
+	sess := newSession(t, ui.KeyEnter, 's')
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Equal(t, 2, strings.Count(stdout, question+"run the step\n"),
+	assert.Equal(t, 1, strings.Count(stdout, question+"run the step\n"),
 		"the steps with nothing to do ask nothing")
-	assert.Contains(t, stdout, question+"skip the step\n==> depclean skipped: you chose to skip it\n")
+	assert.Contains(t, stdout, question+"skip the step\n==> live-rebuild skipped: you chose to skip it\n")
 	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
 
@@ -366,7 +378,9 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 			assert.Equal(t, 0, code)
 			assert.Empty(t, stderr)
 			assert.True(t, strings.HasPrefix(stdout, firstHeading+"    "+noRepository+"\n"), stdout)
-			assert.True(t, strings.HasSuffix(stdout, lastHeading+"    "+notAvailable+"\n"), stdout)
+			assert.True(t, strings.HasSuffix(stdout, lastHeading+
+				"    emerge --depclean --pretend --color=n\n"+
+				"    then, once confirmed: emerge --depclean --color=n\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
 			assert.Equal(t, []runner.Command{listRepositories, queryVDB, listPreserved}, sess.runner.Commands())
 		})
@@ -524,7 +538,7 @@ func TestRunKeepsALogOfWhatItShows(t *testing.T) {
 	sess := newSession(t, ui.KeyEnter, '?', 's')
 
 	code, stdout, _ := sess.run(t, commandRun)
-	assert.Equal(t, 130, code)
+	assert.Equal(t, 0, code)
 	assert.Equal(t, stdout, sess.runs.log.String(), "the questions, the answers and the summary too")
 	assert.True(t, sess.runs.log.closed)
 	assert.Same(t, &sess.runs.log, sess.runnerLog, "the commands and their output go to the log")

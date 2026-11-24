@@ -1,0 +1,21 @@
+
+Calculating dependencies... done!
+>>> Calculating removal order...
+
+>>> These are the packages that would be unmerged:
+
+ app-misc/leftover
+    selected: 1.0 
+   protected: none 
+     omitted: none 
+
+All selected packages: =app-misc/leftover-1.0
+
+>>> 'Selected' packages are slated for removal.
+>>> 'Protected' and 'omitted' packages will not be removed.
+
+Packages installed:   120
+Packages in world:    30
+Packages in system:   20
+Required packages:    119
+Number to remove:     1
