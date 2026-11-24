@@ -248,6 +248,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [ ] **4.6** Depclean, `--pretend` first (UPD-10).
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
+      - The README gets its badges, as the other OrbintSoft repositories have
+        them: CI, release, coverage, licence and sponsor. The release and
+        coverage badges need their workflows (coverage published to a branch
+        of its own, as in redo-backups).
 - [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
       (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
       packaged as soon as it can be used, and each pre-release bumps it.
