@@ -27,6 +27,8 @@ const (
 	updateQuestion = "==> Update these packages? [Y/s/a/?] "
 	updateName     = "update"
 	kernelSources  = "sys-kernel/gentoo-sources"
+	nvidiaDrivers  = "x11-drivers/nvidia-drivers"
+	pretendNone    = "pretend_none.txt"
 )
 
 // The names of the cases several tests share.
@@ -173,19 +175,21 @@ func TestUpdateExcludesThePackagesOfTheConfiguration(t *testing.T) {
 	t.Parallel()
 
 	run := newUpdateRun(t, "pretend_two.txt", ui.KeyEnter)
-	run.cfg.Exclude = config.Entries{kernelSources, "x11-drivers/nvidia-drivers"}
+	run.cfg.Exclude = config.Entries{kernelSources, nvidiaDrivers}
 	run.color = true
 
 	run.step(t).Run(t.Context(), run.env())
 
-	extra := []string{"--color=y", "--exclude", kernelSources, "--exclude", "x11-drivers/nvidia-drivers"}
-	assert.Equal(t, []runner.Command{update(true, extra...), update(false, extra...)}, run.runner.Commands())
+	extra := []string{"--color=y", "--exclude", kernelSources, "--exclude", nvidiaDrivers}
+	assert.Equal(t, []runner.Command{
+		update(true, extra...), update(false, extra...), checkHeldBack(kernelSources, nvidiaDrivers),
+	}, run.runner.Commands(), "then the excluded packages are checked for an update")
 }
 
 func TestUpdateSkipsWhenThereIsNothingToUpdate(t *testing.T) {
 	t.Parallel()
 
-	for _, pretend := range []string{"pretend_none.txt", "pretend_none_coloured.txt"} {
+	for _, pretend := range []string{pretendNone, "pretend_none_coloured.txt"} {
 		t.Run(pretend, func(t *testing.T) {
 			t.Parallel()
 
@@ -290,6 +294,109 @@ func TestUpdatePretendShowsBothCommands(t *testing.T) {
 			"--exclude sys-kernel/gentoo-sources @world",
 		"then, once confirmed: emerge --verbose --update --deep --newuse --verbose-conflicts --color=n " +
 			"--exclude sys-kernel/gentoo-sources @world",
+		"then lists the excluded packages with an update: emerge --pretend --update --nodeps --color=n " +
+			"sys-kernel/gentoo-sources",
 	}, lines)
 	assert.Empty(t, run.runner.Commands(), "emerge does not run")
+}
+
+// checkHeldBack returns the command that checks the excluded atoms for an
+// update.
+func checkHeldBack(atoms ...string) runner.Command {
+	args := append([]string{emerge, "--pretend", "--update", "--nodeps", "--color=n"}, atoms...)
+
+	return runner.Command{Args: args, Mode: runner.Capture, Root: false}
+}
+
+// heldBackAnswer is the check that finds the kernel sources in a new slot
+// and an update of the drivers, among packages that are not held back.
+func heldBackAnswer(t *testing.T) runnertest.Answer {
+	t.Helper()
+
+	output, err := os.ReadFile("testdata/held_back.txt")
+	require.NoError(t, err)
+
+	return runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: output}}
+}
+
+func TestUpdateNamesTheExcludedPackagesWithAnUpdate(t *testing.T) {
+	t.Parallel()
+
+	for _, pretend := range []string{"pretend_two.txt", pretendNone} {
+		t.Run(pretend, func(t *testing.T) {
+			t.Parallel()
+
+			run := newUpdateRun(t, pretend, ui.KeyEnter)
+			run.cfg.Exclude = config.Entries{kernelSources, nvidiaDrivers, "*/*-firmware"}
+			run.runner.Script(runnertest.Answer{}, heldBackAnswer(t))
+
+			if pretend == pretendNone {
+				run.runner = runnertest.Fake{}
+				run.runner.Script(
+					runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte("Total: 0 packages\n")}},
+					heldBackAnswer(t))
+			}
+
+			outcome := run.step(t).Run(t.Context(), run.env())
+			assert.Equal(t, []pipeline.Note{
+				{Text: "excluded entries with a wildcard, not checked for an update:", Rows: []string{"*/*-firmware"}},
+				{Text: "2 excluded packages have an update:", Rows: []string{
+					"sys-kernel/gentoo-sources-6.12.5", "x11-drivers/nvidia-drivers-565.77",
+				}},
+			}, outcome.Notes, "a new slot and an update; not a new install, a downgrade or a rebuild")
+
+			commands := run.runner.Commands()
+			assert.Equal(t, checkHeldBack(kernelSources, nvidiaDrivers), commands[len(commands)-1])
+		})
+	}
+}
+
+func TestUpdateNamesOneHeldBackPackage(t *testing.T) {
+	t.Parallel()
+
+	run := newUpdateRun(t, "pretend_two.txt", ui.KeyEnter)
+	run.cfg.Exclude = config.Entries{kernelSources}
+	run.runner.Script(runnertest.Answer{}, runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte(
+		"[ebuild  NS    ] sys-kernel/gentoo-sources-6.12.5:6.12.5::gentoo [6.12.3:6.12.3::gentoo]\n",
+	)}})
+
+	outcome := run.step(t).Run(t.Context(), run.env())
+	assert.Equal(t, []pipeline.Note{
+		{Text: "1 excluded package has an update:", Rows: []string{"sys-kernel/gentoo-sources-6.12.5"}},
+	}, outcome.Notes)
+}
+
+func TestUpdateWithoutExcludedPackagesChecksNothing(t *testing.T) {
+	t.Parallel()
+
+	run := newUpdateRun(t, "pretend_two.txt", ui.KeyEnter)
+
+	outcome := run.step(t).Run(t.Context(), run.env())
+	assert.Empty(t, outcome.Notes)
+	assert.Len(t, run.runner.Commands(), 2)
+}
+
+func TestUpdateChecksNothingWhenItDidNotUpdate(t *testing.T) {
+	t.Parallel()
+
+	run := newUpdateRun(t, "pretend_two.txt", 's')
+	run.cfg.Exclude = config.Entries{kernelSources}
+
+	outcome := run.step(t).Run(t.Context(), run.env())
+	assert.Empty(t, outcome.Notes)
+	assert.Len(t, run.runner.Commands(), 1, "only the pretend")
+}
+
+func TestUpdateSaysWhenTheExcludedPackagesCannotBeChecked(t *testing.T) {
+	t.Parallel()
+
+	run := newUpdateRun(t, "pretend_two.txt", ui.KeyEnter)
+	run.cfg.Exclude = config.Entries{kernelSources}
+	run.runner.Script(runnertest.Answer{}, runnertest.Answer{Result: runner.Result{ExitCode: 1}})
+
+	outcome := run.step(t).Run(t.Context(), run.env())
+	assert.Equal(t, pipeline.Succeeded, outcome.Status, "the update succeeded all the same")
+	assert.Equal(t, []pipeline.Note{
+		{Text: "could not check the excluded packages for an update: emerge --pretend exited with status 1", Rows: nil},
+	}, outcome.Notes)
 }

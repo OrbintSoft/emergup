@@ -492,3 +492,25 @@ func TestAStepCanStopTheRun(t *testing.T) {
 	assert.False(t, last.ran)
 	assert.Equal(t, pipeline.RunStopped, report.Result)
 }
+
+func TestRunWritesTheNotesOfTheStepsAfterTheSummary(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+
+	notes := []pipeline.Note{{Text: "2 excluded packages have an update:", Rows: []string{"a/b-1.0", "c/d-2.0"}}}
+	outcome := pipeline.Success()
+	outcome.Notes = notes
+
+	report := rig.run(t.Context(), rig.step("update", time.Second, outcome))
+
+	assert.True(t, strings.HasSuffix(rig.out.String(), summary+
+		"    update  succeeded      1s\n"+
+		"==> 2 excluded packages have an update:\n"+
+		"    a/b-1.0\n"+
+		"    c/d-2.0\n"+
+		"==> The run finished in 1s.\n"), rig.out.String())
+	require.Len(t, report.Steps, 1)
+	assert.Equal(t, notes, report.Steps[0].Notes)
+}

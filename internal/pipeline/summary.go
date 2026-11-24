@@ -35,6 +35,16 @@ func writeSummary(printer ui.Printer, report Report) {
 		printer.Row(statusKind(step.Status), strings.TrimRight(row, " "))
 	}
 
+	for _, step := range report.Steps {
+		for _, note := range step.Notes {
+			printer.Notice(note.Text)
+
+			for _, row := range note.Rows {
+				printer.Row(ui.KindPlain, row)
+			}
+		}
+	}
+
 	took := ui.FormatDuration(report.Duration)
 
 	switch report.Result {
