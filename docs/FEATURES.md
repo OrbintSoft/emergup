@@ -31,9 +31,9 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| SYNC-1 | The sync step skips a repository synced more recently than a configurable interval (24 hours by default) and says when it was last synced; a repository whose last sync time cannot be determined is synced, and an interval of 0 syncs every time. | planned |
-| SYNC-2 | `emergup run --force-sync` syncs the repositories regardless of the interval. | planned |
-| SYNC-3 | Repositories listed in the configuration are synced on every run regardless of the interval (e.g. an overlay the user publishes to). | planned |
+| SYNC-1 | The sync step works on the repositories `emerge --sync` would sync, and skips each one synced more recently than a configurable interval (24 hours by default), saying when it was last synced; a sync done outside emergup counts. A repository whose last sync time cannot be determined is synced, and an interval of 0 syncs every time. The repositories due are synced with one command. | done |
+| SYNC-2 | `emergup run --force-sync` syncs the repositories regardless of the interval. | done |
+| SYNC-3 | Repositories listed in the configuration are synced on every run regardless of the interval (e.g. an overlay the user publishes to), even one that Portage does not sync by itself (`auto-sync = no`). | done |
 
 ## Privileges (PRIV)
 

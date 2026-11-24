@@ -47,7 +47,7 @@ func names(all []pipeline.Step) []string {
 func TestBuiltInFollowsTheStepsSection(t *testing.T) {
 	t.Parallel()
 
-	all := steps.BuiltIn(config.Default())
+	all := steps.BuiltIn(config.Default(), steps.Options{})
 	assert.Equal(t, stepKeys(), names(all), "a step for each key of [steps], in the same order")
 
 	for _, step := range all {
@@ -63,7 +63,7 @@ func TestBuiltInTakesWhetherEachStepRunsFromTheConfiguration(t *testing.T) {
 	cfg.Steps.Depclean.Enabled = false
 
 	enabled := map[string]bool{}
-	for _, step := range steps.BuiltIn(cfg) {
+	for _, step := range steps.BuiltIn(cfg, steps.Options{}) {
 		enabled[step.Name()] = step.Enabled()
 	}
 
@@ -80,7 +80,7 @@ func TestBuiltInTitles(t *testing.T) {
 	cfg.Steps.Update.Target = "@system"
 
 	titles := map[string]string{}
-	for _, step := range steps.BuiltIn(cfg) {
+	for _, step := range steps.BuiltIn(cfg, steps.Options{}) {
 		titles[step.Name()] = step.Title()
 	}
 
@@ -106,10 +106,14 @@ func TestStepsNotWrittenYetRunNothing(t *testing.T) {
 		Now:     time.Now,
 	}
 
-	all := steps.BuiltIn(config.Default())
+	all := steps.BuiltIn(config.Default(), steps.Options{})
 	require.NotEmpty(t, all)
 
 	for _, step := range all {
+		if step.Name() == syncName {
+			continue
+		}
+
 		lines, err := step.Pretend(t.Context(), env)
 		require.NoError(t, err)
 		assert.Equal(t, []string{notAvailable}, lines, step.Name())

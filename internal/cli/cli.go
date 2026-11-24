@@ -50,6 +50,7 @@ commands:
   run            update the system, step by step
     -y, --yes      take the usual answer to every question
     -p, --pretend  show the steps and what they would run, and run nothing
+    --force-sync   sync every repository, however recently it was synced
   config check   validate the configuration files and report each problem
   config show    print the configuration in effect and where each value comes from
   version        print the emergup version (also --version)
@@ -132,8 +133,9 @@ type RunStore interface {
 
 // runOptions are the options of `run`.
 type runOptions struct {
-	yes     bool
-	pretend bool
+	yes       bool
+	pretend   bool
+	forceSync bool
 }
 
 // runCommand runs `run`: the built-in steps, one after the other, or with
@@ -152,15 +154,15 @@ func runCommand(ctx context.Context, env Env, prog string, args []string) int {
 	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color, Log: nil}
 
 	if options.pretend {
-		return pretend(ctx, env, cfg, printer)
+		return pretend(ctx, env, cfg, printer, options)
 	}
 
-	return runSteps(ctx, env, cfg, printer, options.yes)
+	return runSteps(ctx, env, cfg, printer, options)
 }
 
 // pretend shows what a run would do, without the lock or a run directory:
 // it changes nothing.
-func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer) int {
+func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer, options runOptions) int {
 	if elevation.IsRoot(env.System) {
 		printer.Notice(runningAsRoot)
 	}
@@ -172,13 +174,12 @@ func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer
 
 	stepsEnv := newStepsEnv(env, printer, prefix, nil, false)
 
-	return exitStatus(pipeline.Pretend(ctx, stepsEnv, steps.BuiltIn(cfg)))
+	return exitStatus(pipeline.Pretend(ctx, stepsEnv, builtInSteps(cfg, options)))
 }
 
 // runSteps runs the built-in steps while it holds the lock, with a log in
-// a run directory of their own; yes takes the usual answer to every
-// question.
-func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printer, yes bool) int {
+// a run directory of their own.
+func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printer, options runOptions) int {
 	release, err := env.Lock.Lock(ctx)
 	if err != nil {
 		printer.Failure(err.Error())
@@ -221,9 +222,15 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 		return exitProblem
 	}
 
-	stepsEnv := newStepsEnv(env, printer, prefix, run.Log, yes)
+	stepsEnv := newStepsEnv(env, printer, prefix, run.Log, options.yes)
 
-	return exitStatus(pipeline.Run(ctx, stepsEnv, steps.BuiltIn(cfg)).Result)
+	return exitStatus(pipeline.Run(ctx, stepsEnv, builtInSteps(cfg, options)).Result)
+}
+
+// builtInSteps returns the built-in steps as cfg and the options of the run
+// set them up.
+func builtInSteps(cfg config.Config, options runOptions) []pipeline.Step {
+	return steps.BuiltIn(cfg, steps.Options{ForceSync: options.forceSync})
 }
 
 // newStepsEnv returns what the steps work with: commands elevated with
@@ -235,13 +242,14 @@ func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, ye
 		Printer: printer,
 		Menu:    ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
 		Now:     env.now(),
+		Root:    env.Root,
 	}
 }
 
 // parseRunOptions reads the options of `run`; on a mistake it writes it with
 // the usage and returns false.
 func parseRunOptions(stderr io.Writer, prog string, args []string) (runOptions, bool) {
-	options := runOptions{yes: false, pretend: false}
+	options := runOptions{yes: false, pretend: false, forceSync: false}
 
 	for _, arg := range args {
 		switch arg {
@@ -249,6 +257,8 @@ func parseRunOptions(stderr io.Writer, prog string, args []string) (runOptions, 
 			options.yes = true
 		case "-p", "--pretend":
 			options.pretend = true
+		case "--force-sync":
+			options.forceSync = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				unknownOption(stderr, prog, "run", arg)

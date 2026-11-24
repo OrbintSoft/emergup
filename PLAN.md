@@ -256,12 +256,24 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
 
-- [ ] **4.1** Sync (`emerge --sync <repo>...`, configurable), per repository: a
+- [x] **4.1** Sync (`emerge --sync <repo>...`, configurable), per repository: a
       repository synced within the minimum interval is skipped, unless it is
       listed as always synced or `--force-sync` is given (SYNC-1–3). The last
       sync time is read from the repository on disk (git: `.git/FETCH_HEAD`,
       rsync: `metadata/timestamp.chk`), so syncs done outside emergup count
       and no state file is needed; other sync types are always synced.
+      - The repositories come from `portageq repos_config /`, Portage's own
+        view of `repos.conf`, run unprivileged: those with a `sync-type` and
+        `auto-sync` on, which `emerge --sync` would sync, and every
+        `always-sync` one, `auto-sync = no` or not; an `always-sync` name that
+        is no repository gets a notice.
+      - rsync and webrsync give their snapshot time in
+        `metadata/timestamp.chk` (or its modification time); git the
+        modification time of `.git/FETCH_HEAD`.
+      - The repositories due are synced with one `emerge --sync`, elevated,
+        so the post-sync hooks run once; it gets `--color=y` or `--color=n`
+        as emergup's own output. A row says what is done with each
+        repository; with none due the step is skipped.
 - [ ] **4.2** `@world` update with configurable options and exclusions, each
       passed as `--exclude`; `--pretend` first, then emergup's confirmation
       (EXC-1, UPD-10).

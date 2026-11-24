@@ -68,6 +68,7 @@ func TestHelp(t *testing.T) {
 			assert.Contains(t, stdout, "run ")
 			assert.Contains(t, stdout, "--yes")
 			assert.Contains(t, stdout, "--pretend")
+			assert.Contains(t, stdout, "--force-sync")
 			assert.Contains(t, stdout, "config check")
 			assert.Contains(t, stdout, "config show")
 			assert.Empty(t, stderr)

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/OrbintSoft/emergup/internal/runner"
@@ -83,6 +84,9 @@ type Env struct {
 	Menu    ui.Menu
 	// Now gives the time, for the durations and the steps' intervals.
 	Now func() time.Time
+	// Root is the system's root file system, from which the steps read
+	// the state of the system, such as when a repository was synced.
+	Root fs.FS
 }
 
 // Step is one step of a run.
