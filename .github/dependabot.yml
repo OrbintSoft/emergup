@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Dependabot opens a pull request when a Go module or a GitHub Action has an
-# update, one pull request per ecosystem with all its updates grouped. It runs
+# Dependabot opens a pull request when a Go module, a GitHub Action or an
+# image of the integration tests has an update, one pull request per
+# ecosystem with all its updates grouped. It runs
 # on Saturday mornings, two days after Renovate (renovate.json5), which covers
 # the same dependencies and the tool versions pinned in the Makefile and in the
 # CI workflow; an update already merged from Renovate is not proposed again.
@@ -34,5 +35,20 @@ updates:
       include: scope
     groups:
       github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /test/integration/image
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "06:00"
+      timezone: Europe/Rome
+    commit-message:
+      prefix: test
+      include: scope
+    groups:
+      integration-image:
         patterns:
           - "*"

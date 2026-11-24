@@ -16,16 +16,18 @@ tool mentioned here, with its version, is in
 - **Node.js** with **npm**, for markdownlint-cli2 and the Renovate
   configuration validator.
 - **yamllint** on `PATH`.
+- **Docker**, for the integration tests and for hadolint (`make lint-docker`).
 - Optionally **shellcheck**, which actionlint uses to check the workflow
   scripts.
 
 On Gentoo: `dev-lang/go`, `dev-build/make`, `dev-vcs/git`,
-`net-libs/nodejs[npm]`, `dev-util/yamllint` and, optionally,
-`dev-util/shellcheck` or `dev-util/shellcheck-bin`.
+`net-libs/nodejs[npm]`, `dev-util/yamllint`, `app-containers/docker` with
+`app-containers/docker-cli` and, optionally, `dev-util/shellcheck` or
+`dev-util/shellcheck-bin`.
 
 The first `make lint` needs the network: the Go linters are fetched and built
-by `go run`, and the npm tools by `npx`, at the versions pinned in the
-[Makefile](../Makefile). Both are cached afterwards.
+by `go run`, the npm tools by `npx` and the hadolint image by Docker, at the
+versions pinned in the [Makefile](../Makefile). All are cached afterwards.
 
 ## Building and testing
 
@@ -35,6 +37,7 @@ cd emergup
 make            # builds bin/emergup
 make test       # unit tests
 make check      # the whole quality gate
+make integration  # the integration tests, in Docker
 ```
 
 | Target | What it does |
@@ -42,7 +45,8 @@ make check      # the whole quality gate
 | `build` | Builds `bin/emergup` (the default target). |
 | `test` | Runs the unit tests. |
 | `race` | Runs the unit tests with the race detector. |
-| `vet` | Runs `go vet`. |
+| `vet` | Runs `go vet`, on the integration tests too. |
+| `integration` | Runs the integration tests in Docker containers (see below). |
 | `lint` | Runs every linter below. |
 | `lint-go` | golangci-lint on the Go code, gofumpt formatting included, configured by [.golangci.yml](../.golangci.yml). |
 | `lint-mod` | Checks that `go.mod` and `go.sum` are tidy. |
@@ -51,6 +55,7 @@ make check      # the whole quality gate
 | `lint-markdown` | markdownlint-cli2 on the Markdown files. |
 | `lint-yaml` | yamllint on the YAML files. |
 | `lint-renovate` | Validates [renovate.json5](../renovate.json5). |
+| `lint-docker` | hadolint on the Dockerfile of the integration image. |
 | `fmt` | Formats the Go code with gofumpt. |
 | `check` | `build`, `vet`, `lint` and `race`: run it before opening a pull request. |
 | `install`, `uninstall` | Installs or removes the binary under `$(DESTDIR)$(PREFIX)/bin`. |
@@ -66,12 +71,43 @@ Variables that can be set on the command line:
 - `PREFIX` (default `/usr/local`) and `DESTDIR` place the installed binary.
 - `GOTOOLCHAIN` chooses the Go toolchain, as above.
 - `GOLANGCI_LINT`, `CHECKMAKE`, `ACTIONLINT`, `MARKDOWNLINT`,
-  `RENOVATE_VALIDATE` and `YAMLLINT` replace a linter with another command.
+  `RENOVATE_VALIDATE`, `YAMLLINT` and `HADOLINT` replace a linter with another
+  command.
+- `DOCKER` (default `docker`) is the command that builds and runs the
+  containers; `INTEGRATION_IMAGE` (default `emergup-integration`) names the
+  image; `INTEGRATION_RUN` picks the integration tests to run, as a pattern of
+  `go test -run`.
 
 The linters run through `go run` with the build toolchain on purpose: a
 golangci-lint built with an older Go cannot read the export data of a newer
 one, so an older golangci-lint installed on the system may fail where
 `make lint-go` works.
+
+## Integration tests
+
+The unit tests never run a real command. The integration tests, in
+[test/integration](../test/integration) behind the `integration` build tag,
+run the real emergup with the real `emerge`, `portageq` and `sudo`.
+`make integration` builds a static binary, builds the image of
+[test/integration/image](../test/integration/image), and runs the tests; the
+first build downloads the stage3 and the Gentoo tree, over 1 GB, and later
+ones reuse Docker's cache.
+
+Each test starts a container of its own, without a network, with the binary
+mounted on `PATH`, runs emergup as `tester`, an ordinary user who may use
+sudo, or as root, and checks the output, the exit status and the system. The
+image holds:
+
+- the test repository `emergup-test`, with synthetic ebuilds that install a
+  file each. It syncs with rsync from its upstream, `/srv/emergup-test`, where
+  a test puts what the next sync should bring; the Gentoo tree never syncs.
+- `/etc/emergup/config.toml`, which points the update at `@emergup-test`, so
+  that no stage3 package is ever updated. Every stage3 package is in the world
+  set, so the depclean removes only what a test leaves behind.
+
+A test is named after the feature it verifies, as in
+`TestUPD6_PretendShowsTheStepsWithoutRunningThem` for UPD-6, and its comment
+quotes the feature.
 
 ## Code layout
 
@@ -88,6 +124,7 @@ one, so an older golangci-lint installed on the system may fail where
 | `internal/pipeline` | Running the steps of an update in order: each announced and confirmed, how it ended and how long it took, and the summary of the run. |
 | `internal/steps` | The built-in steps, in the order of the `[steps]` section, as the configuration sets them up. |
 | `internal/version` | The version `emergup version` reports. |
+| `test/integration` | The integration tests and the image they run in. |
 | `examples/etc/emergup` | The example configuration; `make test` checks that it loads and that the main file shows the generic defaults. |
 | `docs/FEATURES.md` | What emergup promises its users, one entry per feature. |
 

@@ -83,8 +83,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   the example configuration, which `make test` loads with emergup's own strict
   loader (syntax, unknown keys, types, values) and compares with the defaults
   in the code, more than a generic TOML linter checks; they are formatted by
-  hand. Shell (shellcheck) and Dockerfile (hadolint) linters are evaluated
-  when those file types arrive.
+  hand. hadolint lints the Dockerfile of the integration image (`make
+  lint-docker`), run from its pinned image. The other files of that image
+  have no linter: `visudo --check` checks the sudoers file when the image is
+  built, and Portage reads the Portage files (make.conf, repos.conf, the set,
+  the test repository's layout.conf and ebuilds) in every integration test.
+  pkgcheck is not used on the synthetic ebuilds: it needs the Gentoo tree and
+  judges ebuilds meant for a real repository. Shell (shellcheck) is evaluated
+  when the first script arrives.
 
 ## Open questions
 
@@ -379,8 +385,27 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 ## Phase 5 — Docker integration tests  `[ ]`
 
-- [ ] **5.1** Harness: `gentoo/stage3` image (digest pinned, tracked by Renovate),
+- [x] **5.1** Harness: `gentoo/stage3` image (digest pinned, tracked by Renovate),
       local test repository with synthetic ebuilds and news, `make integration`.
+      - The image (test/integration/image) is a `gentoo/stage3:amd64-openrc`
+        with the tree of `gentoo/portage`, both pinned by dated tag and
+        digest; Renovate bumps them together, Dependabot too. sudo comes
+        from the binary host; `tester` may use it without a password.
+      - The test repository `emergup-test` syncs with rsync from
+        `file:///srv/emergup-test`, inside the image: the containers run
+        with no network, and the Gentoo tree has `auto-sync = no`. News
+        items join it with the tests that need them.
+      - The image's emergup configuration updates `@emergup-test`, and every
+        stage3 package is in the world set, so no test updates or removes a
+        stage3 package. `emerge --depclean <atoms>` cannot restrict the
+        depclean instead: it removes a named package even from the world
+        set.
+      - Go tests behind the `integration` build tag, one container each,
+        named after the feature id (`TestUPD6_…`); `make integration`
+        builds a static binary stamped `0.0.0-integration`, the image and
+        runs them, `INTEGRATION_RUN` picks some. The first ones cover CLI-1
+        and UPD-6; UPD-6 found the preserved-library query failing for a
+        user outside the portage group, fixed in its own change.
 - [ ] **5.2** Integration tests for the Phase 2–4 features, each naming its id.
 - [ ] **5.3** CI job for the integration suite.
 
