@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Measures the test coverage of every push to master and publishes it for the
+# README's badge: a shields.io endpoint file on the orphan `badges` branch, so
+# no coverage service is involved.
+name: Coverage
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Measure and publish the coverage
+    runs-on: ubuntu-latest
+    # Only the canonical repository publishes the badge, never a fork.
+    if: github.repository == 'OrbintSoft/emergup'
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+
+      - name: Measure the coverage
+        id: coverage
+        run: |
+          go test -coverprofile="$RUNNER_TEMP/coverage.out" ./...
+          total=$(go tool cover -func="$RUNNER_TEMP/coverage.out" | awk '/^total:/ { sub("%", "", $3); print $3 }')
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+
+      # The badges branch holds only the endpoint file, replaced on every run.
+      - name: Publish the badge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOTAL: ${{ steps.coverage.outputs.total }}
+        run: |
+          case "${TOTAL%.*}" in
+            9[0-9] | 100) color=brightgreen ;;
+            8[0-9]) color=green ;;
+            7[0-9]) color=yellowgreen ;;
+            5[0-9] | 6[0-9]) color=yellow ;;
+            *) color=red ;;
+          esac
+          cd "$RUNNER_TEMP"
+          git init --quiet --initial-branch=badges badges
+          cd badges
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' \
+            "$TOTAL" "$color" > coverage.json
+          git add coverage.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet --message "chore: coverage $TOTAL%"
+          git push --quiet --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges

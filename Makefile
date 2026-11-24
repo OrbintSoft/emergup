@@ -44,9 +44,19 @@ YAMLLINT      ?= yamllint
 BUILDDIR := bin
 BINARY   := emergup
 
+# The release archives `make dist` builds: a binary for each architecture
+# with the documents and the example configuration, and the vendored Go
+# modules, from which a distribution package builds offline.
+DISTDIR     := dist
+DIST_ARCHES := amd64 arm64
+DIST_FILES  := LICENSE COPYRIGHT.md README.md DEPENDENCIES.md docs examples
+DIST_BINS   := $(foreach arch,$(DIST_ARCHES),$(DISTDIR)/$(BINARY)_$(VERSION)_linux_$(arch).tar.gz)
+DIST_VENDOR := $(DISTDIR)/$(BINARY)-$(VERSION)-vendor.tar.xz
+TAR         := tar --sort=name --owner=0 --group=0 --numeric-owner
+
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate fmt check install uninstall help
+.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate fmt check install uninstall dist dist-version help
 
 all: build ## Build the binary (the default)
 
@@ -97,8 +107,29 @@ install: build ## Install the binary into $(DESTDIR)$(bindir)
 uninstall: ## Remove the installed binary
 	rm -f $(DESTDIR)$(bindir)/$(BINARY)
 
+dist: $(DIST_BINS) $(DIST_VENDOR) ## Build the release archives in dist/ (VERSION=x.y.z)
+	cd $(DISTDIR) && sha256sum $(notdir $^) > SHA256SUMS
+
+dist-version:
+	@test -n '$(VERSION)' || { echo 'dist: give the version, as in make dist VERSION=0.1.0' >&2; exit 1; }
+
+# A static binary for linux on one architecture, with the documents.
+$(DISTDIR)/$(BINARY)_$(VERSION)_linux_%.tar.gz: dist-version
+	mkdir -p $(DISTDIR)/$(BINARY)_$(VERSION)_linux_$*
+	CGO_ENABLED=0 GOOS=linux GOARCH=$* $(GO) build -trimpath -ldflags '-s -w $(LDFLAGS)' -o $(DISTDIR)/$(BINARY)_$(VERSION)_linux_$*/$(BINARY) ./cmd/emergup
+	cp -R $(DIST_FILES) $(DISTDIR)/$(BINARY)_$(VERSION)_linux_$*/
+	$(TAR) -C $(DISTDIR) -czf $@ $(BINARY)_$(VERSION)_linux_$*
+	rm -rf $(DISTDIR)/$(BINARY)_$(VERSION)_linux_$*
+
+# The vendored modules, unpacked as $(BINARY)-$(VERSION)/vendor, where the
+# source archive of the tag unpacks.
+$(DIST_VENDOR): dist-version
+	$(GO) mod vendor -o $(DISTDIR)/$(BINARY)-$(VERSION)/vendor
+	$(TAR) -C $(DISTDIR) -cJf $@ $(BINARY)-$(VERSION)
+	rm -rf $(DISTDIR)/$(BINARY)-$(VERSION)
+
 clean: ## Remove the build output
-	rm -rf $(BUILDDIR)
+	rm -rf $(BUILDDIR) $(DISTDIR)
 
 help: ## List the targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)

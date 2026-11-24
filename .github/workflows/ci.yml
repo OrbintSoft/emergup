@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Builds, tests and lints every push to master and every pull request, through
-# the same Makefile targets used locally.
+# the same Makefile targets used locally. The release workflow runs it too,
+# before it publishes a release.
 name: CI
 
 on:
@@ -9,6 +10,7 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

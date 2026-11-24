@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Publishes a release when the maintainer pushes a version tag (vX.Y.Z): the
+# CI workflow runs first, then the archives `make dist` builds are attached to
+# a GitHub release with notes from the commits. A 0.x version is a
+# pre-release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Publish the release
+    needs: ci
+    runs-on: ubuntu-latest
+    # Only the canonical repository publishes releases, never a fork.
+    if: github.repository == 'OrbintSoft/emergup'
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build the archives
+        run: make dist VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          options=(--verify-tag --generate-notes --title "emergup ${GITHUB_REF_NAME#v}")
+          case "$GITHUB_REF_NAME" in
+            v0.*) options+=(--prerelease) ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" dist/* "${options[@]}"

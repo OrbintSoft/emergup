@@ -1,5 +1,11 @@
 # emergup
 
+[![CI][ci-badge]][ci]
+[![Release][release-badge]][release]
+[![Coverage][coverage-badge]][coverage]
+[![Licence: GPL-3.0-or-later][licence-badge]](LICENSE)
+[![Sponsor][sponsor-badge]][sponsor]
+
 Keeps a Gentoo system up to date with one command: it syncs, shows the news,
 updates `@world`, rebuilds what needs rebuilding, walks you through the
 config-file updates and cleans up — pausing between steps, asking for root only
@@ -79,3 +85,13 @@ Copyright © 2026 Stefano Balzarotti (OrbintSoft) and contributors.
 emergup is free software, licensed under the
 [GNU General Public License v3.0 or later](LICENSE). See
 [COPYRIGHT.md](COPYRIGHT.md).
+
+[ci-badge]: https://github.com/OrbintSoft/emergup/actions/workflows/ci.yml/badge.svg?branch=master
+[ci]: https://github.com/OrbintSoft/emergup/actions/workflows/ci.yml?query=branch%3Amaster
+[release-badge]: https://img.shields.io/github/v/release/OrbintSoft/emergup?include_prereleases&sort=semver
+[release]: https://github.com/OrbintSoft/emergup/releases
+[coverage-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OrbintSoft/emergup/badges/coverage.json
+[coverage]: https://github.com/OrbintSoft/emergup/actions/workflows/coverage.yml?query=branch%3Amaster
+[licence-badge]: https://img.shields.io/badge/licence-GPL--3.0--or--later-blue.svg
+[sponsor-badge]: https://img.shields.io/badge/Sponsor-OrbintSoft-ea4aaa?logo=githubsponsors&logoColor=white
+[sponsor]: https://github.com/sponsors/OrbintSoft
