@@ -24,6 +24,7 @@ when a dependency is not updated by them.
 | **renovate** (npm) | Validating [renovate.json5](renovate.json5) with `renovate-config-validator --strict` (`make lint-renovate`). | Pinned in the [Makefile](Makefile) and run with `npx`; Renovate bumps the pin. |
 | **yamllint** | Linting the YAML files (`make lint-yaml`), configured by [.yamllint.yaml](.yamllint.yaml). | Taken from `PATH` (for example `dev-util/yamllint` or `pip install yamllint`), so the local version is not pinned; CI pins it in [ci.yml](.github/workflows/ci.yml), and Renovate bumps that pin. |
 | **sed**, **awk**, **install** | Reading the toolchain from `go.mod`, `make help`, `make install`. | Any POSIX `sed`/`awk` and coreutils `install`. |
+| **tar**, **gzip**, **xz**, **sha256sum** | The release archives and their checksums (`make dist`). | GNU tar, for `--sort` and the owner options that make the archives the same on every machine; coreutils `sha256sum`. |
 
 ## Continuous integration
 
@@ -36,6 +37,7 @@ Makefile, and only helpers such as pipx and shellcheck come from the image.
 | --- | --- | --- |
 | `actions/checkout` | Checking out the repository. | Pinned to a commit SHA in the workflow; Dependabot and Renovate bump it. |
 | `actions/setup-go` | Installing the toolchain named in [go.mod](go.mod). | Pinned to a commit SHA in the workflow; Dependabot and Renovate bump it. |
+| **GitHub CLI** (`gh`) | Publishing a release with its archives and notes, in the release workflow. | Preinstalled on the runner. |
 | `actions/setup-node` | Installing Node.js for markdownlint-cli2 and the Renovate configuration validator. | Pinned to a commit SHA; Dependabot and Renovate bump it. The Node.js version is the latest LTS. |
 | **pipx** | Installing yamllint at the pinned version. | Preinstalled on the runner. |
 | **DCO** GitHub App | Checking that every commit of a pull request is signed off; commits by bots are exempt. | Installed on the repository; maintained by its authors. |

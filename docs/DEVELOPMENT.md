@@ -54,6 +54,7 @@ make check      # the whole quality gate
 | `fmt` | Formats the Go code with gofumpt. |
 | `check` | `build`, `vet`, `lint` and `race`: run it before opening a pull request. |
 | `install`, `uninstall` | Installs or removes the binary under `$(DESTDIR)$(PREFIX)/bin`. |
+| `dist` | Builds the release archives in `dist/` for `VERSION=x.y.z`: a static binary for linux amd64 and arm64 with the documents, the vendored Go modules, and `SHA256SUMS`. |
 | `clean` | Removes the build output. |
 | `help` | Lists the targets. |
 
@@ -138,6 +139,17 @@ brings only a few of them. Renovate's Dependency Dashboard issue lists what is
 pending and can force an update out of schedule. The `go` line of go.mod is
 moved by Renovate only once a Go release has a successor, so it stays one
 release behind the latest; the `toolchain` line follows the latest release.
+
+## Releases
+
+A release is cut by hand, when the maintainer decides: each one also bumps
+the ebuild in the orbintsoft overlay. Pushing a tag `vX.Y.Z` from `master`
+runs the [release workflow](../.github/workflows/release.yml): the CI workflow
+first, then `make dist` and a GitHub release with the archives and notes from
+the commits; a `0.x` version is a pre-release. The vendored modules let a
+distribution package build offline. The
+[coverage workflow](../.github/workflows/coverage.yml) publishes the coverage
+of `master` for the README's badge on the orphan `badges` branch.
 
 ## Commits and pull requests
 

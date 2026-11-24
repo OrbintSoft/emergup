@@ -345,11 +345,25 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       - A step can leave notes, which the pipeline writes after the rows of
         the summary: "2 excluded packages have an update:" and a row for
         each. A failed check is a note, not a failure of the update.
-- [ ] **4.8** First tagged pre-release `v0.1.0`.
+- [~] **4.8** First tagged pre-release `v0.1.0`.
       - The README gets its badges, as the other OrbintSoft repositories have
         them: CI, release, coverage, licence and sponsor. The release and
         coverage badges need their workflows (coverage published to a branch
         of its own, as in redo-backups).
+      - Releases are cut by hand, by pushing a tag `vX.Y.Z`: unlike
+        redo-backups, which tags every change, each emergup release bumps the
+        ebuild. The release workflow reuses the CI workflow as its gate, then
+        `make dist` and `gh release create`; `0.x` is a pre-release. No
+        GoReleaser: no deb, rpm or snap for a Gentoo tool.
+      - `make dist` builds static binaries for linux amd64 and arm64 (`-s -w`,
+        the version stamped) with the documents, the vendored modules for an
+        offline package build (`<name>-<version>/vendor`, where the tag's
+        source archive unpacks), and `SHA256SUMS`, with GNU tar options that
+        make the archives the same on every machine.
+      - The coverage workflow publishes a shields.io endpoint file on the
+        orphan `badges` branch, as redo-backups does.
+      - The tag itself is pushed with the maintainer's approval, after a
+        real run on the maintainer's system.
 - [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
       (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
       packaged as soon as it can be used, and each pre-release bumps it.
@@ -447,6 +461,7 @@ From here on, every feature lands with its integration test.
 ## Phase 11 — Documentation, packaging, release  `[ ]`
 
 - [ ] **11.1** User docs: configuration, hooks, AI, installation; README overhaul.
-- [ ] **11.2** GoReleaser and release workflow.
+- [ ] **11.2** The first stable release, `v1.0.0`, through the release workflow
+      of 4.8 (no GoReleaser, see 4.8).
 - [ ] **11.3** Ebuild bumped to the first stable release.
 - [ ] **11.4** Point the old script to emergup and retire it.
