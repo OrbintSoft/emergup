@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // row is the line the sync step shows for the test repository.
@@ -21,10 +20,7 @@ func row(reason string) string {
 func syncRun(ctr *container, args ...string) string {
 	ctr.t.Helper()
 
-	got := ctr.emergup(append([]string{"run", "--yes"}, args...)...)
-	require.Equal(ctr.t, 0, got.code, "the exit status, with the output:\n%s%s", got.stdout, got.stderr)
-
-	return got.stdout
+	return ctr.emergupRun("", append([]string{"--yes"}, args...)...)
 }
 
 // syncOutside syncs the test repository with emerge, as a sync done
@@ -33,7 +29,7 @@ func syncOutside(ctr *container) {
 	ctr.t.Helper()
 
 	ctr.publish("outside")
-	ctr.root("emerge", "--sync", "emergup-test")
+	ctr.syncRepository()
 }
 
 // SYNC-1: the sync step works on the repositories `emerge --sync` would

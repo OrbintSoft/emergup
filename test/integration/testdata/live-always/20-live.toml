@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every live package rebuilt on every run.
+
+[steps.live-rebuild]
+mode = "always"

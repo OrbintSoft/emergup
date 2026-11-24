@@ -419,6 +419,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         current"), so a test publishes a snapshot with a newer timestamp,
         and a file a sync brings shows whether one ran; a sync done with
         emerge before the run counts as a recent one.
+      - Update, exclusions, live packages: UPD-4, UPD-9 (interval and
+        always), UPD-10 (the update), EXC-1, EXC-2. Snapshots bring
+        synthetic ebuilds (an upgrade, an excluded package, a live one with
+        `PROPERTIES="live"`); an old build is an old `BUILD_TIME` in the
+        Portage database. The smart mode itself needs smart-live-rebuild,
+        which the image does not have.
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.
