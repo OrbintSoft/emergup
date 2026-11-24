@@ -31,6 +31,7 @@ const (
 	withYes         = question + "run the step (--yes)\n"
 	notAvailable    = "not available yet in this version of emergup"
 	noRepository    = "no repository to sync"
+	portageq        = "portageq"
 	nothingToUpdate = "Total: 0 packages, Size of downloads: 0 KiB\n"
 	firstHeading    = "==> [1/6] sync: sync the repositories\n"
 	lastHeading     = "==> [6/6] depclean: remove the packages no longer needed\n"
@@ -52,13 +53,20 @@ const (
 //
 //nolint:gochecknoglobals // The query several tests expect.
 var listRepositories = runner.Command{
-	Args: []string{"portageq", "repos_config", "/"}, Mode: runner.Capture, Root: false,
+	Args: []string{portageq, "repos_config", "/"}, Mode: runner.Capture, Root: false,
 }
 
 // queryVDB is the command that asks where the installed packages are.
 //
 //nolint:gochecknoglobals // The query several tests expect.
-var queryVDB = runner.Command{Args: []string{"portageq", "vdb_path"}, Mode: runner.Capture, Root: false}
+var queryVDB = runner.Command{Args: []string{portageq, "vdb_path"}, Mode: runner.Capture, Root: false}
+
+// listPreserved is the command that lists the preserved libraries.
+//
+//nolint:gochecknoglobals // The query several tests expect.
+var listPreserved = runner.Command{
+	Args: []string{portageq, "list_preserved_libs", "/"}, Mode: runner.Capture, Root: false,
+}
 
 // updatePretend is the command the update shows what it would do with.
 //
@@ -293,7 +301,8 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 				"    sync               skipped       <1s  "+noRepository+"\n"+
 				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB}, sess.runner.Commands(),
+			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB, listPreserved},
+				sess.runner.Commands(),
 				"the queries and the pretend of the update, unprivileged; the steps not written yet run nothing")
 		})
 	}
@@ -302,12 +311,12 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 func TestRunAsksBeforeEachStep(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, 'y', ui.KeyEnter, 's', ui.KeyEnter)
+	sess := newSession(t, ui.KeyEnter, 'y', 's', ui.KeyEnter)
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Equal(t, 4, strings.Count(stdout, question+"run the step\n"),
-		"the update, with nothing to update, asks nothing")
+	assert.Equal(t, 3, strings.Count(stdout, question+"run the step\n"),
+		"the update and the preserved rebuild, with nothing to do, ask nothing")
 	assert.Contains(t, stdout, question+"skip the step\n==> config-files skipped: you chose to skip it\n")
 	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
@@ -351,7 +360,7 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 			assert.True(t, strings.HasPrefix(stdout, firstHeading+"    "+noRepository+"\n"), stdout)
 			assert.True(t, strings.HasSuffix(stdout, lastHeading+"    "+notAvailable+"\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
-			assert.Equal(t, []runner.Command{listRepositories, queryVDB}, sess.runner.Commands())
+			assert.Equal(t, []runner.Command{listRepositories, queryVDB, listPreserved}, sess.runner.Commands())
 		})
 	}
 }

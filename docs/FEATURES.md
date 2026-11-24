@@ -11,11 +11,11 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | planned |
+| UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | partial |
 | UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing, taking the usual action at every question and saying so. | done |
 | UPD-3 | Every step can be enabled or disabled in the configuration, and the command and options it runs can be changed. | partial |
 | UPD-4 | Optional steps whose tool is not installed (e.g. `smart-live-rebuild`, `haskell-updater`) are skipped with a notice instead of failing. | partial |
-| UPD-5 | The preserved-library rebuild runs only when Portage reports preserved libraries. | planned |
+| UPD-5 | The preserved-library rebuild runs only when Portage reports preserved libraries. | done |
 | UPD-6 | `--pretend` shows the steps and commands that would run, without running them. | partial |
 | UPD-7 | At the end, a summary lists each step as succeeded, skipped, failed, stopped by an interruption, disabled in the configuration, or not run because the run ended before it, and says whether the run finished, failed or was stopped. | done |
 | UPD-8 | Only one emergup run of a user can be active at a time; a second one refuses to start and says which process holds the run. `--pretend` can run alongside. The lock is a file in the user's own state directory, which emergup refuses to use when another user could change it; runs of different users, such as a user's and a root crontab's, are not kept apart, and Portage's own locks keep the system consistent. | done |

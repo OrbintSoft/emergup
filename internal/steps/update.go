@@ -4,7 +4,6 @@ package steps
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -20,7 +19,6 @@ import (
 const (
 	nothingToUpdate = "nothing to update"
 	notUpdated      = "you chose not to update"
-	abortedRun      = "you aborted the run"
 )
 
 // nothingToMerge matches the line with which emerge --pretend says that it
@@ -74,7 +72,10 @@ func (u updateStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome 
 		return pipeline.Skip(nothingToUpdate)
 	}
 
-	if outcome, goOn := u.ask(ctx, env); !goOn {
+	update := ui.Action{Key: 'y', Name: "update them"}
+	skip := ui.Action{Key: 's', Name: "skip the update"}
+
+	if outcome, goOn := confirm(ctx, env, "Update these packages?", update, skip, notUpdated); !goOn {
 		return outcome
 	}
 
@@ -90,27 +91,6 @@ func (u updateStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome 
 	}
 
 	return pipeline.Success()
-}
-
-// ask asks whether to update the packages the pretend showed, and reports
-// whether to; when not, it returns the step's outcome.
-func (u updateStep) ask(ctx context.Context, env pipeline.Env) (pipeline.Outcome, bool) {
-	update := ui.Action{Key: 'y', Name: "update them"}
-	skip := ui.Action{Key: 's', Name: "skip the update"}
-	abort := ui.Action{Key: 'a', Name: "abort the run"}
-
-	action, err := env.Menu.Ask(ctx, "Update these packages?", update, skip, abort)
-
-	switch {
-	case errors.Is(err, ui.ErrAborted), err == nil && action == abort:
-		return pipeline.Abort(abortedRun), false
-	case err != nil:
-		return pipeline.Fail(err.Error()), false
-	case action == skip:
-		return pipeline.Skip(notUpdated), false
-	}
-
-	return pipeline.Success(), true
 }
 
 // command returns the update's command line, with --pretend or not: the
