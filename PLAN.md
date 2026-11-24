@@ -274,9 +274,22 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         so the post-sync hooks run once; it gets `--color=y` or `--color=n`
         as emergup's own output. A row says what is done with each
         repository; with none due the step is skipped.
-- [ ] **4.2** `@world` update with configurable options and exclusions, each
+- [x] **4.2** `@world` update with configurable options and exclusions, each
       passed as `--exclude`; `--pretend` first, then emergup's confirmation
       (EXC-1, UPD-10).
+      - The pretend runs unprivileged, as it changes nothing; its output is
+        shown as it comes and read for "Total: 0 packages", which skips the
+        step. A failed pretend (conflicts, blockers) fails the step, its
+        output on the terminal and in the log.
+      - The step asks itself, after the pretend: update, skip the update or
+        abort the run; `--yes` goes ahead. The pipeline does not ask its
+        own question of a step that confirms itself, and a step can stop
+        the run. The real command is elevated.
+      - `emergup run --pretend` shows both command lines without running
+        emerge, so it stays fast.
+      - A `make.conf` that only root can read (binhost credentials) would
+        show the unprivileged pretend another configuration than the real
+        run's; no option for it yet.
 - [ ] **4.3** Live-package rebuild by mode (UPD-4, UPD-9): `smart`
       (smart-live-rebuild), `interval` (live packages of `@live-rebuild` whose
       `BUILD_TIME` in the Portage database is older than the interval, rebuilt

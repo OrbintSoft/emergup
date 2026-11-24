@@ -34,6 +34,10 @@ const (
 	// Terminal connects the command to emergup's own standard streams, for
 	// an interactive tool; the log records only the command and its end.
 	Terminal
+	// StreamCapture shows the output as it comes, copies it to the log, and
+	// collects standard output in Result.Output, for a command whose output
+	// the user reads and emergup reads too.
+	StreamCapture
 )
 
 // Command is a program to run, with its arguments, and its Mode.
@@ -50,7 +54,7 @@ type Command struct {
 type Result struct {
 	// ExitCode is the exit status, -1 when a signal ended the command.
 	ExitCode int
-	// Output is the standard output of a Capture command.
+	// Output is the standard output of a Capture or StreamCapture command.
 	Output []byte
 	// Duration is the time from the start of the command to its end.
 	Duration time.Duration
@@ -105,26 +109,15 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 
 	var output bytes.Buffer
 
-	// Each stream has its own plainWriter: they are written to at the same
-	// time, and an escape sequence of one must not end in the other.
-	switch cmd.Mode {
-	case Stream:
-		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), newPlainWriter(log))
-		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
-	case Capture:
-		child.Stdout = io.MultiWriter(&output, newPlainWriter(log))
-		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
-	case Terminal:
-		child.Stdin, child.Stdout, child.Stderr = e.Stdin, e.Stdout, e.Stderr
-	default:
-		return Result{}, fmt.Errorf("%w %d", errUnknownMode, cmd.Mode)
+	if err := e.connect(child, cmd.Mode, log, &output); err != nil {
+		return Result{}, err
 	}
 
 	start := time.Now()
 	err := child.Run()
 	result := Result{ExitCode: 0, Output: nil, Duration: time.Since(start)}
 
-	if cmd.Mode == Capture {
+	if cmd.Mode == Capture || cmd.Mode == StreamCapture {
 		result.Output = output.Bytes()
 	}
 
@@ -146,6 +139,30 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 
 	return result, nil
+}
+
+// connect gives child the standard streams of mode: output to show goes to
+// emergup's own streams, output to collect to output, and both to log.
+// Each stream has its own plainWriter: they are written to at the same
+// time, and an escape sequence of one must not end in the other.
+func (e *Exec) connect(child *exec.Cmd, mode Mode, log io.Writer, output io.Writer) error {
+	switch mode {
+	case Stream:
+		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), newPlainWriter(log))
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
+	case Capture:
+		child.Stdout = io.MultiWriter(output, newPlainWriter(log))
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
+	case Terminal:
+		child.Stdin, child.Stdout, child.Stderr = e.Stdin, e.Stdout, e.Stderr
+	case StreamCapture:
+		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), newPlainWriter(log), output)
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
+	default:
+		return fmt.Errorf("%w %d", errUnknownMode, mode)
+	}
+
+	return nil
 }
 
 func (e *Exec) now() time.Time {

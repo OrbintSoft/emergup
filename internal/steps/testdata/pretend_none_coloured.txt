@@ -1,0 +1,6 @@
+
+These are the packages that would be merged, in order:
+
+Calculating dependencies... done!
+
+[1mTotal: [32m0[0m[1m packages[0m, Size of downloads: 0 KiB

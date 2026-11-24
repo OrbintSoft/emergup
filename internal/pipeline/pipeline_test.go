@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,12 +78,15 @@ type step struct {
 	interrupt  context.CancelFunc
 	pretend    []string
 	pretendErr error
-	ran        bool
+	// confirms makes the step ask its own question.
+	confirms bool
+	ran      bool
 }
 
-func (s *step) Name() string  { return s.name }
-func (s *step) Title() string { return "do " + s.name }
-func (s *step) Enabled() bool { return !s.disabled }
+func (s *step) Name() string         { return s.name }
+func (s *step) Title() string        { return "do " + s.name }
+func (s *step) Enabled() bool        { return !s.disabled }
+func (s *step) ConfirmsItself() bool { return s.confirms }
 
 func (s *step) Pretend(context.Context, pipeline.Env) ([]string, error) {
 	return s.pretend, s.pretendErr
@@ -451,4 +455,40 @@ func TestStatusString(t *testing.T) {
 	for status, want := range tests {
 		require.Equal(t, want, status.String())
 	}
+}
+
+func TestRunDoesNotAskAStepThatConfirmsItself(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t, ui.KeyEnter)
+
+	asks := rig.step("update", 3*time.Second, pipeline.Success())
+	asks.confirms = true
+
+	report := rig.run(t.Context(), asks, rig.step("depclean", time.Second, pipeline.Success()))
+
+	assert.True(t, strings.HasPrefix(rig.out.String(), "==> [1/2] update: do update\n"+
+		"==> update succeeded in 3s\n"+
+		"==> [2/2] depclean: do depclean\n"+question+"run the step\n"), rig.out.String())
+	assert.Equal(t, pipeline.RunFinished, report.Result)
+}
+
+func TestAStepCanStopTheRun(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+
+	aborted := rig.step("update", 3*time.Second, pipeline.Abort("you aborted the run"))
+	aborted.confirms = true
+	last := rig.step("depclean", time.Second, pipeline.Success())
+
+	report := rig.run(t.Context(), aborted, last)
+
+	assert.Contains(t, rig.out.String(), "==> update stopped after 3s: you aborted the run\n"+summary+
+		"    update    stopped        3s  you aborted the run\n"+
+		"    depclean  not run\n"+
+		"==> The run was stopped after 3s.\n")
+	assert.False(t, last.ran)
+	assert.Equal(t, pipeline.RunStopped, report.Result)
 }

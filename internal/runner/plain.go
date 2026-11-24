@@ -181,3 +181,13 @@ func isControlFinal(char byte) bool {
 func isEscapeFinal(char byte) bool {
 	return 0x30 <= char && char <= 0x7e
 }
+
+// StripEscapes returns text without the terminal's escape sequences, as the
+// log has it.
+func StripEscapes(text string) string {
+	var plain strings.Builder
+
+	_, _ = newPlainWriter(&plain).Write([]byte(text))
+
+	return plain.String()
+}

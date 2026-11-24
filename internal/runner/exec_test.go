@@ -114,6 +114,25 @@ func TestCaptureCollectsStandardOutput(t *testing.T) {
 	assert.Contains(t, out.log.String(), "warning\n")
 }
 
+func TestStreamCaptureShowsAndCollectsTheOutput(t *testing.T) {
+	t.Parallel()
+
+	exec, out := newExec("")
+
+	result, err := exec.Run(t.Context(), childCommand(runner.StreamCapture, "green:data", "err:warning"))
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.ExitCode)
+
+	assert.Equal(t, greenEscape+"data"+resetEscape+"\n", out.stdout.String(), "shown as it comes")
+	assert.Equal(t, greenEscape+"data"+resetEscape+"\n", string(result.Output), "and collected as it is")
+	assert.Equal(t, "warning\n", out.stderr.String())
+
+	log := out.log.String()
+	assert.Contains(t, log, "\ndata\n")
+	assert.Contains(t, log, "\nwarning\n")
+	assert.NotContains(t, log, "\x1b")
+}
+
 func TestTerminalConnectsTheStandardStreams(t *testing.T) {
 	t.Parallel()
 
@@ -133,7 +152,7 @@ func TestTerminalConnectsTheStandardStreams(t *testing.T) {
 func TestStreamAndCaptureGiveNoStandardInput(t *testing.T) {
 	t.Parallel()
 
-	for _, mode := range []runner.Mode{runner.Stream, runner.Capture} {
+	for _, mode := range []runner.Mode{runner.Stream, runner.Capture, runner.StreamCapture} {
 		exec, out := newExec("typed\n")
 
 		result, err := exec.Run(t.Context(), childCommand(mode, "echo-stdin"))

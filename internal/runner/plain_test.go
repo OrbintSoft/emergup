@@ -55,3 +55,12 @@ func TestPlainWriterLeavesOutEscapeSequences(t *testing.T) {
 		})
 	}
 }
+
+func TestStripEscapes(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "Total: 0 packages\n", StripEscapes("\x1b[32mTotal: \x1b[1m0\x1b[0m packages\n"))
+	assert.Equal(t, "plain\n", StripEscapes("plain\n"))
+	assert.Equal(t, "after\n", StripEscapes("\x1b]0;title\aafter\n"))
+	assert.Empty(t, StripEscapes(""))
+}
