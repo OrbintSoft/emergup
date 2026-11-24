@@ -461,6 +461,7 @@ From here on, every feature lands with its integration test.
 ## Phase 11 — Documentation, packaging, release  `[ ]`
 
 - [ ] **11.1** User docs: configuration, hooks, AI, installation; README overhaul.
-- [ ] **11.2** GoReleaser and release workflow.
+- [ ] **11.2** The first stable release, `v1.0.0`, through the release workflow
+      of 4.8 (no GoReleaser, see 4.8).
 - [ ] **11.3** Ebuild bumped to the first stable release.
 - [ ] **11.4** Point the old script to emergup and retire it.
