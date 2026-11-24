@@ -61,6 +61,19 @@ func (p Printer) line(style *config.Style, text string) {
 	_, _ = fmt.Fprintf(p.Out, "\x1b[%sm%s%s\x1b[0m\n", sgr, linePrefix, text)
 }
 
+// prompt writes text as a question in the prompt's style, followed by a
+// space and without a newline: the answer ends the line.
+func (p Printer) prompt(text string) {
+	sgr := p.Colors.Prompt.SGR()
+	if !p.Color || sgr == "" {
+		_, _ = fmt.Fprintf(p.Out, "%s%s ", linePrefix, text)
+
+		return
+	}
+
+	_, _ = fmt.Fprintf(p.Out, "\x1b[%sm%s%s\x1b[0m ", sgr, linePrefix, text)
+}
+
 // FormatDuration writes a duration the way the step times show it: "<1s",
 // "42s", "12m03s", and from an hour on to the minute, "2h03m".
 func FormatDuration(duration time.Duration) string {

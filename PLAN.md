@@ -163,7 +163,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       always-synced overlay). A test loads them and checks that the main
       file, uncommented, gives exactly the defaults and shows every setting.
 
-## Phase 3 — Core engine  `[~]`  (PRIV-*, UPD-2, UPD-6–8, UPD-11–13)
+## Phase 3 — Core engine  `[~]`  (PRIV-*, UPD-2, UPD-6–8, UPD-11–14)
 
 - [x] **3.1** Command runner interface (streamed output, tee to a log) and a fake
       for tests: `internal/runner` with three modes (stream to the terminal
@@ -179,8 +179,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       installed) through a small `System` interface, and `elevation.Runner`
       applies it. opendoas becomes the command itself, so it cannot be sent
       SIGTERM by unprivileged emergup; the terminal's Ctrl-C still reaches it.
-- [~] **3.3** Terminal output and prompts: step headings, colours, confirmations,
-      `--yes` (UPD-2, UPD-13). Two PRs: colours first, then the menu.
+- [x] **3.3** Terminal output and prompts: step headings, colours, confirmations,
+      `--yes` (UPD-2, UPD-13, UPD-14). Two PRs: colours first, then the menu.
       - Colours are on when standard output is a terminal, `NO_COLOR` is unset
         or empty and `TERM` is not `dumb`. Each kind of output (heading,
         prompt, success, skip, failure, notice) has a key in `[colors]`
@@ -296,9 +296,10 @@ From here on, every feature lands with its integration test.
         (open question 6). After a chat the failed step can be retried.
       - With `--yes` there are no menus and no AI: a failure aborts the run
         and writes the report.
-      - To decide then: a single key (golang.org/x/term) or a letter and
-        Enter; how much system context is sent by default; investigate as its
-        own key or a deeper explain; explain and chat sharing one session.
+      - The keys are read one at a time, without Enter, as 3.3 decided.
+        To decide then: how much system context is sent by default;
+        investigate as its own key or a deeper explain; explain and chat
+        sharing one session.
 - [ ] **9.1** Backend interface, configuration, "what will be sent" confirmation,
       refusal to run as root (AI-1, AI-2, AI-6).
 - [ ] **9.2** Claude Code backend, with its detection and the setup command

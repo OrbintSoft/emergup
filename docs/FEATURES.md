@@ -12,7 +12,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | planned |
-| UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing. | planned |
+| UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing, taking the usual action at every question and saying so. | planned |
 | UPD-3 | Every step can be enabled or disabled in the configuration, and the command and options it runs can be changed. | planned |
 | UPD-4 | Optional steps whose tool is not installed (e.g. `smart-live-rebuild`, `haskell-updater`) are skipped with a notice instead of failing. | planned |
 | UPD-5 | The preserved-library rebuild runs only when Portage reports preserved libraries. | planned |
@@ -24,6 +24,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | UPD-11 | Interrupting a run (Ctrl-C) lets the running command stop by itself; it is killed only if it is still running 30 seconds later. | planned |
 | UPD-12 | Each step shows how long it took when it ends, and the final summary lists the time of every step and of the whole run. | planned |
 | UPD-13 | On a terminal the output is coloured: step headings, prompts, successes, skips, failures and notices each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log, which is written without colours. `NO_COLOR`, or `TERM=dumb`, turns every colour off. | planned |
+| UPD-14 | A question is answered with one key, without Enter: the keys are shown after the question, Enter takes the usual action (the key in capitals), each other action has its letter and `?` lists them all. Keys pressed before the question appears are ignored, and Ctrl-C or the end of the input aborts instead of answering. When standard input is not a terminal, each answer is a line: a letter, or nothing for the usual action. | planned |
 
 ## Repository sync (SYNC)
 

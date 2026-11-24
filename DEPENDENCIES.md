@@ -47,6 +47,8 @@ Makefile, and only helpers such as pipx and shellcheck come from the image.
 | Module | Purpose | Version and updates |
 | --- | --- | --- |
 | `github.com/pelletier/go-toml/v2` | Reading the TOML configuration files; compiled into the binary. It has no dependencies of its own. | Pinned in [go.mod](go.mod); Dependabot and Renovate bump it. |
+| `golang.org/x/term` | Reading the answer to a question one key at a time, with the terminal in raw mode only while the key is read; compiled into the binary. | Pinned in [go.mod](go.mod); Dependabot and Renovate bump it. |
+| `golang.org/x/sys` | Discarding the keys typed before a question, and required by `golang.org/x/term`; compiled into the binary. | Pinned in [go.mod](go.mod); Dependabot and Renovate bump it. |
 | `github.com/stretchr/testify` | Assertions in the unit tests; not compiled into the binary. | Pinned in [go.mod](go.mod); Dependabot and Renovate bump it. |
 | `go.yaml.in/yaml/v3` | Required by testify (indirect). | Pinned in [go.mod](go.mod); follows testify. |
 
