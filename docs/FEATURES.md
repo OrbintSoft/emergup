@@ -60,7 +60,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | EXC-1 | Packages listed in the configuration are excluded from the `@world` update (e.g. kernel sources, `linux-headers`, `nvidia-drivers`). | done |
-| EXC-2 | Excluded packages that have an update available are listed at the end of the run, so nothing is held back silently. | planned |
+| EXC-2 | Excluded packages that have an update available are listed at the end of the run, so nothing is held back silently. | done |
 
 ## Hooks and custom steps (HOOK)
 

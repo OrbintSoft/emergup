@@ -59,27 +59,36 @@ type Outcome struct {
 	Status Status
 	// Reason says why the step was skipped or failed.
 	Reason string
+	// Notes are what the step has to tell at the end of the run.
+	Notes []Note
+}
+
+// Note is something a step tells at the end of the run, after the
+// summary: a line, and the rows under it.
+type Note struct {
+	Text string
+	Rows []string
 }
 
 // Success is the Outcome of a step that did its work.
 func Success() Outcome {
-	return Outcome{Status: Succeeded, Reason: ""}
+	return Outcome{Status: Succeeded, Reason: "", Notes: nil}
 }
 
 // Skip is the Outcome of a step that had nothing to do, and says why.
 func Skip(reason string) Outcome {
-	return Outcome{Status: Skipped, Reason: reason}
+	return Outcome{Status: Skipped, Reason: reason, Notes: nil}
 }
 
 // Abort is the Outcome of a step at whose question the user stopped the
 // run, and says why.
 func Abort(reason string) Outcome {
-	return Outcome{Status: Stopped, Reason: reason}
+	return Outcome{Status: Stopped, Reason: reason, Notes: nil}
 }
 
 // Fail is the Outcome of a step that failed, and says why.
 func Fail(reason string) Outcome {
-	return Outcome{Status: Failed, Reason: reason}
+	return Outcome{Status: Failed, Reason: reason, Notes: nil}
 }
 
 // Env is what the pipeline and its steps work with.
@@ -145,6 +154,8 @@ type StepReport struct {
 	// it took.
 	Ran      bool
 	Duration time.Duration
+	// Notes are what the step had to tell at the end of the run.
+	Notes []Note
 }
 
 // Report is how a run went.
@@ -176,7 +187,7 @@ func Run(ctx context.Context, env Env, steps []Step) Report {
 		}
 
 		report.Steps = append(report.Steps, StepReport{
-			Name: step.Name(), Status: status, Reason: "", Ran: false, Duration: 0,
+			Name: step.Name(), Status: status, Reason: "", Ran: false, Duration: 0, Notes: nil,
 		})
 	}
 
@@ -226,7 +237,7 @@ func runStep(ctx context.Context, env Env, step Step, heading string, report *St
 	begin := env.Now()
 	outcome := step.Run(ctx, env)
 	report.Ran, report.Duration = true, env.Now().Sub(begin)
-	report.Status, report.Reason = outcome.Status, outcome.Reason
+	report.Status, report.Reason, report.Notes = outcome.Status, outcome.Reason, outcome.Notes
 
 	if ctx.Err() != nil && outcome.Status != Succeeded {
 		report.Status = Stopped

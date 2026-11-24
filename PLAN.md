@@ -335,7 +335,16 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         the run) and runs the depclean elevated. `--yes` goes ahead, as
         UPD-10 says; emerge itself refuses a depclean whose dependencies it
         cannot resolve, which fails the step at the pretend.
-- [ ] **4.7** Held-back report for excluded packages (EXC-2).
+- [x] **4.7** Held-back report for excluded packages (EXC-2).
+      - Once the update has updated, or had nothing to update, the excluded
+        entries are checked with one unprivileged `emerge --pretend --update
+        --nodeps`, not shown: a line with `U` (not a downgrade) or a new
+        slot (`NS`) is a package held back; a new install (`N`) is an
+        excluded package that is not installed. Entries with a wildcard,
+        which emerge refuses there, are named as not checked.
+      - A step can leave notes, which the pipeline writes after the rows of
+        the summary: "2 excluded packages have an update:" and a row for
+        each. A failed check is a note, not a failure of the update.
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
       - The README gets its badges, as the other OrbintSoft repositories have
         them: CI, release, coverage, licence and sponsor. The release and
