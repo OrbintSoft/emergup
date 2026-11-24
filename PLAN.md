@@ -411,19 +411,53 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 From here on, every feature lands with its integration test.
 
-## Phase 6 — Hooks and custom steps  `[ ]`  (HOOK-*)
+## Phase 6 — Hooks and custom steps  `[ ]`  (HOOK-*, PRIV-3, PRIV-5, UPD-16)
+
+This phase also brings what the old script still does and phase 4 left out:
+`haskell-updater` after the preserved-library rebuild (6.3), the user's
+editor in `dispatch-conf`, which the script kept with `sudo -E` (6.5), and the
+live packages to rebuild shown before they are (6.6); and, new, a backup
+check before the run (6.2, 6.4).
 
 - [ ] **6.1** Hooks before/after the run and each step, with context in the
       environment (HOOK-1, HOOK-4).
 - [ ] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
+      - A failed check asks: run the remedy and check again, go on without
+        it, or abort the run; Enter, and `--yes`, run the remedy. Without a
+        remedy the question offers only to go on or abort.
+      - The check runs as the invoking user; the remedy can be configured to
+        be elevated, as a backup tool must (PRIV-3).
 - [ ] **6.3** Custom steps (HOOK-3).
       - A custom step can be optional: when its program is not installed it
         is skipped with a notice instead of failing (UPD-4). The example
         configuration has one that runs `haskell-updater` after the
         preserved-library rebuild; nothing in emergup is specific to one
         language's tools.
+      - A custom step runs as the invoking user unless it is configured to be
+        elevated (PRIV-3), as `haskell-updater` must be. The example runs
+        `haskell-updater --quiet -- --verbose`: emergup asks before the step,
+        so the options of emerge have no `--ask`.
 - [ ] **6.4** Example hook: backup freshness check (generic: age of a file or of
       a command's output), with a remedy that starts the configured backup tool.
+      - The check, a Bash script among the examples, passes when the newest
+        file matching a pattern in a directory is younger than a number of
+        days, such as a backup descriptor of redo-backup (`*.redo`) no older
+        than 20 days. It fails when the directory is not a mount point, so
+        that the remedy never writes a backup onto the root filesystem while
+        the backup disk is missing.
+      - The example configuration runs it before the run, with
+        `redo-backup run <profile>` as its remedy, elevated.
+- [ ] **6.5** The environment of the commands run as root (PRIV-5): an
+      `[elevation]` list of variables to keep, such as `EDITOR`, so that
+      `dispatch-conf` edits with the user's editor. sudo keeps them with
+      `--preserve-env=…`, which the sudoers rule must allow (a rule for
+      `ALL` does), run0 with `--setenv=…`; doas has no such option, and
+      emergup says that `doas.conf` must keep them.
+- [ ] **6.6** The live packages listed before their rebuild in the smart mode
+      (UPD-16): `smart-live-rebuild --pretend` first, then the question,
+      then the rebuild. How the rebuild avoids checking the upstreams a
+      second time (rebuilding the listed packages with `emerge --oneshot`,
+      say) is decided when the item comes.
 
 ## Phase 7 — News  `[ ]`  (NEWS-*)
 
