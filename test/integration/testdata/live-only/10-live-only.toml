@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every step but the live-package rebuild disabled, so that a run only
+# rebuilds the live packages.
+
+[steps.sync]
+enabled = false
+
+[steps.update]
+enabled = false
+
+[steps.preserved-rebuild]
+enabled = false
+
+[steps.config-files]
+enabled = false
+
+[steps.depclean]
+enabled = false

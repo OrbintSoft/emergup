@@ -133,6 +133,18 @@ func (c *container) emergupInput(input string, args ...string) result {
 	return c.exec(tester, input, append([]string{"emergup"}, args...)...)
 }
 
+// emergupRun runs `emergup run` with options as tester, with input on its
+// standard input, and fails the test unless it succeeds; it returns the
+// standard output.
+func (c *container) emergupRun(input string, options ...string) string {
+	c.t.Helper()
+
+	got := c.emergupInput(input, append([]string{"run"}, options...)...)
+	require.Equal(c.t, 0, got.code, "the exit status, with the output:\n%s%s", got.stdout, got.stderr)
+
+	return got.stdout
+}
+
 // emergupTerminal runs emergup with args as tester on a terminal of its
 // own, with no input. A terminal has a single output: everything is in
 // stdout, each line ending with "\r\n".
@@ -170,11 +182,33 @@ func (c *container) install(source, target string) {
 	c.root("chmod", "0644", target)
 }
 
-// publish publishes a new snapshot of the test repository, with a file
-// named name added: Portage syncs an rsync tree only when the timestamp of
-// its upstream has changed, so the snapshot gets a timestamp later than
-// every one before it, the first one a second from now.
+// publish publishes a new snapshot of the test repository, with an empty
+// file named name added.
 func (c *container) publish(name string) {
+	c.t.Helper()
+
+	c.root("touch", upstream+"/"+name)
+	c.stamp()
+}
+
+// publishTree publishes a new snapshot of the test repository, with the
+// files of testdata/name added at the same paths, such as the ebuilds of
+// testdata/name/emergup-test/<package>.
+func (c *container) publishTree(name string) {
+	c.t.Helper()
+
+	copied := c.command(c.t.Context(), nil, "cp", filepath.Join("testdata", name)+"/.", c.id+":"+upstream)
+	require.Equal(c.t, 0, copied.code, "%s is not copied: %s", name, copied.stderr)
+
+	c.root("chown", "-R", "root:root", upstream)
+	c.stamp()
+}
+
+// stamp dates the snapshot of the upstream: Portage syncs an rsync tree
+// only when the timestamp of its upstream has changed, so each snapshot
+// gets a timestamp later than every one before it, the first one a second
+// from now.
+func (c *container) stamp() {
 	c.t.Helper()
 
 	c.snapshots++
@@ -183,8 +217,26 @@ func (c *container) publish(name string) {
 	stamp := filepath.Join(c.t.TempDir(), "timestamp.chk")
 	require.NoError(c.t, os.WriteFile(stamp, []byte(made.Format(time.RFC1123Z)+"\n"), 0o600))
 
-	c.root("touch", upstream+"/"+name)
 	c.install(stamp, upstream+timestamp)
+}
+
+// syncRepository syncs the test repository with emerge, as root, outside
+// emergup.
+func (c *container) syncRepository() {
+	c.t.Helper()
+
+	c.root("emerge", "--sync", "emergup-test")
+}
+
+// version returns the version of the package pn of the test repository
+// that is installed: each one installs a file that holds it.
+func (c *container) version(pn string) string {
+	c.t.Helper()
+
+	got := c.exec(root, "", "cat", "/usr/share/emergup-test/"+pn)
+	require.Equal(c.t, 0, got.code, "%s is not installed: %s", pn, got.stderr)
+
+	return strings.TrimSpace(got.stdout)
 }
 
 // dropIns installs every file of testdata/name in /etc/emergup/config.d.
