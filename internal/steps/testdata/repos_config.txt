@@ -1,0 +1,26 @@
+[DEFAULT]
+auto-sync = yes
+main-repo = gentoo
+
+[gentoo]
+location = /var/db/repos/gentoo
+priority = -1000
+sync-type = rsync
+sync-uri = rsync://mirror.example.org/gentoo-portage
+
+[guru]
+location = /var/db/repos/guru
+masters = gentoo
+sync-type = git
+sync-uri = https://git.example.org/guru.git
+
+[local]
+location = /var/db/repos/local
+masters = gentoo
+
+[frozen]
+auto-sync = no
+location = /var/db/repos/frozen
+masters = gentoo
+sync-type = git
+sync-uri = https://git.example.org/frozen.git

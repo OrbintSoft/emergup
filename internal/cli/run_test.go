@@ -30,6 +30,7 @@ const (
 	question       = "==> Run this step? [Y/s/a/?] "
 	withYes        = question + "run the step (--yes)\n"
 	notAvailable   = "not available yet in this version of emergup"
+	noRepository   = "no repository to sync"
 	firstHeading   = "==> [1/6] sync: sync the repositories\n"
 	lastHeading    = "==> [6/6] depclean: remove the packages no longer needed\n"
 	finished       = "==> The run finished in <1s.\n"
@@ -45,6 +46,13 @@ const (
 	configFile     = "etc/emergup/config.toml"
 	logLine        = "==> The log is in " + runDir + "/emergup.log\n"
 )
+
+// listRepositories is the command the sync lists the repositories with.
+//
+//nolint:gochecknoglobals // The query several tests expect.
+var listRepositories = runner.Command{
+	Args: []string{"portageq", "repos_config", "/"}, Mode: runner.Capture, Root: false,
+}
 
 // Errors of the fake run directories.
 var (
@@ -219,12 +227,14 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 			assert.Equal(t, 0, code)
 			assert.Empty(t, stderr)
 			assert.True(t, strings.HasPrefix(stdout, firstHeading+withYes+
-				"==> sync skipped: "+notAvailable+"\n"), stdout)
+				"==> sync skipped: "+noRepository+"\n"), stdout)
 			assert.Contains(t, stdout, lastHeading)
 			assert.Contains(t, stdout, "==> Summary\n"+
-				"    sync               skipped       <1s  "+notAvailable+"\n")
+				"    sync               skipped       <1s  "+noRepository+"\n"+
+				"    update             skipped       <1s  "+notAvailable+"\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Empty(t, sess.runner.Commands(), "the steps not written yet run nothing")
+			assert.Equal(t, []runner.Command{listRepositories}, sess.runner.Commands(),
+				"the listing of the repositories, unprivileged; the steps not written yet run nothing")
 		})
 	}
 }
@@ -277,10 +287,10 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 			code, stdout, stderr := sess.run(t, commandRun, option)
 			assert.Equal(t, 0, code)
 			assert.Empty(t, stderr)
-			assert.True(t, strings.HasPrefix(stdout, firstHeading+"    "+notAvailable+"\n"), stdout)
+			assert.True(t, strings.HasPrefix(stdout, firstHeading+"    "+noRepository+"\n"), stdout)
 			assert.True(t, strings.HasSuffix(stdout, lastHeading+"    "+notAvailable+"\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
-			assert.Empty(t, sess.runner.Commands())
+			assert.Equal(t, []runner.Command{listRepositories}, sess.runner.Commands())
 		})
 	}
 }
@@ -523,4 +533,35 @@ func TestRunMakesNoRunDirectoryWhileAnotherRunIsActive(t *testing.T) {
 	code, _, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 1, code)
 	assert.False(t, sess.runs.created)
+}
+
+func TestRunForceSyncSyncsEveryRepository(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"without it", nil, "    gentoo  synced 1h00m ago, kept\n    nothing to sync\n"},
+		{"with it", []string{"--force-sync"}, "    gentoo  --force-sync\n    emerge --sync --color=n gentoo\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sess := newSession(t)
+			sess.keys.silent = true
+			sess.root = fstest.MapFS{
+				"var/db/repos/gentoo/metadata/timestamp.chk": {Data: []byte("Tue, 24 Nov 2026 09:00:00 +0000\n")},
+			}
+			sess.runner.Script(runnertest.Answer{Result: runner.Result{
+				ExitCode: 0, Output: []byte("[gentoo]\nlocation = /var/db/repos/gentoo\nsync-type = rsync\n"),
+			}})
+
+			code, stdout, _ := sess.run(t, append([]string{commandRun, optionPretend}, tt.args...)...)
+			assert.Equal(t, 0, code)
+			assert.Contains(t, stdout, firstHeading+tt.want)
+		})
+	}
 }

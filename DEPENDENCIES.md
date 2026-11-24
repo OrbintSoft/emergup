@@ -54,4 +54,11 @@ Makefile, and only helpers such as pipx and shellcheck come from the image.
 
 ## Runtime
 
-None yet.
+The commands emergup runs on the system it updates. They are the system's
+own: emergup does not pin or update them.
+
+| Command | Purpose | Package |
+| --- | --- | --- |
+| `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. | `sys-apps/portage` |
+| `portageq` | Listing the repositories, their location and how they sync (`portageq repos_config /`), unprivileged and read-only. | `sys-apps/portage` |
+| `sudo`, `doas` or `run0` | Running the commands that need root, when emergup is not root; the first one installed, or the one the configuration names. | `app-admin/sudo`, `app-admin/doas`, `sys-apps/systemd` |

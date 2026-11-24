@@ -14,13 +14,19 @@ import (
 // notAvailable is what a step whose work is not written yet says.
 const notAvailable = "not available yet in this version of emergup"
 
+// Options are the options of a run that change what the steps do.
+type Options struct {
+	// ForceSync syncs every repository, whatever its last sync.
+	ForceSync bool
+}
+
 // BuiltIn returns the built-in steps that cfg sets up, in the order of the
 // [steps] section of the configuration.
-func BuiltIn(cfg config.Config) []pipeline.Step {
+func BuiltIn(cfg config.Config, options Options) []pipeline.Step {
 	built := cfg.Steps
 
 	return []pipeline.Step{
-		placeholder{name: "sync", title: "sync the repositories", enabled: built.Sync.Enabled},
+		syncStep{config: built.Sync, force: options.ForceSync},
 		placeholder{name: "update", title: "update " + built.Update.Target, enabled: built.Update.Enabled},
 		placeholder{name: "live-rebuild", title: "rebuild the live packages", enabled: built.LiveRebuild.Enabled},
 		placeholder{
