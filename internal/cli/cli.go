@@ -14,8 +14,14 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/OrbintSoft/emergup/internal/config"
+	"github.com/OrbintSoft/emergup/internal/elevation"
+	"github.com/OrbintSoft/emergup/internal/pipeline"
+	"github.com/OrbintSoft/emergup/internal/runner"
+	"github.com/OrbintSoft/emergup/internal/steps"
+	"github.com/OrbintSoft/emergup/internal/ui"
 	"github.com/OrbintSoft/emergup/internal/version"
 )
 
@@ -24,7 +30,14 @@ const (
 	exitOK      = 0
 	exitProblem = 1
 	exitUsage   = 2
+	// exitStopped is 128 plus the number of SIGINT, as a shell reports a
+	// command that Ctrl-C ended.
+	exitStopped = 130
 )
+
+// runningAsRoot is the notice of a run started as root.
+const runningAsRoot = "Running as root: the commands run without sudo, doas or run0, " +
+	"and AI assistance is off."
 
 // usage is the help text; %[1]s is the name the program was invoked as.
 const usage = `usage: %[1]s <command>
@@ -32,6 +45,9 @@ const usage = `usage: %[1]s <command>
 Drive the routine Gentoo update workflow.
 
 commands:
+  run            update the system, step by step
+    -y, --yes      take the usual answer to every question
+    -p, --pretend  show the steps and what they would run, and run nothing
   config check   validate the configuration files and report each problem
   config show    print the configuration in effect and where each value comes from
   version        print the emergup version (also --version)
@@ -47,6 +63,16 @@ type Env struct {
 	// Root is the system's root file system, from which the configuration is
 	// read.
 	Root fs.FS
+	// Keyboard reads the answers to the questions.
+	Keyboard ui.Keyboard
+	// Runner runs the commands of the steps; System is what the elevation
+	// looks at.
+	Runner runner.Runner
+	System elevation.System
+	// Color turns emergup's colours on, see ui.ColorEnabled.
+	Color bool
+	// Now gives the time; nil means time.Now.
+	Now func() time.Time
 }
 
 // Main runs one invocation and returns the process exit status.
@@ -78,11 +104,113 @@ func Main(ctx context.Context, env Env, invokedAs string, args []string) int {
 		printUsage(stdout, prog)
 
 		return exitOK
+	case "run":
+		return runCommand(ctx, env, prog, rest)
 	case "config":
 		return configCommand(ctx, env, prog, rest)
 	default:
 		return unknownCommand(stderr, prog, command)
 	}
+}
+
+// runOptions are the options of `run`.
+type runOptions struct {
+	yes     bool
+	pretend bool
+}
+
+// runCommand runs `run`: the built-in steps, one after the other, or with
+// --pretend what they would do.
+func runCommand(ctx context.Context, env Env, prog string, args []string) int {
+	options, valid := parseRunOptions(env.Stderr, prog, args)
+	if !valid {
+		return exitUsage
+	}
+
+	cfg, err := config.Load(ctx, env.Root)
+	if err != nil {
+		return reportProblems(env.Stderr, err)
+	}
+
+	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color}
+	if elevation.IsRoot(env.System) {
+		printer.Notice(runningAsRoot)
+	}
+
+	// Without a way to run the commands that need root, a run stops before
+	// its first step rather than halfway through.
+	prefix, err := elevation.Resolve(cfg.Elevation.Method, env.System)
+	if err != nil {
+		if !options.pretend {
+			printer.Failure(err.Error())
+
+			return exitProblem
+		}
+
+		printer.Notice(err.Error() + "; a run would stop before its first step")
+	}
+
+	stepsEnv := pipeline.Env{
+		Runner:  elevation.Runner{Next: env.Runner, Prefix: prefix},
+		Printer: printer,
+		Menu:    ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: options.yes},
+		Now:     env.now(),
+	}
+	builtIn := steps.BuiltIn(cfg)
+
+	if options.pretend {
+		return exitStatus(pipeline.Pretend(ctx, stepsEnv, builtIn))
+	}
+
+	return exitStatus(pipeline.Run(ctx, stepsEnv, builtIn).Result)
+}
+
+// parseRunOptions reads the options of `run`; on a mistake it writes it with
+// the usage and returns false.
+func parseRunOptions(stderr io.Writer, prog string, args []string) (runOptions, bool) {
+	options := runOptions{yes: false, pretend: false}
+
+	for _, arg := range args {
+		switch arg {
+		case "-y", "--yes":
+			options.yes = true
+		case "-p", "--pretend":
+			options.pretend = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				unknownOption(stderr, prog, "run", arg)
+			} else {
+				unexpectedArgument(stderr, prog, "run", arg)
+			}
+
+			return options, false
+		}
+	}
+
+	return options, true
+}
+
+// exitStatus returns the exit status of a run that ended with result.
+func exitStatus(result pipeline.Result) int {
+	switch result {
+	case pipeline.RunFinished:
+		return exitOK
+	case pipeline.RunFailed:
+		return exitProblem
+	case pipeline.RunStopped:
+		return exitStopped
+	}
+
+	return exitProblem
+}
+
+// now returns env's clock.
+func (env Env) now() func() time.Time {
+	if env.Now != nil {
+		return env.Now
+	}
+
+	return time.Now
 }
 
 // configCommand runs `config check` or `config show`.
@@ -169,6 +297,11 @@ func unknownCommand(stderr io.Writer, prog, command string) int {
 	printUsage(stderr, prog)
 
 	return exitUsage
+}
+
+func unknownOption(stderr io.Writer, prog, command, option string) {
+	_, _ = fmt.Fprintf(stderr, "%s %s: unknown option %q\n\n", prog, command, option)
+	printUsage(stderr, prog)
 }
 
 func unexpectedArgument(stderr io.Writer, prog, command, arg string) int {

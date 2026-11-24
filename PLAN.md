@@ -202,7 +202,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         otherwise answer the next question. Ctrl-C and the end of the input
         abort, never take the usual action. `--yes` takes the usual action
         and says so; the flag itself comes with `run` in 3.4.
-- [~] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
+- [x] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
       with the time of each step and of the run (UPD-3, UPD-6, UPD-7, UPD-12).
       Two PRs: the engine (`internal/pipeline`), then `emergup run`.
       - Each enabled step has a heading (`[2/6] update: update @world`), the
@@ -248,6 +248,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 - [ ] **4.6** Depclean, `--pretend` first (UPD-10).
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.
+      - The README gets its badges, as the other OrbintSoft repositories have
+        them: CI, release, coverage, licence and sponsor. The release and
+        coverage badges need their workflows (coverage published to a branch
+        of its own, as in redo-backups).
 - [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
       (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
       packaged as soon as it can be used, and each pre-release bumps it.

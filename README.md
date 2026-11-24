@@ -6,9 +6,9 @@ config-file updates and cleans up — pausing between steps, asking for root onl
 when a step needs it, and helping you when something breaks.
 
 > **Status: early development — not usable yet.** The configuration can be
-> written and checked, but the update itself does not run yet. See
-> [PLAN.md](PLAN.md) for the roadmap and [docs/FEATURES.md](docs/FEATURES.md)
-> for what emergup will do.
+> written and checked, and `emergup run` goes through the steps, but the steps
+> do not do their work yet. See [PLAN.md](PLAN.md) for the roadmap and
+> [docs/FEATURES.md](docs/FEATURES.md) for what emergup will do.
 
 ## Why
 

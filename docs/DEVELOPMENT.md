@@ -76,13 +76,14 @@ one, so an older golangci-lint installed on the system may fail where
 
 | Path | Contents |
 | --- | --- |
-| `cmd/emergup` | `main`: creates the root context and calls `cli.Main`; nothing else. |
+| `cmd/emergup` | `main`: creates the root context, gives `cli.Main` the real system (standard streams, files, commands, clock) and exits with its status; nothing else. |
 | `internal/cli` | Subcommand dispatch, option parsing and the usage text, hand-written and unit-tested. |
 | `internal/config` | The configuration: its types, the generic defaults, and the loader that reads `config.toml` and `config.d`. |
 | `internal/runner` | Running the external commands: output shown, collected or left to the terminal, copied to a log without colours, stopped cleanly on Ctrl-C. `runnertest` holds the fake the other packages' tests use. |
 | `internal/elevation` | Running the commands that need root through sudo, doas or run0, or directly as root. |
 | `internal/ui` | emergup's own output on the terminal: a line for each kind of message in its colour, the durations, and the questions, each answered with one key. |
 | `internal/pipeline` | Running the steps of an update in order: each announced and confirmed, how it ended and how long it took, and the summary of the run. |
+| `internal/steps` | The built-in steps, in the order of the `[steps]` section, as the configuration sets them up. |
 | `internal/version` | The version `emergup version` reports. |
 | `examples/etc/emergup` | The example configuration; `make test` checks that it loads and that the main file shows the generic defaults. |
 | `docs/FEATURES.md` | What emergup promises its users, one entry per feature. |

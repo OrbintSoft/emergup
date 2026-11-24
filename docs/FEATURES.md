@@ -12,19 +12,19 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | planned |
-| UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing, taking the usual action at every question and saying so. | planned |
-| UPD-3 | Every step can be enabled or disabled in the configuration, and the command and options it runs can be changed. | planned |
+| UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing, taking the usual action at every question and saying so. | done |
+| UPD-3 | Every step can be enabled or disabled in the configuration, and the command and options it runs can be changed. | partial |
 | UPD-4 | Optional steps whose tool is not installed (e.g. `smart-live-rebuild`, `haskell-updater`) are skipped with a notice instead of failing. | planned |
 | UPD-5 | The preserved-library rebuild runs only when Portage reports preserved libraries. | planned |
-| UPD-6 | `--pretend` shows the steps and commands that would run, without running them. | planned |
-| UPD-7 | At the end, a summary lists each step as succeeded, skipped, failed, stopped by an interruption, disabled in the configuration, or not run because the run ended before it, and says whether the run finished, failed or was stopped. | planned |
+| UPD-6 | `--pretend` shows the steps and commands that would run, without running them. | partial |
+| UPD-7 | At the end, a summary lists each step as succeeded, skipped, failed, stopped by an interruption, disabled in the configuration, or not run because the run ended before it, and says whether the run finished, failed or was stopped. | done |
 | UPD-8 | Only one emergup run can be active at a time; a second one refuses to start and says why. | planned |
 | UPD-9 | The live-package rebuild has a mode: `smart` runs smart-live-rebuild; `interval` rebuilds each live package built longer ago than a configurable interval (24 hours by default); `always` rebuilds every live package; `auto`, the default, is `smart` when smart-live-rebuild is installed and `interval` otherwise. | planned |
 | UPD-10 | Before the `@world` update and the depclean, emergup shows what emerge would do (`--pretend`) and asks for confirmation itself; with `--yes` it goes ahead without asking. | planned |
 | UPD-11 | Interrupting a run (Ctrl-C) lets the running command stop by itself; it is killed only if it is still running 30 seconds later. | planned |
-| UPD-12 | Each step shows how long it took when it ends, and the final summary lists the time of every step and of the whole run. | planned |
-| UPD-13 | On a terminal the output is coloured: step headings, prompts, successes, skips, failures and notices each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log, which is written without colours. `NO_COLOR`, or `TERM=dumb`, turns every colour off. | planned |
-| UPD-14 | A question is answered with one key, without Enter: the keys are shown after the question, Enter takes the usual action (the key in capitals), each other action has its letter and `?` lists them all. Keys pressed before the question appears are ignored, and Ctrl-C or the end of the input aborts instead of answering. When standard input is not a terminal, each answer is a line: a letter, or nothing for the usual action. | planned |
+| UPD-12 | Each step shows how long it took when it ends, and the final summary lists the time of every step and of the whole run. | done |
+| UPD-13 | On a terminal the output is coloured: step headings, prompts, successes, skips, failures and notices each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log, which is written without colours. `NO_COLOR`, or `TERM=dumb`, turns every colour off. | partial |
+| UPD-14 | A question is answered with one key, without Enter: the keys are shown after the question, Enter takes the usual action (the key in capitals), each other action has its letter and `?` lists them all. Keys pressed before the question appears are ignored, and Ctrl-C or the end of the input aborts instead of answering. When standard input is not a terminal, each answer is a line: a letter, or nothing for the usual action. | done |
 
 ## Repository sync (SYNC)
 
@@ -39,9 +39,9 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | Id | Feature | Status |
 | --- | --- | --- |
 | PRIV-1 | emergup is started as an ordinary user and asks for elevation only for the commands that need root. | planned |
-| PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. When none is installed, emergup says so before a run that needs root starts, not halfway through it. | planned |
+| PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. When none is installed, emergup says so before a run that needs root starts, not halfway through it. | done |
 | PRIV-3 | Hooks and AI backends run as the invoking user, unless a hook is explicitly configured to be elevated. | planned |
-| PRIV-4 | Started as root (a root shell, a root crontab), emergup runs the commands directly, turns AI assistance off, and says so once at the start. | planned |
+| PRIV-4 | Started as root (a root shell, a root crontab), emergup runs the commands directly, turns AI assistance off, and says so once at the start. | done |
 
 ## Configuration (CFG)
 
@@ -52,7 +52,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | CFG-3 | `emergup config check` validates the configuration and reports each problem with its file and line, exiting with status 1 when there is one; unknown keys are errors. | done |
 | CFG-4 | `emergup config show` prints the effective configuration as TOML, each value with the file it came from or `default`. | done |
 | CFG-5 | Lists of entries (excluded packages, always-synced repositories) add up across the configuration files, like `USE` in `make.conf`: a later file adds entries, `-entry` removes one added earlier and `-*` clears the list; any other value set by a later file replaces the earlier one. | done |
-| CFG-6 | The colour of each kind of output (step headings, prompts, successes, skips, failures, notices) can be changed in the configuration to suit the terminal's theme, or turned off for that kind alone. A colour is written as words separated by spaces: attributes (`bold`, `dim`, `italic`, `underline`, `reverse`) and up to two colours, the text's then the background's, each a name (`red`, `bright-red`, `default`), a number from 0 to 255 or `#rrggbb`; `""` leaves that kind plain. | planned |
+| CFG-6 | The colour of each kind of output (step headings, prompts, successes, skips, failures, notices) can be changed in the configuration to suit the terminal's theme, or turned off for that kind alone. A colour is written as words separated by spaces: attributes (`bold`, `dim`, `italic`, `underline`, `reverse`) and up to two colours, the text's then the background's, each a name (`red`, `bright-red`, `default`), a number from 0 to 255 or `#rrggbb`; `""` leaves that kind plain. | done |
 
 ## Package exclusions (EXC)
 
@@ -109,3 +109,4 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | --- | --- | --- |
 | CLI-1 | `emergup version` (or `--version`) prints the emergup version. | done |
 | CLI-2 | `emergup help` (or `-h`, `--help`) prints the usage on standard output; a missing or unknown command, or an unexpected argument, prints the usage on standard error and exits with status 2. | done |
+| CLI-3 | `emergup run` runs the update step by step; `-y` (`--yes`) takes the usual answer to every question and `-p` (`--pretend`) shows the steps without running them. It exits with status 0 when every step succeeded or was skipped, 1 when a step failed or the run could not start, and 130 when the run was stopped: Ctrl-C, `SIGTERM`, the abort key or the end of the input at a question. | done |
