@@ -158,8 +158,8 @@ func TestPreservedRebuildAnswers(t *testing.T) {
 		outcome pipeline.Outcome
 	}{
 		{"skip the rebuild", []rune{'s'}, pipeline.Skip("you chose not to rebuild them")},
-		{"abort the run", []rune{'a'}, pipeline.Abort("you aborted the run")},
-		{"the end of the input", nil, pipeline.Abort("you aborted the run")},
+		{caseAbort, []rune{'a'}, pipeline.Abort("you aborted the run")},
+		{caseEndOfInput, nil, pipeline.Abort("you aborted the run")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestPreservedRebuildFails(t *testing.T) {
 		want    string
 	}{
 		{
-			"when portageq fails",
+			whenPortageqFails,
 			[]runnertest.Answer{{Result: runner.Result{ExitCode: 2}}},
 			"could not list the preserved libraries: portageq exited with status 2",
 		},
