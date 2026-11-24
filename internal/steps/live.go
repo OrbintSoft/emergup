@@ -238,7 +238,7 @@ func (l liveStep) plan(ctx context.Context, env pipeline.Env, mode config.LiveRe
 // packageDatabase asks Portage where the installed packages are; the query
 // changes nothing, so it runs unprivileged.
 func packageDatabase(ctx context.Context, run runner.Runner) (string, error) {
-	command := []string{"portageq", "vdb_path"}
+	command := []string{portageq, "vdb_path"}
 
 	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
 	if err != nil {

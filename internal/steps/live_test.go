@@ -35,7 +35,7 @@ const (
 // queryVDB is the command that asks where the installed packages are.
 //
 //nolint:gochecknoglobals // The query several tests expect.
-var queryVDB = runner.Command{Args: []string{"portageq", "vdb_path"}, Mode: runner.Capture, Root: false}
+var queryVDB = runner.Command{Args: []string{portageq, "vdb_path"}, Mode: runner.Capture, Root: false}
 
 // builtAgo returns the content of a BUILD_TIME written ago before now.
 func builtAgo(ago time.Duration) *fstest.MapFile {
@@ -269,7 +269,7 @@ func liveFailures() []liveFailure {
 			"could not find the installed packages: portageq named no database",
 		},
 		{
-			"when emerge fails", config.LiveRebuildInterval,
+			whenEmergeFails, config.LiveRebuildInterval,
 			[]runnertest.Answer{
 				{Result: runner.Result{ExitCode: 0, Output: []byte("/var/db/pkg\n")}},
 				{Result: runner.Result{ExitCode: 1}},

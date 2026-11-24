@@ -29,11 +29,7 @@ func BuiltIn(cfg config.Config, options Options) []pipeline.Step {
 		syncStep{config: built.Sync, force: options.ForceSync},
 		updateStep{config: built.Update},
 		liveStep{config: built.LiveRebuild},
-		placeholder{
-			name:    "preserved-rebuild",
-			title:   "rebuild the packages that use preserved libraries",
-			enabled: built.PreservedRebuild.Enabled,
-		},
+		preservedStep{config: built.PreservedRebuild},
 		placeholder{name: "config-files", title: "update the configuration files", enabled: built.ConfigFiles.Enabled},
 		placeholder{name: "depclean", title: "remove the packages no longer needed", enabled: built.Depclean.Enabled},
 	}

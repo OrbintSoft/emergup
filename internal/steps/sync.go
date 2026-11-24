@@ -196,7 +196,7 @@ func alwaysSyncNotices(always config.Entries, repositories []repository) []strin
 // listRepositories asks Portage for its repositories, as repos.conf sets
 // them up; the query changes nothing, so it runs unprivileged.
 func listRepositories(ctx context.Context, run runner.Runner) ([]repository, error) {
-	command := []string{"portageq", "repos_config", "/"}
+	command := []string{portageq, "repos_config", "/"}
 
 	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
 	if err != nil {
@@ -208,16 +208,6 @@ func listRepositories(ctx context.Context, run runner.Runner) ([]repository, err
 	}
 
 	return parseReposConfig(string(result.Output)), nil
-}
-
-// exitError is a command that ended with a status other than 0.
-type exitError struct {
-	command string
-	code    int
-}
-
-func (e exitError) Error() string {
-	return fmt.Sprintf("%s exited with status %d", e.command, e.code)
 }
 
 // The timestamp of an rsync or webrsync tree, which tells when the tree

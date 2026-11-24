@@ -30,6 +30,8 @@ const (
 	guru            = "guru"
 	emergeSync      = "--sync"
 	emerge          = "emerge"
+	portageq        = "portageq"
+	whenEmergeFails = "when emerge fails"
 )
 
 // errCannotStart is the error of a command that does not start.
@@ -41,7 +43,7 @@ var now = time.Date(2026, 11, 24, 10, 12, 0, 0, time.UTC) //nolint:gochecknoglob
 // The commands the sync runs.
 var (
 	//nolint:gochecknoglobals // The query every test expects.
-	listRepositories = runner.Command{Args: []string{"portageq", "repos_config", "/"}, Mode: runner.Capture, Root: false}
+	listRepositories = runner.Command{Args: []string{portageq, "repos_config", "/"}, Mode: runner.Capture, Root: false}
 )
 
 // syncRun is a run of the sync step on a system whose repositories are
@@ -283,7 +285,7 @@ func TestSyncFails(t *testing.T) {
 			"could not list the repositories: " + errCannotStart.Error(), 1,
 		},
 		{
-			"when emerge fails",
+			whenEmergeFails,
 			[]runnertest.Answer{{}, {Result: runner.Result{ExitCode: 1}}},
 			emergeFailed, 2,
 		},

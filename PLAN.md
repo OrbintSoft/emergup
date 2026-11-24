@@ -99,8 +99,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 6. **Applying AI fixes:** emergup applies a proposed change after confirmation,
    or hands off to an interactive Claude Code session? (Phase 9) Proposed in
    9.0: both, one per action.
-7. **`haskell-updater`:** built-in optional step skipped when not installed
-   (proposed), or only an example custom step? (Phase 4)
+7. ~~**`haskell-updater`**~~ — answered: no step for one ecosystem. It is
+   run by a custom step (6.3), which can be optional: skipped with a notice
+   when its program is not installed (UPD-4). The example configuration
+   shows it.
 
 ---
 
@@ -305,8 +307,14 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         when it is installed and `interval` otherwise, and says so.
       - The pipeline asks "Run this step?" as for any step: only the
         `@world` update and the depclean show a pretend first.
-- [ ] **4.4** Preserved-library rebuild, only when needed; `haskell-updater`
+- [x] **4.4** Preserved-library rebuild, only when needed; `haskell-updater`
       (UPD-5; open question 7).
+      - The preserved libraries come from `portageq list_preserved_libs /`,
+        unprivileged; with none, the step is skipped without a question.
+        Otherwise a row names each one, the step asks itself (rebuild,
+        skip, abort the run) and runs `emerge @preserved-rebuild`, elevated.
+      - With nothing to do the step skips without asking, so it confirms
+        itself; `haskell-updater` is not a built-in step (open question 7).
 - [ ] **4.5** Config-file updates delegated to `dispatch-conf` (ETC-3).
 - [ ] **4.6** Depclean, `--pretend` first (UPD-10).
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
@@ -334,6 +342,11 @@ From here on, every feature lands with its integration test.
       environment (HOOK-1, HOOK-4).
 - [ ] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
 - [ ] **6.3** Custom steps (HOOK-3).
+      - A custom step can be optional: when its program is not installed it
+        is skipped with a notice instead of failing (UPD-4). The example
+        configuration has one that runs `haskell-updater` after the
+        preserved-library rebuild; nothing in emergup is specific to one
+        language's tools.
 - [ ] **6.4** Example hook: backup freshness check (generic: age of a file or of
       a command's output), with a remedy that starts the configured backup tool.
 
