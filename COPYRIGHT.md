@@ -31,6 +31,11 @@ Compiled into the distributed binary:
 - **[go-toml](https://github.com/pelletier/go-toml)**
   (`github.com/pelletier/go-toml/v2`), which reads the configuration files —
   MIT.
+- **[term](https://pkg.go.dev/golang.org/x/term)** (`golang.org/x/term`), which
+  reads a key at a time from the terminal — BSD-3-Clause.
+- **[sys](https://pkg.go.dev/golang.org/x/sys)** (`golang.org/x/sys`), which
+  discards the keys typed before a question, and which term uses —
+  BSD-3-Clause.
 
 Used only by the tests, not compiled into the binary:
 
