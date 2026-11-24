@@ -21,6 +21,7 @@ const (
 	keyMinInterval = "steps.sync.min-interval"
 	keyMode        = "steps.live-rebuild.mode"
 	keyHeading     = "colors.heading"
+	keyKeep        = "runs.keep"
 	unknownKey     = "unknown key"
 	emptyCommand   = "empty command"
 	otherFile      = "/f.toml"
@@ -145,6 +146,14 @@ func TestLoadReportsWhereEachProblemIs(t *testing.T) {
 		{
 			"empty smart command", "[steps.live-rebuild]\nsmart-command = []\n",
 			2, 1, "steps.live-rebuild.smart-command", emptyCommand,
+		},
+		{
+			"negative number of runs to keep", "[runs]\nkeep = -1\n",
+			2, 1, keyKeep, "must be 0 or more; 0 keeps every run",
+		},
+		{
+			"string for an integer", "[runs]\nkeep = \"ten\"\n",
+			2, 8, keyKeep, "expected an integer, found a string",
 		},
 		{
 			"empty target", "[steps.update]\ntarget = \"\"\n",

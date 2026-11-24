@@ -93,3 +93,11 @@
 #skip = "yellow"          # a step that was skipped, and why
 #failure = "bold red"     # a step or command that failed
 #notice = "magenta"       # a warning that is not a failure
+
+[runs]
+# Each run keeps its log, without colours, in a directory of its own under
+# the state directory of the user who runs emergup: by default
+# ~/.local/state/emergup/runs, or $XDG_STATE_HOME/emergup/runs when it is
+# set. The oldest run directories are removed when a run starts; 0 keeps
+# them all.
+#keep = 10

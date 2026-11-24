@@ -31,7 +31,13 @@ type Printer struct {
 	Colors config.Colors
 	// Color turns the colours on; see ColorEnabled.
 	Color bool
+	// Log, when set, receives a copy of everything written to Out, without
+	// colours.
+	Log io.Writer
 }
+
+// Info writes a line without colour.
+func (p Printer) Info(text string) { p.styled("", nil, linePrefix+text, "\n") }
 
 // Heading writes the heading of a step.
 func (p Printer) Heading(text string) { p.line(&p.Colors.Heading, text) }
@@ -104,6 +110,8 @@ func (p Printer) styled(before string, style *config.Style, text, after string) 
 		sgr = style.SGR()
 	}
 
+	p.copyToLog(before + text + after)
+
 	if sgr == "" {
 		_, _ = fmt.Fprint(p.Out, before, text, after)
 
@@ -111,6 +119,20 @@ func (p Printer) styled(before string, style *config.Style, text, after string) 
 	}
 
 	_, _ = fmt.Fprintf(p.Out, "%s\x1b[%sm%s\x1b[0m%s", before, sgr, text, after)
+}
+
+// write writes text as it is, without a style.
+func (p Printer) write(text string) {
+	p.copyToLog(text)
+
+	_, _ = fmt.Fprint(p.Out, text)
+}
+
+// copyToLog writes text to the log, when there is one.
+func (p Printer) copyToLog(text string) {
+	if p.Log != nil {
+		_, _ = fmt.Fprint(p.Log, text)
+	}
 }
 
 // FormatDuration writes a duration the way the step times show it: "<1s",

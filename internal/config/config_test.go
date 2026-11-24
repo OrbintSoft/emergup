@@ -45,6 +45,7 @@ func TestDefault(t *testing.T) {
 			Failure: parseStyle(t, "bold red"),
 			Notice:  parseStyle(t, "magenta"),
 		},
+		Runs: Runs{Keep: 10},
 	}
 
 	assert.Equal(t, want, Default())

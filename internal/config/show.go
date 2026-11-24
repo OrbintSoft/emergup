@@ -133,6 +133,8 @@ func valueLine(name, key string, value any, origins Origins) (string, error) {
 		return name + " = " + tomlString(string(text)) + "  # " + origin, nil
 	case bool:
 		return name + " = " + strconv.FormatBool(typed) + "  # " + origin, nil
+	case int:
+		return name + " = " + strconv.Itoa(typed) + "  # " + origin, nil
 	case string:
 		return name + " = " + tomlString(typed) + "  # " + origin, nil
 	case []string:

@@ -166,3 +166,21 @@ func TestPrinterRow(t *testing.T) {
 		assert.Equal(t, "    text\n", out.String(), "without colours, kind %d", tt.kind)
 	}
 }
+
+func TestPrinterCopiesEveryLineToTheLogWithoutColours(t *testing.T) {
+	t.Parallel()
+
+	var out, log bytes.Buffer
+
+	printer := ui.Printer{Out: &out, Colors: config.Default().Colors, Color: true, Log: &log}
+	printer.Heading("heading")
+	printer.Notice("notice")
+	printer.Row(ui.KindFailure, "row")
+	printer.Info("info")
+
+	assert.Equal(t, "\x1b[1;34m==> heading\x1b[0m\n"+
+		"\x1b[35m==> notice\x1b[0m\n"+
+		"    \x1b[1;31mrow\x1b[0m\n"+
+		"==> info\n", out.String(), "an info line has no colour")
+	assert.Equal(t, "==> heading\n==> notice\n    row\n==> info\n", log.String())
+}

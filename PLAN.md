@@ -169,7 +169,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       always-synced overlay). A test loads them and checks that the main
       file, uncommented, gives exactly the defaults and shows every setting.
 
-## Phase 3 — Core engine  `[~]`  (PRIV-*, UPD-2, UPD-6–8, UPD-11–14)
+## Phase 3 — Core engine  `[x]`  (PRIV-*, UPD-2, UPD-6–8, UPD-11–15)
 
 - [x] **3.1** Command runner interface (streamed output, tee to a log) and a fake
       for tests: `internal/runner` with three modes (stream to the terminal
@@ -231,7 +231,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         and are skipped as "not available yet"; each phase-4 item replaces
         one. In phase 4 a step that confirms itself after its `--pretend`
         (update, depclean) replaces the pipeline's question with its own.
-- [~] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
+- [x] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
       Two PRs: the lock, then the run directory.
       - The lock is system-wide, not per user, so that a user's run and a
         root crontab's do not overlap. It is a Linux abstract Unix socket

@@ -89,6 +89,7 @@ func valueRules() []valueRule {
 		{key: "steps.update.target", check: func(cfg *Config) error { return checkTarget(cfg.Steps.Update.Target) }},
 		{key: "steps.update.exclude", check: func(cfg *Config) error { return checkEntries(cfg.Steps.Update.Exclude) }},
 		{key: "steps.sync.always-sync", check: func(cfg *Config) error { return checkEntries(cfg.Steps.Sync.AlwaysSync) }},
+		{key: "runs.keep", check: func(cfg *Config) error { return checkKeep(cfg.Runs.Keep) }},
 	}
 }
 
@@ -113,6 +114,15 @@ func checkCommand(command []string) error {
 func checkTarget(target string) error {
 	if target == "" {
 		return message(`empty target: give a package set such as "@world"`)
+	}
+
+	return nil
+}
+
+// checkKeep rejects a negative number of runs to keep.
+func checkKeep(keep int) error {
+	if keep < 0 {
+		return message("must be 0 or more; 0 keeps every run")
 	}
 
 	return nil
@@ -190,7 +200,7 @@ func isTextValue(typ reflect.Type) bool {
 func describeKind(kind unstable.Kind) string {
 	names := map[unstable.Kind]string{
 		unstable.String:        "a string",
-		unstable.Integer:       "an integer",
+		unstable.Integer:       anInteger,
 		unstable.Float:         "a number",
 		unstable.Bool:          aBool,
 		unstable.Array:         aList,

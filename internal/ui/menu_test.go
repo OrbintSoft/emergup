@@ -213,3 +213,30 @@ func TestMenuColoursTheQuestionAndTheNotice(t *testing.T) {
 		"\x1b[35m==> Not an answer: press one of the keys in brackets, or ? for the list.\x1b[0m\n"+
 		coloured+"skip this step\n", out.String())
 }
+
+func TestMenuCopiesTheQuestionsAndTheAnswersToTheLog(t *testing.T) {
+	t.Parallel()
+
+	var plain bytes.Buffer
+
+	menu := ui.Menu{
+		Printer:  ui.Printer{Out: &plain, Colors: config.Default().Colors, Color: false, Log: nil},
+		Keyboard: &keys{t: t, answers: pressed('?', 'x', 's')},
+		Yes:      false,
+	}
+	_, err := menu.Ask(t.Context(), question, proceed, skip, abort)
+	require.NoError(t, err)
+
+	var out, log bytes.Buffer
+
+	menu = ui.Menu{
+		Printer:  ui.Printer{Out: &out, Colors: config.Default().Colors, Color: true, Log: &log},
+		Keyboard: &keys{t: t, answers: pressed('?', 'x', 's')},
+		Yes:      false,
+	}
+	_, err = menu.Ask(t.Context(), question, proceed, skip, abort)
+	require.NoError(t, err)
+
+	assert.Contains(t, plain.String(), "list the keys", "the list is shown")
+	assert.Equal(t, plain.String(), log.String(), "the log has what the terminal shows, without colours")
+}

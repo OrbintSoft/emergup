@@ -12,6 +12,15 @@ type Config struct {
 	Elevation Elevation `toml:"elevation"`
 	Steps     Steps     `toml:"steps"`
 	Colors    Colors    `toml:"colors"`
+	Runs      Runs      `toml:"runs"`
+}
+
+// Runs says how many run directories, each with the log of its run, are
+// kept.
+type Runs struct {
+	// Keep is how many of the latest run directories are kept; 0 keeps them
+	// all.
+	Keep int `toml:"keep"`
 }
 
 // Elevation says how a command that needs root is run.
@@ -117,6 +126,11 @@ const emerge = "emerge"
 // a run renews it.
 const defaultInterval = Duration(24 * time.Hour)
 
+// defaultKeep is how many run directories are kept: enough to look back
+// at the last few weeks of updates, without filling the disk with their
+// logs.
+const defaultKeep = 10
+
 // Default returns the generic defaults, a new value on every call. They suit
 // any Gentoo system: every built-in step enabled, running Portage's own tools,
 // and nothing excluded or always synced. The colours are among the sixteen
@@ -154,5 +168,6 @@ func Default() Config {
 			Failure: style(bold, named(red)),
 			Notice:  style(0, named(magenta)),
 		},
+		Runs: Runs{Keep: defaultKeep},
 	}
 }

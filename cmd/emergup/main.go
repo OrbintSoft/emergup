@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/elevation"
 	"github.com/OrbintSoft/emergup/internal/lock"
+	"github.com/OrbintSoft/emergup/internal/rundir"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
@@ -34,10 +36,13 @@ func main() {
 		Stderr:   os.Stderr,
 		Root:     os.DirFS("/"),
 		Keyboard: ui.NewKeyboard(os.Stdin),
-		Runner: &runner.Exec{
-			Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
-			Log: nil, GracePeriod: 0, Now: nil,
+		NewRunner: func(log io.Writer) runner.Runner {
+			return &runner.Exec{
+				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
+				Log: log, GracePeriod: 0, Now: nil,
+			}
 		},
+		Runs:   rundir.Store{Getenv: os.Getenv},
 		System: elevation.OS{},
 		Lock:   lock.Socket{Name: "emergup/run"},
 		Color:  ui.ColorEnabled(ui.IsTerminal(os.Stdout), os.Getenv),
