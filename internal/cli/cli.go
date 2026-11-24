@@ -20,6 +20,7 @@ import (
 	"github.com/OrbintSoft/emergup/internal/elevation"
 	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/pipeline"
+	"github.com/OrbintSoft/emergup/internal/rundir"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/steps"
 	"github.com/OrbintSoft/emergup/internal/ui"
@@ -66,9 +67,12 @@ type Env struct {
 	Root fs.FS
 	// Keyboard reads the answers to the questions.
 	Keyboard ui.Keyboard
-	// Runner runs the commands of the steps; System is what the elevation
-	// looks at.
-	Runner runner.Runner
+	// NewRunner returns the runner of the commands of the steps, which
+	// copies them and their output to log, nil for none.
+	NewRunner func(log io.Writer) runner.Runner
+	// Runs makes the run directories; System is what the elevation looks
+	// at.
+	Runs   RunStore
 	System elevation.System
 	// Lock keeps two runs from overlapping.
 	Lock lock.Locker
@@ -116,6 +120,16 @@ func Main(ctx context.Context, env Env, invokedAs string, args []string) int {
 	}
 }
 
+// RunStore makes the directories of the runs, each with its log.
+type RunStore interface {
+	// Create makes the directory of a run that starts at now, and opens its
+	// log.
+	Create(now time.Time) (rundir.Run, error)
+	// Prune removes the oldest run directories, so that keep of them are
+	// left, current among them; 0 keeps them all.
+	Prune(keep int, current string) error
+}
+
 // runOptions are the options of `run`.
 type runOptions struct {
 	yes     bool
@@ -135,18 +149,63 @@ func runCommand(ctx context.Context, env Env, prog string, args []string) int {
 		return reportProblems(env.Stderr, err)
 	}
 
-	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color}
+	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color, Log: nil}
 
-	if !options.pretend {
-		release, err := env.Lock.Lock(ctx)
-		if err != nil {
-			printer.Failure(err.Error())
+	if options.pretend {
+		return pretend(ctx, env, cfg, printer)
+	}
 
-			return exitProblem
-		}
+	return runSteps(ctx, env, cfg, printer, options.yes)
+}
 
-		// The kernel frees the lock when emergup ends anyway.
-		defer func() { _ = release() }()
+// pretend shows what a run would do, without the lock or a run directory:
+// it changes nothing.
+func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer) int {
+	if elevation.IsRoot(env.System) {
+		printer.Notice(runningAsRoot)
+	}
+
+	prefix, err := elevation.Resolve(cfg.Elevation.Method, env.System)
+	if err != nil {
+		printer.Notice(err.Error() + "; a run would stop before its first step")
+	}
+
+	stepsEnv := newStepsEnv(env, printer, prefix, nil, false)
+
+	return exitStatus(pipeline.Pretend(ctx, stepsEnv, steps.BuiltIn(cfg)))
+}
+
+// runSteps runs the built-in steps while it holds the lock, with a log in
+// a run directory of their own; yes takes the usual answer to every
+// question.
+func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printer, yes bool) int {
+	release, err := env.Lock.Lock(ctx)
+	if err != nil {
+		printer.Failure(err.Error())
+
+		return exitProblem
+	}
+
+	// The kernel frees the lock when emergup ends anyway.
+	defer func() { _ = release() }()
+
+	run, err := env.Runs.Create(env.now()())
+	if err != nil {
+		printer.Failure(err.Error())
+
+		return exitProblem
+	}
+
+	// The log is best effort, as the copy the runner writes to it.
+	defer func() { _ = run.Log.Close() }()
+
+	printer.Log = run.Log
+
+	// Every run that has a directory ends by saying where its log is.
+	defer printer.Info("The log is in " + run.LogPath)
+
+	if err := env.Runs.Prune(cfg.Runs.Keep, run.Dir); err != nil {
+		printer.Notice("could not remove the oldest run directories: " + err.Error())
 	}
 
 	if elevation.IsRoot(env.System) {
@@ -157,28 +216,26 @@ func runCommand(ctx context.Context, env Env, prog string, args []string) int {
 	// its first step rather than halfway through.
 	prefix, err := elevation.Resolve(cfg.Elevation.Method, env.System)
 	if err != nil {
-		if !options.pretend {
-			printer.Failure(err.Error())
+		printer.Failure(err.Error())
 
-			return exitProblem
-		}
-
-		printer.Notice(err.Error() + "; a run would stop before its first step")
+		return exitProblem
 	}
 
-	stepsEnv := pipeline.Env{
-		Runner:  elevation.Runner{Next: env.Runner, Prefix: prefix},
+	stepsEnv := newStepsEnv(env, printer, prefix, run.Log, yes)
+
+	return exitStatus(pipeline.Run(ctx, stepsEnv, steps.BuiltIn(cfg)).Result)
+}
+
+// newStepsEnv returns what the steps work with: commands elevated with
+// prefix and copied to log, nil for none, and printer for the lines and the
+// questions.
+func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, yes bool) pipeline.Env {
+	return pipeline.Env{
+		Runner:  elevation.Runner{Next: env.NewRunner(log), Prefix: prefix},
 		Printer: printer,
-		Menu:    ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: options.yes},
+		Menu:    ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
 		Now:     env.now(),
 	}
-	builtIn := steps.BuiltIn(cfg)
-
-	if options.pretend {
-		return exitStatus(pipeline.Pretend(ctx, stepsEnv, builtIn))
-	}
-
-	return exitStatus(pipeline.Run(ctx, stepsEnv, builtIn).Result)
 }
 
 // parseRunOptions reads the options of `run`; on a mistake it writes it with

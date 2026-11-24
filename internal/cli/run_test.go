@@ -5,6 +5,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"os/exec"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/lock"
+	"github.com/OrbintSoft/emergup/internal/rundir"
+	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/runner/runnertest"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
@@ -38,6 +41,15 @@ const (
 	userID         = 1000
 	commandRun     = "run"
 	invalidSyncKey = "[steps.sync]\nenabled = 1\n"
+	runDir         = "/state/emergup/runs/2026-11-24T10-00-00"
+	configFile     = "etc/emergup/config.toml"
+	logLine        = "==> The log is in " + runDir + "/emergup.log\n"
+)
+
+// Errors of the fake run directories.
+var (
+	errNoState    = errors.New("no state directory: neither XDG_STATE_HOME nor HOME is an absolute path")
+	errPermission = errors.New("permission denied")
 )
 
 // system is a fake elevation.System with programs installed.
@@ -101,14 +113,56 @@ func (l *locker) Lock(context.Context) (func() error, error) {
 	}, nil
 }
 
+// logFile is the log of a run, kept in memory.
+type logFile struct {
+	bytes.Buffer
+
+	closed bool
+}
+
+func (l *logFile) Close() error {
+	l.closed = true
+
+	return nil
+}
+
+// store is a fake cli.RunStore: it makes no directory, and keeps the log
+// of the run in memory. With err set it cannot make the directory.
+type store struct {
+	err      error
+	pruneErr error
+	log      logFile
+	created  bool
+	kept     int
+	current  string
+}
+
+func (s *store) Create(time.Time) (rundir.Run, error) {
+	if s.err != nil {
+		return rundir.Run{}, s.err
+	}
+
+	s.created = true
+
+	return rundir.Run{Dir: runDir, LogPath: runDir + "/emergup.log", Log: &s.log}, nil
+}
+
+func (s *store) Prune(keep int, current string) error {
+	s.kept, s.current = keep, current
+
+	return s.pruneErr
+}
+
 // session is a system emergup runs on, for the run command.
 type session struct {
-	root   fs.FS
-	keys   keys
-	system system
-	runner runnertest.Fake
-	lock   locker
-	color  bool
+	root      fs.FS
+	keys      keys
+	system    system
+	runner    runnertest.Fake
+	runnerLog io.Writer
+	runs      store
+	lock      locker
+	color     bool
 }
 
 // newSession returns a system without configuration files, where an
@@ -135,11 +189,16 @@ func (s *session) run(t *testing.T, args ...string) (int, string, string) {
 		Stderr:   &stderr,
 		Root:     s.root,
 		Keyboard: &s.keys,
-		Runner:   &s.runner,
-		System:   s.system,
-		Lock:     &s.lock,
-		Color:    s.color,
-		Now:      func() time.Time { return time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC) },
+		NewRunner: func(log io.Writer) runner.Runner {
+			s.runnerLog = log
+
+			return &s.runner
+		},
+		Runs:   &s.runs,
+		System: s.system,
+		Lock:   &s.lock,
+		Color:  s.color,
+		Now:    func() time.Time { return time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC) },
 	}
 	code := cli.Main(t.Context(), env, "emergup", args)
 
@@ -164,7 +223,7 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 			assert.Contains(t, stdout, lastHeading)
 			assert.Contains(t, stdout, "==> Summary\n"+
 				"    sync               skipped       <1s  "+notAvailable+"\n")
-			assert.True(t, strings.HasSuffix(stdout, finished), stdout)
+			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 			assert.Empty(t, sess.runner.Commands(), "the steps not written yet run nothing")
 		})
 	}
@@ -179,7 +238,7 @@ func TestRunAsksBeforeEachStep(t *testing.T) {
 	assert.Equal(t, 0, code)
 	assert.Equal(t, 5, strings.Count(stdout, question+"run the step\n"))
 	assert.Contains(t, stdout, question+"skip the step\n==> config-files skipped: you chose to skip it\n")
-	assert.True(t, strings.HasSuffix(stdout, finished), stdout)
+	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
 
 func TestRunExitsWith130WhenItIsStopped(t *testing.T) {
@@ -199,7 +258,7 @@ func TestRunExitsWith130WhenItIsStopped(t *testing.T) {
 
 			code, stdout, _ := newSession(t, tt.keys...).run(t, commandRun)
 			assert.Equal(t, 130, code)
-			assert.True(t, strings.HasSuffix(stdout, stopped), stdout)
+			assert.True(t, strings.HasSuffix(stdout, stopped+logLine), stdout)
 			assert.NotContains(t, stdout, lastHeading)
 		})
 	}
@@ -235,7 +294,7 @@ func TestRunWithoutAnElevationTool(t *testing.T) {
 
 	code, stdout, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 1, code, "the run cannot start")
-	assert.Equal(t, "==> "+noTool+"\n", stdout, "before the first step")
+	assert.Equal(t, "==> "+noTool+"\n"+logLine, stdout, "before the first step")
 
 	code, stdout, _ = sess.run(t, commandRun, optionPretend)
 	assert.Equal(t, 0, code, "pretend runs nothing, so it goes on")
@@ -266,7 +325,7 @@ func TestRunWithAProblemInTheConfiguration(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.root = fstest.MapFS{"etc/emergup/config.toml": {Data: []byte(invalidSyncKey)}}
+	sess.root = fstest.MapFS{configFile: {Data: []byte(invalidSyncKey)}}
 	sess.keys.silent = true
 
 	code, stdout, stderr := sess.run(t, commandRun, optionYes)
@@ -279,7 +338,7 @@ func TestRunFollowsTheConfiguration(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.root = fstest.MapFS{"etc/emergup/config.toml": {Data: []byte(
+	sess.root = fstest.MapFS{configFile: {Data: []byte(
 		"[steps.live-rebuild]\nenabled = false\n" +
 			"[steps.depclean]\nenabled = false\n" +
 			"[colors]\nheading = \"underline\"\n",
@@ -349,13 +408,13 @@ func TestRunRefusesToStartWhileAnotherRunIsActive(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.lock.err = &lock.HeldError{PID: 1234, User: "mario"}
+	sess.lock.err = &lock.HeldError{PID: 1234}
 	sess.system = system{programs: nil, euid: 0}
 	sess.keys.silent = true
 
 	code, stdout, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 1, code)
-	assert.Equal(t, "==> another emergup run is active: process 1234 of user mario\n", stdout,
+	assert.Equal(t, "==> another emergup run of this user is active: process 1234\n", stdout,
 		"before anything else")
 }
 
@@ -363,10 +422,105 @@ func TestRunPretendDoesNotTakeTheLock(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.lock.err = &lock.HeldError{PID: 1234, User: "mario"}
+	sess.lock.err = &lock.HeldError{PID: 1234}
 	sess.keys.silent = true
 
 	code, stdout, _ := sess.run(t, commandRun, optionPretend)
 	assert.Equal(t, 0, code)
 	assert.True(t, strings.HasPrefix(stdout, firstHeading), stdout)
+}
+
+func TestRunKeepsALogOfWhatItShows(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t, ui.KeyEnter, '?', 's')
+
+	code, stdout, _ := sess.run(t, commandRun)
+	assert.Equal(t, 130, code)
+	assert.Equal(t, stdout, sess.runs.log.String(), "the questions, the answers and the summary too")
+	assert.True(t, sess.runs.log.closed)
+	assert.Same(t, &sess.runs.log, sess.runnerLog, "the commands and their output go to the log")
+}
+
+func TestRunKeepsItsLogWithoutColours(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+	sess.color = true
+
+	_, stdout, _ := sess.run(t, commandRun, optionYes)
+	assert.Contains(t, stdout, "\x1b[")
+	assert.Contains(t, sess.runs.log.String(), firstHeading+withYes)
+	assert.NotContains(t, sess.runs.log.String(), "\x1b")
+}
+
+func TestRunRemovesTheOldestRunDirectories(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+
+	code, _, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 0, code)
+	assert.Equal(t, 10, sess.runs.kept, "by default")
+	assert.Equal(t, runDir, sess.runs.current, "the current run is kept")
+
+	sess = newSession(t)
+	sess.keys.silent = true
+	sess.root = fstest.MapFS{configFile: {Data: []byte("[runs]\nkeep = 3\n")}}
+
+	code, _, _ = sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 0, code)
+	assert.Equal(t, 3, sess.runs.kept, "as the configuration says")
+}
+
+func TestRunGoesOnWhenTheOldRunDirectoriesCannotBeRemoved(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+	sess.runs.pruneErr = errPermission
+
+	code, stdout, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 0, code)
+	assert.True(t, strings.HasPrefix(stdout,
+		"==> could not remove the oldest run directories: permission denied\n"+firstHeading), stdout)
+}
+
+func TestRunDoesNotStartWithoutARunDirectory(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+	sess.runs.err = errNoState
+
+	code, stdout, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 1, code)
+	assert.Equal(t, "==> "+errNoState.Error()+"\n", stdout)
+}
+
+func TestRunPretendMakesNoRunDirectory(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+
+	code, stdout, _ := sess.run(t, commandRun, optionPretend)
+	assert.Equal(t, 0, code)
+	assert.False(t, sess.runs.created)
+	assert.Nil(t, sess.runnerLog)
+	assert.NotContains(t, stdout, "The log is in")
+}
+
+func TestRunMakesNoRunDirectoryWhileAnotherRunIsActive(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+	sess.lock.err = &lock.HeldError{PID: 1234}
+
+	code, _, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 1, code)
+	assert.False(t, sess.runs.created)
 }

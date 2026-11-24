@@ -59,9 +59,10 @@ func fileError(file string, err error) *Error {
 
 // How the messages name the kinds of values.
 const (
-	aBool  = "true or false"
-	aList  = "a list"
-	aTable = "a table"
+	aBool     = "true or false"
+	anInteger = "an integer"
+	aList     = "a list"
+	aTable    = "a table"
 )
 
 // message is an error that is only a description of a problem.
@@ -127,6 +128,8 @@ func describeGoType(name string) string {
 	switch name {
 	case "bool":
 		return aBool
+	case "int":
+		return anInteger
 	case "string":
 		return "a string"
 	case "[]string", "config.Entries":
@@ -150,7 +153,7 @@ func describeGoType(name string) string {
 func describeTOMLType(name string) string {
 	switch name {
 	case "integer":
-		return "an integer"
+		return anInteger
 	case "float":
 		return "a number"
 	case "bool", "boolean":

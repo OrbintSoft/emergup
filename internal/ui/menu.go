@@ -75,7 +75,7 @@ func (m Menu) Ask(ctx context.Context, question string, actions ...Action) (Acti
 
 		if key == listKey {
 			m.answer(string(listKey))
-			writeList(m.Printer.Out, actions)
+			writeList(m.Printer, actions)
 
 			continue
 		}
@@ -87,7 +87,7 @@ func (m Menu) Ask(ctx context.Context, question string, actions ...Action) (Acti
 
 // answer ends the line of the question with text.
 func (m Menu) answer(text string) {
-	_, _ = fmt.Fprintln(m.Printer.Out, text)
+	m.Printer.write(text + "\n")
 }
 
 // readError returns what Ask returns when no key could be read: err is nil
@@ -133,8 +133,9 @@ func choose(actions []Action, key rune) (Action, bool) {
 	return Action{Key: 0, Name: ""}, false
 }
 
-// writeList writes to out the keys of actions and what each one does.
-func writeList(out io.Writer, actions []Action) {
+// writeList writes with printer the keys of actions and what each one
+// does.
+func writeList(printer Printer, actions []Action) {
 	keys := make([]string, 0, len(actions)+1)
 	names := make([]string, 0, len(actions)+1)
 
@@ -151,6 +152,6 @@ func writeList(out io.Writer, actions []Action) {
 
 	width := utf8.RuneCountInString(keys[0])
 	for index, key := range keys {
-		_, _ = fmt.Fprintf(out, "    %-*s  %s\n", width, key, names[index])
+		printer.write(fmt.Sprintf("    %-*s  %s\n", width, key, names[index]))
 	}
 }

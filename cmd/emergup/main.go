@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/elevation"
-	"github.com/OrbintSoft/emergup/internal/lock"
+	"github.com/OrbintSoft/emergup/internal/rundir"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
@@ -29,17 +30,21 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
+	store := rundir.Store{Getenv: os.Getenv}
 	env := cli.Env{
 		Stdout:   os.Stdout,
 		Stderr:   os.Stderr,
 		Root:     os.DirFS("/"),
 		Keyboard: ui.NewKeyboard(os.Stdin),
-		Runner: &runner.Exec{
-			Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
-			Log: nil, GracePeriod: 0, Now: nil,
+		NewRunner: func(log io.Writer) runner.Runner {
+			return &runner.Exec{
+				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
+				Log: log, GracePeriod: 0, Now: nil,
+			}
 		},
+		Runs:   store,
 		System: elevation.OS{},
-		Lock:   lock.Socket{Name: "emergup/run"},
+		Lock:   store,
 		Color:  ui.ColorEnabled(ui.IsTerminal(os.Stdout), os.Getenv),
 		Now:    time.Now,
 	}

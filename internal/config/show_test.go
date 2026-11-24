@@ -127,6 +127,7 @@ func TestWriteTOMLWritesTheDefaults(t *testing.T) {
 	assert.Contains(t, out, "\n[colors]\nheading = \"bold blue\"  # default\nprompt = \"bold cyan\"  # default\n"+
 		"success = \"green\"  # default\nskip = \"yellow\"  # default\nfailure = \"bold red\"  # default\n"+
 		"notice = \"magenta\"  # default\n")
+	assert.Contains(t, out, "\n[runs]\nkeep = 10  # default\n")
 	assert.NotContains(t, out, "[steps]\n", "a table without values of its own has no header")
 	assert.True(t, len(out) > 0 && out[len(out)-1] == '\n' && out[len(out)-2] != '\n', "ends with exactly one newline")
 }
