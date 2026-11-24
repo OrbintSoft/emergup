@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# An interval longer than the age of any sync of the image, which builds the
+# test repository from an upstream dated 1 January 2026.
+
+[steps.sync]
+min-interval = "100000h"

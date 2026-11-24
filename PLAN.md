@@ -414,6 +414,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         question), CFG-1–6. The configuration files of a test are fixtures
         in test/integration/testdata, installed owned by root; the colours
         are checked on a terminal (`docker exec --tty`).
+      - Sync: SYNC-1–3, each run with the sync alone. Portage cancels an
+        rsync sync whose upstream timestamp has not changed ("already
+        current"), so a test publishes a snapshot with a newer timestamp,
+        and a file a sync brings shows whether one ran; a sync done with
+        emerge before the run counts as a recent one.
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.

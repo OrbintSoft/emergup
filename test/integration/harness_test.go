@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -50,6 +51,16 @@ const (
 	configDirectory = "/etc/emergup/config.d"
 )
 
+// The test repository: where Portage keeps it, and the upstream it syncs
+// from, where a test publishes what the next sync should bring.
+const (
+	repository = "/var/db/repos/emergup-test"
+	upstream   = "/srv/emergup-test"
+)
+
+// timestamp is where an rsync tree records when its snapshot was made.
+const timestamp = "/metadata/timestamp.chk"
+
 // container is a container of the test image that lives as long as its
 // test, with the emergup binary under test on its PATH. It has no network:
 // everything a test needs is in the image.
@@ -57,6 +68,8 @@ type container struct {
 	t      *testing.T
 	docker string
 	id     string
+	// snapshots counts the snapshots published to the upstream.
+	snapshots int
 }
 
 // result is what a command run in a container did.
@@ -83,7 +96,7 @@ func setting(t *testing.T, name string) string {
 func start(t *testing.T) *container {
 	t.Helper()
 
-	ctr := &container{t: t, docker: cmp.Or(os.Getenv(dockerVariable), "docker"), id: ""}
+	ctr := &container{t: t, docker: cmp.Or(os.Getenv(dockerVariable), "docker"), id: "", snapshots: 0}
 
 	started := ctr.command(t.Context(), nil, "run", "--detach", "--rm", "--network", "none",
 		"--volume", setting(t, binaryVariable)+":/usr/local/bin/emergup:ro",
@@ -155,6 +168,23 @@ func (c *container) install(source, target string) {
 
 	c.root("chown", "root:root", target)
 	c.root("chmod", "0644", target)
+}
+
+// publish publishes a new snapshot of the test repository, with a file
+// named name added: Portage syncs an rsync tree only when the timestamp of
+// its upstream has changed, so the snapshot gets a timestamp later than
+// every one before it, the first one a second from now.
+func (c *container) publish(name string) {
+	c.t.Helper()
+
+	c.snapshots++
+	made := time.Now().UTC().Truncate(time.Second).Add(time.Duration(c.snapshots) * time.Second)
+
+	stamp := filepath.Join(c.t.TempDir(), "timestamp.chk")
+	require.NoError(c.t, os.WriteFile(stamp, []byte(made.Format(time.RFC1123Z)+"\n"), 0o600))
+
+	c.root("touch", upstream+"/"+name)
+	c.install(stamp, upstream+timestamp)
 }
 
 // dropIns installs every file of testdata/name in /etc/emergup/config.d.
