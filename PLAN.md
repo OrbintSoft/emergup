@@ -257,7 +257,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         oldest. `--pretend` creates none; without a usable state directory
         the run does not start.
 
-## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
+## Phase 4 — Built-in steps: parity with the old script (MVP)  `[x]`
 
 - [x] **4.1** Sync (`emerge --sync <repo>...`, configurable), per repository: a
       repository synced within the minimum interval is skipped, unless it is
@@ -365,9 +365,17 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       - The tag itself is pushed with the maintainer's approval. `v0.1.0` was
         published on 2026-11-24: a pre-release with the two archives, the
         vendored modules and `SHA256SUMS`.
-- [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
+- [x] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
       (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
       packaged as soon as it can be used, and each pre-release bumps it.
+      - `app-portage/emergup-0.1.0` (EAPI 9, `go-module`): the tag's source
+        and the release's vendored modules, so the build is offline; built,
+        tested and installed through the Makefile with `GOTOOLCHAIN=local`;
+        the commented example as `/etc/emergup/config.toml`; `~amd64`. Its
+        `src_test` passes in the Portage sandbox.
+      - `BDEPEND` must name the go line of go.mod as it is written
+        (`>=dev-lang/go-1.26.0:=`): go-module's EAPI 9 check dies otherwise,
+        so a release that moves the go line moves it in the ebuild too.
 
 ## Phase 5 — Docker integration tests  `[ ]`
 
