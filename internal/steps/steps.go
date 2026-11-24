@@ -30,7 +30,7 @@ func BuiltIn(cfg config.Config, options Options) []pipeline.Step {
 		updateStep{config: built.Update},
 		liveStep{config: built.LiveRebuild},
 		preservedStep{config: built.PreservedRebuild},
-		placeholder{name: "config-files", title: "update the configuration files", enabled: built.ConfigFiles.Enabled},
+		configFilesStep{config: built.ConfigFiles},
 		placeholder{name: "depclean", title: "remove the packages no longer needed", enabled: built.Depclean.Enabled},
 	}
 }

@@ -61,6 +61,14 @@ var listRepositories = runner.Command{
 //nolint:gochecknoglobals // The query several tests expect.
 var queryVDB = runner.Command{Args: []string{portageq, "vdb_path"}, Mode: runner.Capture, Root: false}
 
+// queryProtected is the command that asks which configuration Portage
+// protects.
+//
+//nolint:gochecknoglobals // The query several tests expect.
+var queryProtected = runner.Command{
+	Args: []string{portageq, "envvar", "CONFIG_PROTECT", "CONFIG_PROTECT_MASK"}, Mode: runner.Capture, Root: false,
+}
+
 // listPreserved is the command that lists the preserved libraries.
 //
 //nolint:gochecknoglobals // The query several tests expect.
@@ -301,7 +309,7 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 				"    sync               skipped       <1s  "+noRepository+"\n"+
 				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB, listPreserved},
+			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB, listPreserved, queryProtected},
 				sess.runner.Commands(),
 				"the queries and the pretend of the update, unprivileged; the steps not written yet run nothing")
 		})
@@ -311,13 +319,13 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 func TestRunAsksBeforeEachStep(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, 'y', 's', ui.KeyEnter)
+	sess := newSession(t, ui.KeyEnter, 'y', 's')
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Equal(t, 3, strings.Count(stdout, question+"run the step\n"),
-		"the update and the preserved rebuild, with nothing to do, ask nothing")
-	assert.Contains(t, stdout, question+"skip the step\n==> config-files skipped: you chose to skip it\n")
+	assert.Equal(t, 2, strings.Count(stdout, question+"run the step\n"),
+		"the steps with nothing to do ask nothing")
+	assert.Contains(t, stdout, question+"skip the step\n==> depclean skipped: you chose to skip it\n")
 	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
 

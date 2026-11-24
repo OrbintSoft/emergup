@@ -142,7 +142,15 @@ func (l liveStep) runList(ctx context.Context, env pipeline.Env, mode config.Liv
 // runElevated runs command as root, its output shown, and returns how it
 // ended; program names it in a failure.
 func runElevated(ctx context.Context, env pipeline.Env, command []string, program string) pipeline.Outcome {
-	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Stream, Root: true})
+	return runElevatedIn(ctx, env, runner.Stream, command, program)
+}
+
+// runElevatedIn runs command as root in mode, and returns how it ended;
+// program names it in a failure.
+func runElevatedIn(ctx context.Context, env pipeline.Env, mode runner.Mode, command []string,
+	program string,
+) pipeline.Outcome {
+	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: mode, Root: true})
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}

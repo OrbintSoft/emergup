@@ -29,6 +29,13 @@ const (
 	kernelSources  = "sys-kernel/gentoo-sources"
 )
 
+// The names of the cases several tests share.
+const (
+	caseAbort         = "abort the run"
+	caseEndOfInput    = "the end of the input"
+	whenPortageqFails = "when portageq fails"
+)
+
 // keys answers the questions with its keys, then with the end of the
 // input. When silent, a question fails the test.
 type keys struct {
@@ -201,9 +208,9 @@ func TestUpdateAnswers(t *testing.T) {
 		outcome pipeline.Outcome
 	}{
 		{"skip the update", []rune{'s'}, pipeline.Skip("you chose not to update")},
-		{"abort the run", []rune{'a'}, pipeline.Abort("you aborted the run")},
+		{caseAbort, []rune{'a'}, pipeline.Abort("you aborted the run")},
 		{"Ctrl-C", []rune{ui.KeyInterrupt}, pipeline.Abort("you aborted the run")},
-		{"the end of the input", nil, pipeline.Abort("you aborted the run")},
+		{caseEndOfInput, nil, pipeline.Abort("you aborted the run")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

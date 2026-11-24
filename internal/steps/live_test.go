@@ -257,7 +257,7 @@ type liveFailure struct {
 func liveFailures() []liveFailure {
 	return []liveFailure{
 		{
-			"when portageq fails", config.LiveRebuildInterval,
+			whenPortageqFails, config.LiveRebuildInterval,
 			[]runnertest.Answer{{Result: runner.Result{ExitCode: 1}}},
 			nil,
 			"could not find the installed packages: portageq exited with status 1",

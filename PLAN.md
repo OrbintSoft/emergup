@@ -315,7 +315,18 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         skip, abort the run) and runs `emerge @preserved-rebuild`, elevated.
       - With nothing to do the step skips without asking, so it confirms
         itself; `haskell-updater` is not a built-in step (open question 7).
-- [ ] **4.5** Config-file updates delegated to `dispatch-conf` (ETC-3).
+- [x] **4.5** Config-file updates delegated to `dispatch-conf` (ETC-3).
+      - The pending files (`._cfg????_*`) are looked for under
+        `CONFIG_PROTECT`, as `portageq envvar` gives it, by one elevated and
+        read-only `find`: several directories of `/etc` can be read by root
+        alone, and an unprivileged scan would miss the files in them. The
+        results are filtered as Portage does (next to a protected file with
+        its name, not under `CONFIG_PROTECT_MASK`, not `~` or `.bak`).
+      - With none the step is skipped without a question. Otherwise a row
+        names each file it would replace (ETC-1), the step asks, and runs
+        the tool elevated and attached to the terminal, since it reads the
+        user's keys. With `--yes` the interactive tool cannot run, so the
+        step is skipped and says to run it; `--pretend` elevates nothing.
 - [ ] **4.6** Depclean, `--pretend` first (UPD-10).
 - [ ] **4.7** Held-back report for excluded packages (EXC-2).
 - [ ] **4.8** First tagged pre-release `v0.1.0`.

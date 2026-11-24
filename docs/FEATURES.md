@@ -89,9 +89,9 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| ETC-1 | After the update, pending config-file updates (`._cfg*` files) are listed. | planned |
+| ETC-1 | After the update, pending config-file updates (`._cfg*` files) are listed. | done |
 | ETC-2 | For each pending file the user can view the difference with a configurable diff tool, keep the old file, take the new one, merge them with a configurable merge tool, or postpone. | planned |
-| ETC-3 | The step can instead delegate to an external tool (`dispatch-conf`, `etc-update`). | planned |
+| ETC-3 | The step can instead delegate to an external tool (`dispatch-conf`, `etc-update`). | done |
 
 ## AI assistance (AI)
 
