@@ -31,6 +31,7 @@ const (
 	withYes         = question + "run the step (--yes)\n"
 	noRepository    = "no repository to sync"
 	portageq        = "portageq"
+	sudo            = "sudo"
 	nothingToUpdate = "Total: 0 packages, Size of downloads: 0 KiB\n"
 	firstHeading    = "==> [1/6] sync: sync the repositories\n"
 	lastHeading     = "==> [6/6] depclean: remove the packages no longer needed\n"
@@ -76,11 +77,12 @@ var queryProtected = runner.Command{
 	Args: []string{portageq, "envvar", "CONFIG_PROTECT", "CONFIG_PROTECT_MASK"}, Mode: runner.Capture, Root: false,
 }
 
-// listPreserved is the command that lists the preserved libraries.
+// listPreserved is the command that lists the preserved libraries,
+// through sudo.
 //
 //nolint:gochecknoglobals // The query several tests expect.
 var listPreserved = runner.Command{
-	Args: []string{portageq, "list_preserved_libs", "/"}, Mode: runner.Capture, Root: false,
+	Args: []string{sudo, portageq, "list_preserved_libs", "/"}, Mode: runner.Capture, Root: true,
 }
 
 // updatePretend is the command the update shows what it would do with.
@@ -260,7 +262,7 @@ type session struct {
 func newSession(t *testing.T, keys ...rune) *session {
 	t.Helper()
 
-	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{"sudo"}, euid: userID}}
+	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{sudo}, euid: userID}}
 	sess.keys.t = t
 	sess.keys.keys = keys
 	sess.runner.outputs = map[string]string{
@@ -323,7 +325,8 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 			assert.Equal(t, []runner.Command{
 				listRepositories, updatePretend, queryVDB, listPreserved, queryProtected, depcleanPretend,
-			}, sess.runner.Commands(), "the queries and the pretends, unprivileged; with nothing to do, nothing more")
+			}, sess.runner.Commands(),
+				"the queries and the pretends, unprivileged but for the preserved libraries; with nothing to do, nothing more")
 		})
 	}
 }
@@ -382,7 +385,7 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 				"    emerge --depclean --pretend --color=n\n"+
 				"    then, once confirmed: emerge --depclean --color=n\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
-			assert.Equal(t, []runner.Command{listRepositories, queryVDB, listPreserved}, sess.runner.Commands())
+			assert.Equal(t, []runner.Command{listRepositories, queryVDB}, sess.runner.Commands(), "nothing elevated")
 		})
 	}
 }
@@ -669,7 +672,7 @@ func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 		"==> update succeeded in <1s\n", "one question, after the pretend")
 
 	elevated := runner.Command{
-		Args: append([]string{"sudo"}, slices.DeleteFunc(slices.Clone(updatePretend.Args),
+		Args: append([]string{sudo}, slices.DeleteFunc(slices.Clone(updatePretend.Args),
 			func(arg string) bool { return arg == "--pretend" })...),
 		Mode: runner.Stream,
 		Root: true,
