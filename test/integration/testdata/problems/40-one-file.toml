@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Several problems in one file, all of them reported: a value that cannot be
+# read does not hide the others.
+
+[steps.sync]
+min-interval = "soon"
+bogus = 1
+command = 5
+
+[steps.live-rebuild]
+mode = "smrt"
