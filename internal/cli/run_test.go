@@ -43,7 +43,6 @@ const (
 	invalidSyncKey = "[steps.sync]\nenabled = 1\n"
 	runDir         = "/state/emergup/runs/2026-11-24T10-00-00"
 	configFile     = "etc/emergup/config.toml"
-	holderUser     = "mario"
 	logLine        = "==> The log is in " + runDir + "/emergup.log\n"
 )
 
@@ -409,13 +408,13 @@ func TestRunRefusesToStartWhileAnotherRunIsActive(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.lock.err = &lock.HeldError{PID: 1234, User: holderUser}
+	sess.lock.err = &lock.HeldError{PID: 1234}
 	sess.system = system{programs: nil, euid: 0}
 	sess.keys.silent = true
 
 	code, stdout, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 1, code)
-	assert.Equal(t, "==> another emergup run is active: process 1234 of user mario\n", stdout,
+	assert.Equal(t, "==> another emergup run of this user is active: process 1234\n", stdout,
 		"before anything else")
 }
 
@@ -423,7 +422,7 @@ func TestRunPretendDoesNotTakeTheLock(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t)
-	sess.lock.err = &lock.HeldError{PID: 1234, User: holderUser}
+	sess.lock.err = &lock.HeldError{PID: 1234}
 	sess.keys.silent = true
 
 	code, stdout, _ := sess.run(t, commandRun, optionPretend)
@@ -519,7 +518,7 @@ func TestRunMakesNoRunDirectoryWhileAnotherRunIsActive(t *testing.T) {
 
 	sess := newSession(t)
 	sess.keys.silent = true
-	sess.lock.err = &lock.HeldError{PID: 1234, User: holderUser}
+	sess.lock.err = &lock.HeldError{PID: 1234}
 
 	code, _, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 1, code)

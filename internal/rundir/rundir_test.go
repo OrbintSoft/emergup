@@ -3,6 +3,7 @@
 package rundir_test
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/rundir"
 )
 
@@ -69,15 +71,27 @@ func TestStateDirNeedsAnAbsolutePath(t *testing.T) {
 	}
 }
 
-// newStore returns a Store whose state directory is a new temporary one,
-// and the directory of its runs.
+// newHome returns a new home directory, which only the user can change.
+// The temporary directory is under /tmp, which everyone can write: the
+// state directory is checked only up to the home directory it is in.
+func newHome(t *testing.T) string {
+	t.Helper()
+
+	dir := filepath.Join(t.TempDir(), "home")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+
+	return dir
+}
+
+// newStore returns a Store whose state directory is in a new home
+// directory, and the directory of its runs.
 func newStore(t *testing.T) (rundir.Store, string) {
 	t.Helper()
 
-	state := t.TempDir()
+	dir := newHome(t)
 
-	return rundir.Store{Getenv: environment(map[string]string{stateHome: state})},
-		filepath.Join(state, "emergup", "runs")
+	return rundir.Store{Getenv: environment(map[string]string{home: dir})},
+		filepath.Join(dir, ".local", "state", "emergup", "runs")
 }
 
 // create makes a run directory with store and closes its log.
@@ -213,4 +227,107 @@ func TestPruneWithoutRuns(t *testing.T) {
 
 	store, _ := newStore(t)
 	require.NoError(t, store.Prune(3, ""), "no run directory yet")
+}
+
+func TestStoreLockKeepsApartTheRunsOfTheUser(t *testing.T) {
+	t.Parallel()
+
+	store, runs := newStore(t)
+
+	release, err := store.Lock(t.Context())
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(filepath.Dir(runs), "run.lock"))
+
+	_, err = store.Lock(t.Context())
+	held, isHeld := errors.AsType[*lock.HeldError](err)
+	require.True(t, isHeld, "a second run is refused: %v", err)
+	assert.Equal(t, os.Getpid(), held.PID)
+
+	require.NoError(t, release())
+}
+
+// unsafeStore returns a Store whose state directory others can change,
+// and the directory they can change.
+type unsafeStore func(t *testing.T) (rundir.Store, string)
+
+// underSharedDir is a state directory in a sticky directory everyone can
+// write, as /tmp.
+func underSharedDir(t *testing.T) (rundir.Store, string) {
+	t.Helper()
+
+	shared := filepath.Join(t.TempDir(), "shared")
+	require.NoError(t, os.Mkdir(shared, 0o700))
+	require.NoError(t, os.Chmod(shared, fs.ModeSticky|0o777))
+
+	return rundir.Store{Getenv: environment(map[string]string{
+		stateHome: filepath.Join(shared, "state"), home: newHome(t),
+	})}, shared
+}
+
+// groupWritable is a state directory its group can write.
+func groupWritable(t *testing.T) (rundir.Store, string) {
+	t.Helper()
+
+	dir := newHome(t)
+	state := filepath.Join(dir, ".local", "state", "emergup")
+	require.NoError(t, os.MkdirAll(state, 0o700))
+	//nolint:gosec // A directory the group can write, which emergup must refuse.
+	require.NoError(t, os.Chmod(state, 0o770))
+
+	return rundir.Store{Getenv: environment(map[string]string{home: dir})}, state
+}
+
+// homeWritable is a state directory in a home directory others can write.
+func homeWritable(t *testing.T) (rundir.Store, string) {
+	t.Helper()
+
+	dir := newHome(t)
+	//nolint:gosec // A directory everyone can write, which emergup must refuse.
+	require.NoError(t, os.Chmod(dir, 0o777))
+
+	return rundir.Store{Getenv: environment(map[string]string{home: dir})}, dir
+}
+
+// throughSymlink is a state directory that a symlink in the home
+// directory leads into a directory everyone can write.
+func throughSymlink(t *testing.T) (rundir.Store, string) {
+	t.Helper()
+
+	dir := newHome(t)
+	shared := filepath.Join(t.TempDir(), "shared")
+	require.NoError(t, os.MkdirAll(filepath.Join(shared, ".local"), 0o700))
+	//nolint:gosec // A directory everyone can write, which emergup must refuse.
+	require.NoError(t, os.Chmod(shared, 0o777))
+	require.NoError(t, os.Symlink(filepath.Join(shared, ".local"), filepath.Join(dir, ".local")))
+
+	return rundir.Store{Getenv: environment(map[string]string{home: dir})}, shared
+}
+
+func TestStoreRefusesAStateDirectoryOthersCanChange(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		store unsafeStore
+	}{
+		{"under a directory everyone can write", underSharedDir},
+		{"a state directory its group can write", groupWritable},
+		{"a home directory others can write", homeWritable},
+		{"a symlink into a directory everyone can write", throughSymlink},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			store, unsafe := tt.store(t)
+			want := "the state directory is not safe: " + unsafe + " can be changed by other users"
+
+			_, err := store.Lock(t.Context())
+			require.ErrorContains(t, err, want)
+
+			_, err = store.Create(started(4))
+			require.ErrorContains(t, err, want)
+			require.ErrorContains(t, store.Prune(3, ""), want)
+		})
+	}
 }

@@ -82,8 +82,8 @@ one, so an older golangci-lint installed on the system may fail where
 | `internal/runner` | Running the external commands: output shown, collected or left to the terminal, copied to a log without colours, stopped cleanly on Ctrl-C. `runnertest` holds the fake the other packages' tests use. |
 | `internal/elevation` | Running the commands that need root through sudo, doas or run0, or directly as root. |
 | `internal/ui` | emergup's own output on the terminal: a line for each kind of message in its colour, the durations, and the questions, each answered with one key. |
-| `internal/lock` | The lock that keeps two runs from overlapping on one system. |
-| `internal/rundir` | The directory of each run, with its log, under the user's state directory, and the removal of the oldest. |
+| `internal/lock` | The lock file that keeps two runs of one user from overlapping. |
+| `internal/rundir` | The user's state directory, refused when another user could change it; there, the lock and the directory of each run with its log, and the removal of the oldest. |
 | `internal/pipeline` | Running the steps of an update in order: each announced and confirmed, how it ended and how long it took, and the summary of the run. |
 | `internal/steps` | The built-in steps, in the order of the `[steps]` section, as the configuration sets them up. |
 | `internal/version` | The version `emergup version` reports. |

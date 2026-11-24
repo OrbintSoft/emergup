@@ -5,6 +5,7 @@
 package rundir
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +15,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
+	"github.com/OrbintSoft/emergup/internal/lock"
 )
 
 // Errors of the run directories.
@@ -24,7 +28,27 @@ var (
 	errNoStateDir = errors.New("no state directory: neither XDG_STATE_HOME nor HOME is an absolute path")
 	// errSameSecond is the error of too many runs in one second.
 	errSameSecond = errors.New("runs started in the same second")
+	// errUnsafe is the error of a state directory another user could
+	// change: emergup does not write there.
+	errUnsafe = errors.New("the state directory is not safe")
 )
+
+// The reasons for refusing a state directory.
+var (
+	errNotDir      = errors.New("is not a directory")
+	errAnotherUser = errors.New("belongs to another user")
+	errWritable    = errors.New("can be changed by other users")
+)
+
+// writableByOthers are the bits that let the group or others create,
+// remove or rename the entries of a directory.
+const writableByOthers = 0o022
+
+// rootUID is the user id of root, which may own the directories above.
+const rootUID = 0
+
+// lockName is the name of the lock in the state directory.
+const lockName = "run.lock"
 
 // LogName is the name of the log in a run directory.
 const LogName = "emergup.log"
@@ -203,14 +227,106 @@ func (s Store) Prune(keep int, current string) error {
 	return errors.Join(problems...)
 }
 
+// Lock implements lock.Locker: the lock is the file run.lock in the state
+// directory, so it keeps apart the runs of one user.
+func (s Store) Lock(_ context.Context) (func() error, error) {
+	state, err := s.stateDir()
+	if err != nil {
+		return nil, err
+	}
+
+	return lock.Acquire(filepath.Join(state, lockName)) //nolint:wrapcheck // Its errors say what failed.
+}
+
 // runs returns the directory that holds the run directories.
 func (s Store) runs() (string, error) {
-	state, err := StateDir(s.Getenv)
+	state, err := s.stateDir()
 	if err != nil {
 		return "", err
 	}
 
 	return filepath.Join(state, "runs"), nil
+}
+
+// stateDir returns the state directory, made when it is missing, once it is
+// known that no other user can change it or a directory above it, as
+// OpenSSH's StrictModes asks of ~/.ssh: then nobody else can replace what
+// emergup reads and writes there, at any moment, and nothing needs to be
+// checked again before it is used. Both the path and the one its symlinks
+// lead to are checked, up to the home directory when they are in it and up
+// to / otherwise.
+func (s Store) stateDir() (string, error) {
+	state, err := StateDir(s.Getenv)
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.MkdirAll(state, dirMode); err != nil {
+		return "", fmt.Errorf("making the state directory: %w", err)
+	}
+
+	home := s.Getenv("HOME")
+	if !filepath.IsAbs(home) {
+		home = ""
+	}
+
+	if err := checkPath(state, home); err != nil {
+		return "", err
+	}
+
+	resolved, err := filepath.EvalSymlinks(state)
+	if err != nil {
+		return "", fmt.Errorf("checking the state directory: %w", err)
+	}
+
+	resolvedHome, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		resolvedHome = ""
+	}
+
+	if err := checkPath(resolved, resolvedHome); err != nil {
+		return "", err
+	}
+
+	return state, nil
+}
+
+// checkPath checks dir and each directory above it, up to stop when dir is
+// in stop and up to / otherwise.
+func checkPath(dir, stop string) error {
+	for current := filepath.Clean(dir); ; current = filepath.Dir(current) {
+		info, err := os.Stat(current)
+		if err != nil {
+			return fmt.Errorf("checking the state directory: %w", err)
+		}
+
+		if err := checkDir(current, info, os.Geteuid()); err != nil {
+			return err
+		}
+
+		if current == stop || current == filepath.Dir(current) {
+			return nil
+		}
+	}
+}
+
+// checkDir refuses a directory at path that a user other than euid, or
+// root, could change.
+func checkDir(path string, info fs.FileInfo, euid int) error {
+	if !info.IsDir() {
+		return fmt.Errorf("%w: %s %w", errUnsafe, path, errNotDir)
+	}
+
+	stat, isStat := info.Sys().(*syscall.Stat_t)
+	if !isStat || (int(stat.Uid) != euid && stat.Uid != rootUID) {
+		return fmt.Errorf("%w: %s %w", errUnsafe, path, errAnotherUser)
+	}
+
+	if info.Mode().Perm()&writableByOthers != 0 {
+		return fmt.Errorf("%w: %s %w", errUnsafe, path, errWritable)
+	}
+
+	return nil
 }
 
 // runName is the name of a run directory: when its run started, and its

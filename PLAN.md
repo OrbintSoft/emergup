@@ -233,15 +233,21 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         (update, depclean) replaces the pipeline's question with its own.
 - [x] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
       Two PRs: the lock, then the run directory.
-      - The lock is system-wide, not per user, so that a user's run and a
-        root crontab's do not overlap. It is a Linux abstract Unix socket
-        (`@emergup/run`): no file, so nothing is left behind by a crash, and
-        `/run/lock` is not writable by an ordinary user; the kernel frees it
-        when the process ends, the commands do not inherit it, and its
-        peer credentials tell a second run which process and user hold it.
-        Only `run` takes it, not `--pretend`. Other systems have no lock. A
-        local user can hold the name and block the others' runs, as with
-        any lock in a place everyone can write.
+      - The lock is per user: the file `run.lock` in the user's state
+        directory, locked with `flock`. A system-wide lock (first an
+        abstract Unix socket) needs a place every user can write, where any
+        local user can take the lock and block the others' runs, root's
+        crontab included, and where races, symlinks and the sticky bit have
+        to be defended against. The kernel frees the lock when the process
+        ends; the file is opened without following a symlink, must be a
+        regular file of the user's, is never removed, and holds the pid of
+        the run for the message of a second one. Only `run` takes it, not
+        `--pretend`. Runs of different users are not kept apart; Portage's
+        own locks keep the system consistent.
+      - The state directory, and every directory above it, must belong to
+        the user or root and be writable by nobody else, as OpenSSH's
+        StrictModes asks of `~/.ssh`: then no other user can change anything
+        along the path, and there is no window between a check and a use.
       - The run directory is `runs/<local time>/` under the state directory
         (0700), with `emergup.log` (0600): the whole transcript without
         colours. `[runs] keep` (10 by default, 0 keeps all) removes the
