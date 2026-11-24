@@ -28,7 +28,7 @@ func BuiltIn(cfg config.Config, options Options) []pipeline.Step {
 	return []pipeline.Step{
 		syncStep{config: built.Sync, force: options.ForceSync},
 		updateStep{config: built.Update},
-		placeholder{name: "live-rebuild", title: "rebuild the live packages", enabled: built.LiveRebuild.Enabled},
+		liveStep{config: built.LiveRebuild},
 		placeholder{
 			name:    "preserved-rebuild",
 			title:   "rebuild the packages that use preserved libraries",

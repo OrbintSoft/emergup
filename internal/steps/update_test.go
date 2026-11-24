@@ -243,7 +243,7 @@ func TestUpdateFails(t *testing.T) {
 				{Result: runner.Result{ExitCode: 0, Output: []byte("Total: 1 package\n")}},
 				{Result: runner.Result{ExitCode: 1}},
 			},
-			"emerge exited with status 1", 2,
+			emergeFailed, 2,
 		},
 		{
 			"when the update does not start",

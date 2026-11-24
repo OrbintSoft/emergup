@@ -111,7 +111,7 @@ func TestStepsNotWrittenYetRunNothing(t *testing.T) {
 	require.NotEmpty(t, all)
 
 	for _, step := range all {
-		if slices.Contains([]string{syncName, updateName}, step.Name()) {
+		if slices.Contains([]string{syncName, updateName, liveName}, step.Name()) {
 			continue // written
 		}
 

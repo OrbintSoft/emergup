@@ -51,7 +51,7 @@ func (s syncStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, erro
 		return append(lines, noRepository), nil
 	}
 
-	for _, row := range plan.rows() {
+	for _, row := range rows(plan.decisions) {
 		lines = append(lines, row.text)
 	}
 
@@ -79,7 +79,7 @@ func (s syncStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 		return pipeline.Skip(noRepository)
 	}
 
-	for _, row := range plan.rows() {
+	for _, row := range rows(plan.decisions) {
 		env.Printer.Row(row.kind, row.text)
 	}
 
@@ -118,52 +118,9 @@ type syncPlan struct {
 	notices []string
 }
 
-// decision is what the sync does with one repository, and why.
-type decision struct {
-	name   string
-	sync   bool
-	reason string
-}
-
 // due returns the names of the repositories to sync.
 func (p syncPlan) due() []string {
-	var names []string
-
-	for _, decision := range p.decisions {
-		if decision.sync {
-			names = append(names, decision.name)
-		}
-	}
-
-	return names
-}
-
-// row is the line that says what is done with a repository.
-type row struct {
-	kind ui.Kind
-	text string
-}
-
-// rows returns a row for each repository: its name and what is done with
-// it, a kept one in the colour of a skip.
-func (p syncPlan) rows() []row {
-	width := 0
-	for _, decision := range p.decisions {
-		width = max(width, len(decision.name))
-	}
-
-	rows := make([]row, 0, len(p.decisions))
-
-	for _, decision := range p.decisions {
-		kind := ui.KindPlain
-		if !decision.sync {
-			kind = ui.KindSkip
-		}
-
-		rows = append(rows, row{kind: kind, text: fmt.Sprintf("%-*s  %s", width, decision.name, decision.reason)})
-	}
-
-	return rows
+	return chosen(p.decisions)
 }
 
 // plan lists the repositories Portage knows and decides what to do with
@@ -198,23 +155,23 @@ func (s syncStep) decide(name string, always bool, last time.Time, known bool, n
 
 	switch {
 	case always:
-		return decision{name: name, sync: true, reason: "always synced"}
+		return decision{name: name, act: true, reason: "always synced"}
 	case s.force:
-		return decision{name: name, sync: true, reason: "--force-sync"}
+		return decision{name: name, act: true, reason: "--force-sync"}
 	case interval == 0:
-		return decision{name: name, sync: true, reason: "synced on every run"}
+		return decision{name: name, act: true, reason: "synced on every run"}
 	case !known:
-		return decision{name: name, sync: true, reason: "last sync not known"}
+		return decision{name: name, act: true, reason: "last sync not known"}
 	}
 
 	age := max(now.Sub(last), 0)
 	ago := "synced " + ui.FormatDuration(age) + " ago"
 
 	if age >= interval {
-		return decision{name: name, sync: true, reason: ago}
+		return decision{name: name, act: true, reason: ago}
 	}
 
-	return decision{name: name, sync: false, reason: ago + ", kept"}
+	return decision{name: name, act: false, reason: ago + ", kept"}
 }
 
 // alwaysSyncNotices returns a notice for each name of always that is not a

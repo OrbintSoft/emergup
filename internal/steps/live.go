@@ -1,0 +1,330 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package steps
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io/fs"
+	"path"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/OrbintSoft/emergup/internal/config"
+	"github.com/OrbintSoft/emergup/internal/pipeline"
+	"github.com/OrbintSoft/emergup/internal/runner"
+	"github.com/OrbintSoft/emergup/internal/ui"
+)
+
+// errNoDatabase is the error of a portageq that names no package database.
+var errNoDatabase = errors.New("portageq named no database")
+
+// What the live rebuild says when it has nothing to rebuild.
+const (
+	noLivePackage    = "no live package installed"
+	nothingToRebuild = "nothing to rebuild"
+)
+
+// The marks of the package database: the property of a live package, and
+// the prefix of a package being merged.
+const (
+	liveProperty  = "live"
+	mergingPrefix = "-MERGING-"
+)
+
+// liveStep rebuilds the live packages, as its mode says.
+type liveStep struct {
+	config config.LiveRebuild
+}
+
+// Name implements pipeline.Step.
+func (liveStep) Name() string { return "live-rebuild" }
+
+// Title implements pipeline.Step.
+func (liveStep) Title() string { return "rebuild the live packages" }
+
+// Enabled implements pipeline.Step.
+func (l liveStep) Enabled() bool { return l.config.Enabled }
+
+// Pretend implements pipeline.Step.
+func (l liveStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, error) {
+	mode, installed, note := l.resolve(env)
+
+	if mode == config.LiveRebuildSmart {
+		if !installed {
+			return []string{l.smartProgram() + " is not installed, so the step would be skipped"}, nil
+		}
+
+		return []string{strings.Join(l.config.SmartCommand, " ")}, nil
+	}
+
+	decisions, err := l.plan(ctx, env, mode)
+	if err != nil {
+		return nil, err
+	}
+
+	var lines []string
+	if note != "" {
+		lines = append(lines, note)
+	}
+
+	if len(decisions) == 0 {
+		return append(lines, noLivePackage), nil
+	}
+
+	for _, row := range rows(decisions) {
+		lines = append(lines, row.text)
+	}
+
+	due := chosen(decisions)
+	if len(due) == 0 {
+		return append(lines, nothingToRebuild), nil
+	}
+
+	return append(lines, strings.Join(l.command(env, due), " ")), nil
+}
+
+// Run implements pipeline.Step.
+func (l liveStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
+	mode, installed, note := l.resolve(env)
+
+	if mode == config.LiveRebuildSmart {
+		return l.runSmart(ctx, env, installed)
+	}
+
+	if note != "" {
+		env.Printer.Row(ui.KindPlain, note)
+	}
+
+	return l.runList(ctx, env, mode)
+}
+
+// runSmart runs smart-live-rebuild, which finds the live packages whose
+// upstream changed and rebuilds them itself; one that is not installed
+// skips the step.
+func (l liveStep) runSmart(ctx context.Context, env pipeline.Env, installed bool) pipeline.Outcome {
+	if !installed {
+		return pipeline.Skip(l.smartProgram() + " is not installed")
+	}
+
+	return runElevated(ctx, env, l.config.SmartCommand, l.smartProgram())
+}
+
+// runList rebuilds the live packages that mode says are due.
+func (l liveStep) runList(ctx context.Context, env pipeline.Env, mode config.LiveRebuildMode) pipeline.Outcome {
+	decisions, err := l.plan(ctx, env, mode)
+	if err != nil {
+		return pipeline.Fail(err.Error())
+	}
+
+	if len(decisions) == 0 {
+		return pipeline.Skip(noLivePackage)
+	}
+
+	for _, row := range rows(decisions) {
+		env.Printer.Row(row.kind, row.text)
+	}
+
+	due := chosen(decisions)
+	if len(due) == 0 {
+		return pipeline.Skip("every live package was built less than " + l.interval() + " ago")
+	}
+
+	command := l.command(env, due)
+
+	return runElevated(ctx, env, command, command[0])
+}
+
+// runElevated runs command as root, its output shown, and returns how it
+// ended; program names it in a failure.
+func runElevated(ctx context.Context, env pipeline.Env, command []string, program string) pipeline.Outcome {
+	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Stream, Root: true})
+	if err != nil {
+		return pipeline.Fail(err.Error())
+	}
+
+	if result.ExitCode != 0 {
+		return pipeline.Fail(fmt.Sprintf("%s exited with status %d", program, result.ExitCode))
+	}
+
+	return pipeline.Success()
+}
+
+// resolve returns the mode the step works by, whether smart-live-rebuild
+// is installed, and for auto without it a note that says how the packages
+// are rebuilt instead.
+func (l liveStep) resolve(env pipeline.Env) (config.LiveRebuildMode, bool, string) {
+	_, err := env.LookPath(l.config.SmartCommand[0])
+	installed := err == nil
+
+	if l.config.Mode != config.LiveRebuildAuto {
+		return l.config.Mode, installed, ""
+	}
+
+	if installed {
+		return config.LiveRebuildSmart, true, ""
+	}
+
+	return config.LiveRebuildInterval, false, l.smartProgram() +
+		" is not installed: the live packages built longer ago than " + l.interval() + " are rebuilt"
+}
+
+// smartProgram names smart-live-rebuild as its command does.
+func (l liveStep) smartProgram() string {
+	return filepath.Base(l.config.SmartCommand[0])
+}
+
+// interval writes the interval as the configuration does: "24h".
+func (l liveStep) interval() string {
+	text, _ := l.config.Interval.MarshalText()
+
+	return string(text)
+}
+
+// command returns the command line that rebuilds the packages due, each at
+// its installed version, so that no other version is picked.
+func (l liveStep) command(env pipeline.Env, due []string) []string {
+	command := append(slices.Clone(l.config.Command), colorOption(env))
+
+	for _, atom := range due {
+		command = append(command, "="+atom)
+	}
+
+	return command
+}
+
+// plan decides what to do with each live package installed: by interval,
+// or with always all of them.
+func (l liveStep) plan(ctx context.Context, env pipeline.Env, mode config.LiveRebuildMode) ([]decision, error) {
+	database, err := packageDatabase(ctx, env.Runner)
+	if err != nil {
+		return nil, err
+	}
+
+	packages, err := livePackages(env.Root, database)
+	if err != nil {
+		return nil, err
+	}
+
+	decisions := make([]decision, 0, len(packages))
+	interval := time.Duration(l.config.Interval)
+	now := env.Now()
+
+	for _, installed := range packages {
+		switch {
+		case mode == config.LiveRebuildAlways, interval == 0:
+			decisions = append(decisions, decision{name: installed.atom, act: true, reason: "rebuilt on every run"})
+		case !installed.known:
+			decisions = append(decisions, decision{name: installed.atom, act: true, reason: "build time not known"})
+		default:
+			age := max(now.Sub(installed.built), 0)
+			built := "built " + ui.FormatDuration(age) + " ago"
+
+			if age >= interval {
+				decisions = append(decisions, decision{name: installed.atom, act: true, reason: built})
+			} else {
+				decisions = append(decisions, decision{name: installed.atom, act: false, reason: built + ", kept"})
+			}
+		}
+	}
+
+	return decisions, nil
+}
+
+// packageDatabase asks Portage where the installed packages are; the query
+// changes nothing, so it runs unprivileged.
+func packageDatabase(ctx context.Context, run runner.Runner) (string, error) {
+	command := []string{"portageq", "vdb_path"}
+
+	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
+	if err != nil {
+		return "", fmt.Errorf("could not find the installed packages: %w", err)
+	}
+
+	if result.ExitCode != 0 {
+		return "", fmt.Errorf("could not find the installed packages: %w",
+			exitError{command: command[0], code: result.ExitCode})
+	}
+
+	database := strings.TrimSpace(string(result.Output))
+	if !path.IsAbs(database) {
+		return "", fmt.Errorf("could not find the installed packages: %w", errNoDatabase)
+	}
+
+	return database, nil
+}
+
+// installedPackage is a live package of the database.
+type installedPackage struct {
+	// atom is its category and full name with its version: "app-misc/foo-9999".
+	atom string
+	// built is when it was built, when known.
+	built time.Time
+	known bool
+}
+
+// livePackages returns the live packages of the database at database on
+// root: those with the live property, which make up @live-rebuild.
+func livePackages(root fs.FS, database string) ([]installedPackage, error) {
+	dir := strings.TrimPrefix(path.Clean(database), "/")
+
+	categories, err := fs.ReadDir(root, dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("could not read the installed packages: %w", err)
+	}
+
+	var packages []installedPackage
+
+	for _, category := range categories {
+		if !category.IsDir() {
+			continue
+		}
+
+		entries, err := fs.ReadDir(root, path.Join(dir, category.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("could not read the installed packages: %w", err)
+		}
+
+		for _, entry := range entries {
+			name := path.Join(category.Name(), entry.Name())
+			if entry.IsDir() && !strings.HasPrefix(entry.Name(), mergingPrefix) && isLive(root, path.Join(dir, name)) {
+				built, known := buildTime(root, path.Join(dir, name))
+				packages = append(packages, installedPackage{atom: name, built: built, known: known})
+			}
+		}
+	}
+
+	return packages, nil
+}
+
+// isLive reports whether the package whose entry of the database is dir
+// has the live property.
+func isLive(root fs.FS, dir string) bool {
+	properties, err := fs.ReadFile(root, path.Join(dir, "PROPERTIES"))
+
+	return err == nil && slices.Contains(strings.Fields(string(properties)), liveProperty)
+}
+
+// buildTime returns when the package whose entry of the database is dir
+// was built, as its BUILD_TIME says, and whether it is known.
+func buildTime(root fs.FS, dir string) (time.Time, bool) {
+	data, err := fs.ReadFile(root, path.Join(dir, "BUILD_TIME"))
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	seconds, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return time.Unix(seconds, 0), true
+}

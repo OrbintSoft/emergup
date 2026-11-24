@@ -238,11 +238,12 @@ func builtInSteps(cfg config.Config, options runOptions) []pipeline.Step {
 // questions.
 func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, yes bool) pipeline.Env {
 	return pipeline.Env{
-		Runner:  elevation.Runner{Next: env.NewRunner(log), Prefix: prefix},
-		Printer: printer,
-		Menu:    ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
-		Now:     env.now(),
-		Root:    env.Root,
+		Runner:   elevation.Runner{Next: env.NewRunner(log), Prefix: prefix},
+		Printer:  printer,
+		Menu:     ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
+		Now:      env.now(),
+		Root:     env.Root,
+		LookPath: env.System.LookPath,
 	}
 }
 
