@@ -78,6 +78,26 @@ func TestTheLogQuotesArgumentsTheShellWouldSplit(t *testing.T) {
 	assert.Contains(t, out.log.String(), ` 'out:two words' 'out:it'\''s'`+"\n")
 }
 
+func TestTheLogHasNoEscapeSequences(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []runner.Mode{runner.Stream, runner.Capture} {
+		exec, out := newExec("")
+
+		result, err := exec.Run(t.Context(), childCommand(mode, "green:done", "bold:warning"))
+		require.NoError(t, err)
+
+		shown := out.stdout.String() + string(result.Output)
+		assert.Equal(t, greenEscape+"done"+resetEscape+"\n", shown, "the colours reach their destination")
+		assert.Equal(t, boldEscape+"warning"+resetEscape+"\n", out.stderr.String())
+
+		log := out.log.String()
+		assert.Contains(t, log, "\ndone\n")
+		assert.Contains(t, log, "\nwarning\n")
+		assert.NotContains(t, log, "\x1b")
+	}
+}
+
 func TestCaptureCollectsStandardOutput(t *testing.T) {
 	t.Parallel()
 

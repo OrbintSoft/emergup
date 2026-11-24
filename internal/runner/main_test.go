@@ -19,6 +19,13 @@ import (
 // program of the system.
 const childMarker = "-emergup-test-child"
 
+// The escape sequences the child writes.
+const (
+	greenEscape = "\x1b[32m"
+	boldEscape  = "\x1b[1m"
+	resetEscape = "\x1b[0m"
+)
+
 func TestMain(m *testing.M) {
 	if len(os.Args) > 1 && os.Args[1] == childMarker {
 		os.Exit(child(os.Args[2:]))
@@ -31,19 +38,30 @@ func TestMain(m *testing.M) {
 //
 //	out:TEXT     writes TEXT and a newline to standard output
 //	err:TEXT     writes TEXT and a newline to standard error
+//	green:TEXT   writes TEXT in green and a newline to standard output
+//	bold:TEXT    writes TEXT in bold and a newline to standard error
 //	echo-stdin   copies standard input to standard output
 //	wait-term    writes "ready", waits for SIGTERM, writes "terminated", exits 3
 //	ignore-term  ignores SIGTERM, writes "ready" and waits for a minute
 //	exit:N       exits with status N
 func child(ops []string) int {
+	writes := map[string]func(text string){
+		"out":   func(text string) { _, _ = fmt.Fprintln(os.Stdout, text) },
+		"err":   func(text string) { _, _ = fmt.Fprintln(os.Stderr, text) },
+		"green": func(text string) { _, _ = fmt.Fprintln(os.Stdout, greenEscape+text+resetEscape) },
+		"bold":  func(text string) { _, _ = fmt.Fprintln(os.Stderr, boldEscape+text+resetEscape) },
+	}
+
 	for _, operation := range ops {
 		name, arg, _ := strings.Cut(operation, ":")
 
+		if write, isWrite := writes[name]; isWrite {
+			write(arg)
+
+			continue
+		}
+
 		switch name {
-		case "out":
-			_, _ = fmt.Fprintln(os.Stdout, arg)
-		case "err":
-			_, _ = fmt.Fprintln(os.Stderr, arg)
 		case "echo-stdin":
 			_, _ = io.Copy(os.Stdout, os.Stdin)
 		case "wait-term":

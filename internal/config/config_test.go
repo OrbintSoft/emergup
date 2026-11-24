@@ -37,6 +37,14 @@ func TestDefault(t *testing.T) {
 			ConfigFiles:      Step{Enabled: true, Command: []string{"dispatch-conf"}},
 			Depclean:         Step{Enabled: true, Command: []string{emerge, "--depclean"}},
 		},
+		Colors: Colors{
+			Heading: parseStyle(t, "bold blue"),
+			Prompt:  parseStyle(t, "bold cyan"),
+			Success: parseStyle(t, "green"),
+			Skip:    parseStyle(t, "yellow"),
+			Failure: parseStyle(t, "bold red"),
+			Notice:  parseStyle(t, "magenta"),
+		},
 	}
 
 	assert.Equal(t, want, Default())

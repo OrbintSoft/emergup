@@ -78,9 +78,9 @@ type Exec struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
-	// Log receives a copy of every command and its output; nil keeps none.
-	// The log is best effort: a failed write to it never stops the output
-	// to the terminal.
+	// Log receives a copy of every command and its output, without the
+	// terminal's escape sequences; nil keeps none. The log is best effort: a
+	// failed write to it never stops the output to the terminal.
 	Log io.Writer
 	// GracePeriod is how long a command gets to stop once the context ends,
 	// before it is killed; zero means DefaultGracePeriod.
@@ -105,13 +105,15 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 
 	var output bytes.Buffer
 
+	// Each stream has its own plainWriter: they are written to at the same
+	// time, and an escape sequence of one must not end in the other.
 	switch cmd.Mode {
 	case Stream:
-		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), log)
-		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), log)
+		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), newPlainWriter(log))
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
 	case Capture:
-		child.Stdout = io.MultiWriter(&output, log)
-		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), log)
+		child.Stdout = io.MultiWriter(&output, newPlainWriter(log))
+		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), newPlainWriter(log))
 	case Terminal:
 		child.Stdin, child.Stdout, child.Stderr = e.Stdin, e.Stdout, e.Stderr
 	default:

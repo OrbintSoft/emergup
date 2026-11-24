@@ -23,7 +23,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | UPD-10 | Before the `@world` update and the depclean, emergup shows what emerge would do (`--pretend`) and asks for confirmation itself; with `--yes` it goes ahead without asking. | planned |
 | UPD-11 | Interrupting a run (Ctrl-C) lets the running command stop by itself; it is killed only if it is still running 30 seconds later. | planned |
 | UPD-12 | Each step shows how long it took when it ends, and the final summary lists the time of every step and of the whole run. | planned |
-| UPD-13 | On a terminal the output is coloured: step headings, prompts, and successes, skips and failures each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log. `NO_COLOR` turns every colour off. | planned |
+| UPD-13 | On a terminal the output is coloured: step headings, prompts, successes, skips, failures and notices each have their colour (CFG-6), and emerge keeps its own colours although emergup copies its output to the log, which is written without colours. `NO_COLOR`, or `TERM=dumb`, turns every colour off. | planned |
 
 ## Repository sync (SYNC)
 
@@ -51,7 +51,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | CFG-3 | `emergup config check` validates the configuration and reports each problem with its file and line, exiting with status 1 when there is one; unknown keys are errors. | done |
 | CFG-4 | `emergup config show` prints the effective configuration as TOML, each value with the file it came from or `default`. | done |
 | CFG-5 | Lists of entries (excluded packages, always-synced repositories) add up across the configuration files, like `USE` in `make.conf`: a later file adds entries, `-entry` removes one added earlier and `-*` clears the list; any other value set by a later file replaces the earlier one. | done |
-| CFG-6 | The colour of each kind of output (step headings, prompts, successes, skips, failures) can be changed in the configuration to suit the terminal's theme, or turned off for that kind alone. | planned |
+| CFG-6 | The colour of each kind of output (step headings, prompts, successes, skips, failures, notices) can be changed in the configuration to suit the terminal's theme, or turned off for that kind alone. A colour is written as words separated by spaces: attributes (`bold`, `dim`, `italic`, `underline`, `reverse`) and up to two colours, the text's then the background's, each a name (`red`, `bright-red`, `default`), a number from 0 to 255 or `#rrggbb`; `""` leaves that kind plain. | planned |
 
 ## Package exclusions (EXC)
 

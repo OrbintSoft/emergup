@@ -179,14 +179,29 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       installed) through a small `System` interface, and `elevation.Runner`
       applies it. opendoas becomes the command itself, so it cannot be sent
       SIGTERM by unprivileged emergup; the terminal's Ctrl-C still reaches it.
-- [ ] **3.3** Terminal output and prompts: step headings, colours, confirmations,
-      `--yes` (UPD-2, UPD-13). A confirmation is an action menu (Enter for the
-      usual action, one key per action, `?` for the list), so later steps and
-      the AI actions of 9.0 add keys without changing it. emerge gets
-      `--color=y` when emergup writes to a terminal and `NO_COLOR` is unset,
-      since its output reaches the terminal through a pipe. The colours are
-      configurable, one key per kind of output, so a light or dark theme can
-      be matched (CFG-6); the format of the values is defined in this step.
+- [~] **3.3** Terminal output and prompts: step headings, colours, confirmations,
+      `--yes` (UPD-2, UPD-13). Two PRs: colours first, then the menu.
+      - Colours are on when standard output is a terminal, `NO_COLOR` is unset
+        or empty and `TERM` is not `dumb`. Each kind of output (heading,
+        prompt, success, skip, failure, notice) has a key in `[colors]`
+        (CFG-6), written as git writes its colours; the defaults use only the
+        16 ANSI colours, which the terminal's theme remaps, so they suit light
+        and dark themes alike. The key is `colors`, as in `NO_COLOR`,
+        `--color` and git.
+      - emerge gets `--color=y` with colours on and `--color=n` otherwise,
+        since its output reaches the terminal through a pipe; the emerge
+        command lines built in phase 4 add it. The runner strips escape
+        sequences from what it copies to the log.
+      - A confirmation is an action menu: Enter for the usual action, one key
+        per action, `?` for the list, so later steps and the AI actions of 9.0
+        add keys without changing it. A key is read on its own, without Enter
+        (`golang.org/x/term`, raw mode only while the key is read); when
+        standard input is not a terminal, a letter and Enter. The input
+        pending from before the question is discarded first: commands run
+        without standard input, so a key pressed during a long build would
+        otherwise answer the next question. Ctrl-C and the end of the input
+        abort, never take the usual action. `--yes` takes the usual action
+        and says so; the flag itself comes with `run` in 3.4.
 - [ ] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
       with the time of each step and of the run (UPD-3, UPD-6, UPD-7, UPD-12).
 - [ ] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
