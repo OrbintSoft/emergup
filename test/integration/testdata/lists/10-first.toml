@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The first entries of the lists, which 20-second.toml changes.
+
+[steps.sync]
+always-sync = ["emergup-test"]
+
+[steps.update]
+exclude = ["app-misc/one", "app-misc/two"]

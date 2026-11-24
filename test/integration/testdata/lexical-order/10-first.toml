@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Read before 9-second.toml, as "10" comes before "9" in lexical order, so
+# its value is replaced.
+
+[steps.sync]
+min-interval = "1h"

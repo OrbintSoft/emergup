@@ -107,7 +107,10 @@ image holds:
 
 A test is named after the feature it verifies, as in
 `TestUPD6_PretendShowsTheStepsWithoutRunningThem` for UPD-6, and its comment
-quotes the feature.
+quotes the feature. The configuration files a test installs are files of
+their own in [test/integration/testdata](../test/integration/testdata), a
+directory for each set, copied into the container owned by root as a real
+configuration is; a file with a problem on purpose says so in its comment.
 
 ## Code layout
 

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# An unknown key and an unknown table: both are reported.
+
+[steps.update]
+exclude = ["app-misc/one"]
+bogus = 1
+
+[steps.nope]
+enabled = true

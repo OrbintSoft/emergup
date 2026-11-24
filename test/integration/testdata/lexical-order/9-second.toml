@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Read after 10-first.toml, so its value is the one in effect.
+
+[steps.sync]
+min-interval = "2h"
