@@ -203,6 +203,69 @@ func TestLoadReportsEveryUnknownKeyOfAFile(t *testing.T) {
 	assert.Equal(t, "steps.update.other", list[1].Key)
 }
 
+func TestLoadReportsEveryProblemOfAFile(t *testing.T) {
+	t.Parallel()
+
+	_, err := Load(t.Context(), fstest.MapFS{
+		dropIn("10-broken.toml"): file("[steps.sync]\nmin-interval = \"soon\"\nbogus = 1\ncommand = 5\n\n" +
+			"[steps.live-rebuild]\nmode = \"smrt\"\n\n[steps.update]\nexclude = [\"a b\"]\n\n[runs]\nkeep = -1\n"),
+	})
+
+	got := make([]string, 0, len(problems(t, err)))
+	for _, problem := range problems(t, err) {
+		got = append(got, problem.Error())
+	}
+
+	assert.Equal(t, []string{
+		brokenFile + `:2:16: steps.sync.min-interval: invalid duration "soon", expected for example "24h" or "90m"`,
+		brokenFile + ":3:1: steps.sync.bogus: unknown key",
+		brokenFile + ":4:11: steps.sync.command: expected a list of strings, found an integer",
+		brokenFile + `:7:8: steps.live-rebuild.mode: unknown live-rebuild mode "smrt", ` +
+			"expected one of auto, smart, interval, always",
+		brokenFile + `:10:1: steps.update.exclude: entry "a b" contains a space: write each one as its own entry`,
+		brokenFile + ":13:1: runs.keep: must be 0 or more; 0 keeps every run",
+	}, got)
+}
+
+func TestLoadGoesOnAfterAValueInAnInlineTable(t *testing.T) {
+	t.Parallel()
+
+	_, err := Load(t.Context(), fstest.MapFS{
+		dropIn("10-broken.toml"): file("[steps]\ndepclean = { command = 5 }\n\n[runs]\nkeep = -1\n"),
+	})
+
+	list := problems(t, err)
+	require.Len(t, list, 2)
+	require.ErrorContains(t, list[0], "expected a list of strings, found an integer")
+	assert.Equal(t, keyKeep, list[1].Key)
+}
+
+func TestLoadGoesOnPastQuotedKeys(t *testing.T) {
+	t.Parallel()
+
+	_, err := Load(t.Context(), fstest.MapFS{
+		dropIn("10-broken.toml"): file("[steps.sync]\n\"min-interval\" = \"soon\"\n'bogus' = 1\n\n[ \"runs\" ]\nkeep = -1\n"),
+	})
+
+	list := problems(t, err)
+	require.Len(t, list, 3)
+	assert.Equal(t, keyMinInterval, list[0].Key)
+	assert.Equal(t, "steps.sync.bogus", list[1].Key)
+	assert.Equal(t, keyKeep, list[2].Key)
+}
+
+func TestLoadStopsAtATableDefinedTwice(t *testing.T) {
+	t.Parallel()
+
+	_, err := Load(t.Context(), fstest.MapFS{
+		dropIn("10-broken.toml"): file("[runs]\nkeep = 1\n\n[runs]\nkeep = 2\n\n[steps.sync]\nbogus = 1\n"),
+	})
+
+	list := problems(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, 4, list[0].Line)
+}
+
 func TestLoadReportsTheProblemsOfEveryFile(t *testing.T) {
 	t.Parallel()
 

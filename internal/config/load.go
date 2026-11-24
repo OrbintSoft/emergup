@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -82,15 +83,19 @@ func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 	}
 
 	keys := fileKeys(data)
+	set, decoded, undecoded := decodeAlone(file, data, keys)
 
-	var set Config
+	// A key that must be a string is said to need one, rather than what the
+	// decoder makes of it.
+	problems := withoutRepeatedKeys(textProblems(file, keys), decoded)
 
-	err = toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields().Decode(&set)
-	if err != nil {
-		return sortedProblems(withoutRepeatedKeys(checkFile(file, keys, nil), decodeProblems(file, keys, err)))
+	if set != nil {
+		decodedKeys := maps.Clone(keys)
+		maps.DeleteFunc(decodedKeys, func(key string, _ keyPlace) bool { return undecoded[key] })
+
+		problems = withoutRepeatedKeys(problems, valueProblems(file, decodedKeys, set))
 	}
 
-	problems := checkFile(file, keys, &set)
 	if len(problems) > 0 {
 		return sortedProblems(problems)
 	}
@@ -116,6 +121,82 @@ func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 	origins.setBy(file, keys)
 
 	return nil
+}
+
+// decodeAlone decodes data, the contents of file that sets keys, on its own,
+// and returns what it decodes to, every problem the decoder finds, and the
+// keys left undecoded because of them.
+//
+// The decoder stops at the first value it cannot decode. The key-value of
+// that value is then blanked out, every other byte kept in its place, and the
+// rest decoded again, until the decoder goes through; the unknown keys it
+// reports last, along with what the file decodes to. set is nil when the
+// decoding cannot go on: at a syntax error, or at a problem outside any
+// key-value, such as a table defined twice.
+func decodeAlone(file string, data []byte, keys map[string]keyPlace) (*Config, []*Error, map[string]bool) {
+	regions, isTOML := keyValueRegions(data)
+	data = slices.Clone(data)
+	undecoded := make(map[string]bool)
+
+	var problems []*Error
+
+	for {
+		var set Config
+
+		err := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields().Decode(&set)
+		if err == nil {
+			return &set, problems, undecoded
+		}
+
+		problems = append(problems, decodeProblems(file, keys, err)...)
+
+		if _, isMissing := errors.AsType[*toml.StrictMissingError](err); isMissing {
+			// The decoder reports the unknown keys once it has decoded the rest.
+			return &set, problems, undecoded
+		}
+
+		var skipped bool
+		if isTOML {
+			regions, skipped = skipFailed(data, regions, err, keys, undecoded)
+		}
+
+		if !skipped {
+			return nil, problems, undecoded
+		}
+	}
+}
+
+// skipFailed blanks out in data the region of regions where the decoding
+// error err is, marks the keys there in undecoded, and returns the regions
+// left and true; it returns false when err is in no region. A region is
+// blanked once, so decoding again and again ends.
+func skipFailed(data []byte, regions []region, err error, keys map[string]keyPlace,
+	undecoded map[string]bool,
+) ([]region, bool) {
+	decodeErr, isDecode := errors.AsType[*toml.DecodeError](err)
+	if !isDecode {
+		return regions, false
+	}
+
+	line, column := decodeErr.Position()
+	at := offsetAt(data, line, column)
+
+	index := slices.IndexFunc(regions, func(r region) bool { return r.start <= at && at < r.end })
+	if index < 0 {
+		return regions, false
+	}
+
+	failed := regions[index]
+
+	blank(data, failed)
+
+	for key, place := range keys {
+		if failed.start <= place.offset && place.offset < failed.end {
+			undecoded[key] = true
+		}
+	}
+
+	return slices.Delete(regions, index, index+1), true
 }
 
 // withoutRepeatedKeys returns first and then the problems of second about a
