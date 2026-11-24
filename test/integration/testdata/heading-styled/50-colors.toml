@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# An attribute, a colour of the 256 and a background in RGB for the step
+# headings.
+
+[colors]
+heading = "italic 202 #102030"

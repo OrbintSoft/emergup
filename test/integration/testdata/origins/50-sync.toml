@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A value set by a drop-in, next to those of the main file and the defaults.
+
+[steps.sync]
+min-interval = "12h"

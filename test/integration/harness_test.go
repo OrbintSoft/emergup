@@ -13,8 +13,10 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,6 +41,13 @@ const (
 	// tester is an ordinary user who may run any command through sudo.
 	tester = "tester"
 	root   = "root"
+)
+
+// The emergup configuration of the image: its main file, which the image
+// sets up, and the directory of the drop-ins, which it does not create.
+const (
+	configFile      = "/etc/emergup/config.toml"
+	configDirectory = "/etc/emergup/config.d"
 )
 
 // container is a container of the test image that lives as long as its
@@ -76,7 +85,7 @@ func start(t *testing.T) *container {
 
 	ctr := &container{t: t, docker: cmp.Or(os.Getenv(dockerVariable), "docker"), id: ""}
 
-	started := ctr.command(t.Context(), "run", "--detach", "--rm", "--network", "none",
+	started := ctr.command(t.Context(), nil, "run", "--detach", "--rm", "--network", "none",
 		"--volume", setting(t, binaryVariable)+":/usr/local/bin/emergup:ro",
 		setting(t, imageVariable), "sleep", "infinity")
 	require.Equal(t, 0, started.code, "the container does not start: %s", started.stderr)
@@ -87,7 +96,7 @@ func start(t *testing.T) *container {
 	ctx := context.WithoutCancel(t.Context())
 
 	t.Cleanup(func() {
-		removed := ctr.command(ctx, "rm", "--force", ctr.id)
+		removed := ctr.command(ctx, nil, "rm", "--force", ctr.id)
 		if removed.code != 0 {
 			t.Errorf("the container %s is not removed: %s", ctr.id, removed.stderr)
 		}
@@ -100,7 +109,24 @@ func start(t *testing.T) *container {
 func (c *container) emergup(args ...string) result {
 	c.t.Helper()
 
-	return c.exec(tester, append([]string{"emergup"}, args...)...)
+	return c.emergupInput("", args...)
+}
+
+// emergupInput runs emergup with args as tester, with input on its
+// standard input.
+func (c *container) emergupInput(input string, args ...string) result {
+	c.t.Helper()
+
+	return c.exec(tester, input, append([]string{"emergup"}, args...)...)
+}
+
+// emergupTerminal runs emergup with args as tester on a terminal of its
+// own, with no input. A terminal has a single output: everything is in
+// stdout, each line ending with "\r\n".
+func (c *container) emergupTerminal(args ...string) result {
+	c.t.Helper()
+
+	return c.command(c.t.Context(), nil, append([]string{"exec", "--tty", "--user", tester, c.id, "emergup"}, args...)...)
 }
 
 // root runs args as root, as the set-up of a test, which fails when the
@@ -108,7 +134,7 @@ func (c *container) emergup(args ...string) result {
 func (c *container) root(args ...string) {
 	c.t.Helper()
 
-	done := c.exec(root, args...)
+	done := c.exec(root, "", args...)
 	require.Equal(c.t, 0, done.code, "%v failed: %s", args, done.stderr)
 }
 
@@ -116,24 +142,56 @@ func (c *container) root(args ...string) {
 func (c *container) exists(path string) bool {
 	c.t.Helper()
 
-	return c.exec(root, "test", "-e", path).code == 0
+	return c.exec(root, "", "test", "-e", path).code == 0
 }
 
-// exec runs args in the container as user, with no input.
-func (c *container) exec(user string, args ...string) result {
+// install copies the file source of the host to target in the container,
+// owned by root and readable by every user, as a configuration file is.
+func (c *container) install(source, target string) {
 	c.t.Helper()
 
-	return c.command(c.t.Context(), append([]string{"exec", "--interactive", "--user", user, c.id}, args...)...)
+	copied := c.command(c.t.Context(), nil, "cp", source, c.id+":"+target)
+	require.Equal(c.t, 0, copied.code, "%s is not copied: %s", source, copied.stderr)
+
+	c.root("chown", "root:root", target)
+	c.root("chmod", "0644", target)
 }
 
-// command runs the container command with args and returns what it did;
-// the test fails when the command cannot run at all.
-func (c *container) command(ctx context.Context, args ...string) result {
+// dropIns installs every file of testdata/name in /etc/emergup/config.d.
+func (c *container) dropIns(name string) {
+	c.t.Helper()
+
+	directory := filepath.Join("testdata", name)
+
+	files, err := os.ReadDir(directory)
+	require.NoError(c.t, err)
+
+	c.root("mkdir", "-p", configDirectory)
+
+	for _, file := range files {
+		c.install(filepath.Join(directory, file.Name()), configDirectory+"/"+file.Name())
+	}
+}
+
+// exec runs args in the container as user, with input on its standard
+// input.
+func (c *container) exec(user, input string, args ...string) result {
+	c.t.Helper()
+
+	return c.command(c.t.Context(), strings.NewReader(input),
+		append([]string{"exec", "--interactive", "--user", user, c.id}, args...)...)
+}
+
+// command runs the container command with args, and input on its standard
+// input when it is not nil, and returns what it did; the test fails when
+// the command cannot run at all.
+func (c *container) command(ctx context.Context, input io.Reader, args ...string) result {
 	c.t.Helper()
 
 	var stdout, stderr bytes.Buffer
 
 	cmd := exec.CommandContext(ctx, c.docker, args...) //nolint:gosec // The tests choose what runs.
+	cmd.Stdin = input
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 

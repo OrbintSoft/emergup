@@ -79,10 +79,13 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   checkmake on the Makefile, markdownlint-cli2 on Markdown, yamllint on YAML,
   actionlint on the workflows, `go mod tidy -diff` on `go.mod`/`go.sum` and
   `renovate-config-validator --strict` on `renovate.json5` (the only JSON5
-  file; no general JSON5 linter). TOML has no linter: the only TOML files are
-  the example configuration, which `make test` loads with emergup's own strict
-  loader (syntax, unknown keys, types, values) and compares with the defaults
-  in the code, more than a generic TOML linter checks; they are formatted by
+  file; no general JSON5 linter). TOML has no linter: the TOML files are
+  emergup configuration files, which emergup's own strict loader checks
+  (syntax, unknown keys, types, values), more than a generic TOML linter
+  does. `make test` loads the example configuration and compares it with the
+  defaults in the code; `make integration` loads the integration image's
+  configuration and the fixtures of the integration tests, some of them
+  broken on purpose, which a linter would reject. They are formatted by
   hand. hadolint lints the Dockerfile of the integration image (`make
   lint-docker`), run from its pinned image. The other files of that image
   have no linter: `visudo --check` checks the sudoers file when the image is
@@ -406,7 +409,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         runs them, `INTEGRATION_RUN` picks some. The first ones cover CLI-1
         and UPD-6; UPD-6 found the preserved-library query failing for a
         user outside the portage group, fixed in its own change.
-- [ ] **5.2** Integration tests for the Phase 2–4 features, each naming its id.
+- [~] **5.2** Integration tests for the Phase 2–4 features, each naming its id.
+      - Configuration and command line: CLI-2, CLI-3 (status 130 at a
+        question), CFG-1–6. The configuration files of a test are fixtures
+        in test/integration/testdata, installed owned by root; the colours
+        are checked on a terminal (`docker exec --tty`).
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.

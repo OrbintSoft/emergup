@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Not TOML: the table name is not closed.
+
+[steps.sync
+min-interval = "1h"

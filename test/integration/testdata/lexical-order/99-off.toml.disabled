@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Not read: a drop-in's name ends in .toml.
+
+[steps.sync]
+min-interval = "9h"
