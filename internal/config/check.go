@@ -22,12 +22,10 @@ type textValue interface {
 	expected() string
 }
 
-// checkFile returns the problems in the values of file that decoding does
-// not report: a key of textKeys given something else than a string, and the
-// values that valueRules reject. keys are the keys the file sets and set is
-// what the file alone decodes to, or nil when it does not decode, in which
-// case only the keys of textKeys are checked.
-func checkFile(file string, keys map[string]keyPlace, set *Config) []*Error {
+// textProblems returns a problem for each key of textKeys that file gives
+// something else than a string, which decoding does not report; keys are the
+// keys the file sets.
+func textProblems(file string, keys map[string]keyPlace) []*Error {
 	var problems []*Error
 
 	schema := schemaKeys(reflect.TypeFor[Config]())
@@ -49,9 +47,14 @@ func checkFile(file string, keys map[string]keyPlace, set *Config) []*Error {
 		})
 	}
 
-	if set == nil {
-		return problems
-	}
+	return problems
+}
+
+// valueProblems returns a problem for each value of file that valueRules
+// reject, which decoding does not; keys are the keys the file sets and set
+// is what the file alone decodes to.
+func valueProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
+	var problems []*Error
 
 	for _, rule := range valueRules() {
 		place, isSet := keys[rule.key]
