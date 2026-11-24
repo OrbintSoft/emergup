@@ -13,6 +13,7 @@ import (
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/elevation"
+	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
@@ -38,6 +39,7 @@ func main() {
 			Log: nil, GracePeriod: 0, Now: nil,
 		},
 		System: elevation.OS{},
+		Lock:   lock.Socket{Name: "emergup/run"},
 		Color:  ui.ColorEnabled(ui.IsTerminal(os.Stdout), os.Getenv),
 		Now:    time.Now,
 	}

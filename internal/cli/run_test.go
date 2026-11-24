@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/OrbintSoft/emergup/internal/cli"
+	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/runner/runnertest"
 	"github.com/OrbintSoft/emergup/internal/ui"
 )
@@ -78,12 +79,35 @@ func (k *keys) ReadKey(context.Context) (rune, error) {
 	return key, nil
 }
 
+// locker is a fake lock.Locker that records whether it was taken and
+// released; with err set it is held by another run.
+type locker struct {
+	err      error
+	locked   bool
+	released bool
+}
+
+func (l *locker) Lock(context.Context) (func() error, error) {
+	if l.err != nil {
+		return nil, l.err
+	}
+
+	l.locked = true
+
+	return func() error {
+		l.released = true
+
+		return nil
+	}, nil
+}
+
 // session is a system emergup runs on, for the run command.
 type session struct {
 	root   fs.FS
 	keys   keys
 	system system
 	runner runnertest.Fake
+	lock   locker
 	color  bool
 }
 
@@ -113,6 +137,7 @@ func (s *session) run(t *testing.T, args ...string) (int, string, string) {
 		Keyboard: &s.keys,
 		Runner:   &s.runner,
 		System:   s.system,
+		Lock:     &s.lock,
 		Color:    s.color,
 		Now:      func() time.Time { return time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC) },
 	}
@@ -306,4 +331,42 @@ func TestRunUsageErrors(t *testing.T) {
 			assert.Contains(t, stderr, tt.want+"\n\n"+usageLine)
 		})
 	}
+}
+
+func TestRunHoldsTheLockWhileItRuns(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.keys.silent = true
+
+	code, _, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 0, code)
+	assert.True(t, sess.lock.locked, "the run takes the lock")
+	assert.True(t, sess.lock.released, "and releases it at the end")
+}
+
+func TestRunRefusesToStartWhileAnotherRunIsActive(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.lock.err = &lock.HeldError{PID: 1234, User: "mario"}
+	sess.system = system{programs: nil, euid: 0}
+	sess.keys.silent = true
+
+	code, stdout, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 1, code)
+	assert.Equal(t, "==> another emergup run is active: process 1234 of user mario\n", stdout,
+		"before anything else")
+}
+
+func TestRunPretendDoesNotTakeTheLock(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.lock.err = &lock.HeldError{PID: 1234, User: "mario"}
+	sess.keys.silent = true
+
+	code, stdout, _ := sess.run(t, commandRun, optionPretend)
+	assert.Equal(t, 0, code)
+	assert.True(t, strings.HasPrefix(stdout, firstHeading), stdout)
 }

@@ -38,6 +38,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   (`sudo` → `doas` → `run0`) or set in the configuration. Hooks and AI run
   unprivileged. Started as root, emergup runs the commands directly and turns
   AI off (PRIV-4).
+- **Run directory:** each run writes its log, and later its failure report,
+  in a directory of its own under the invoking user's state directory,
+  `$XDG_STATE_HOME/emergup/runs/` (by default `~/.local/state/emergup/runs/`;
+  root's is under `/root`). Writing there needs no elevation, and the user,
+  like the AI backends that run as the user, reads the logs and reports
+  without `sudo`; `/var/log/emergup/` would need root for every write.
 - **CLI without a library:** subcommand dispatch, option parsing and the usage
   text are hand-written in `internal/cli`, so all of it is unit-tested;
   `cmd/emergup` holds only `os.Exit(cli.Main(ctx, …))`.
@@ -85,8 +91,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 1. ~~**CLI library**~~ — answered: hand-written, see Decisions taken.
 2. ~~**List merging across `config.d`**~~ — answered: lists add up like `USE`,
    see Decisions taken (CFG-5).
-3. **Where run logs and failure reports live:** the user's state directory
-   (`~/.local/state/emergup/`) or `/var/log/emergup/` (needs root)? (Phase 3)
+3. ~~**Where run logs and failure reports live**~~ — answered: in the
+   invoking user's state directory, see Decisions taken.
 4. ~~**emerge `--ask`**~~ — answered: `--pretend` first and emergup asks, see
    Decisions taken (UPD-10).
 5. ~~**Running as root**~~ — answered: allowed, see Decisions taken (PRIV-4).
@@ -225,7 +231,22 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         and are skipped as "not available yet"; each phase-4 item replaces
         one. In phase 4 a step that confirms itself after its `--pretend`
         (update, depclean) replaces the pipeline's question with its own.
-- [ ] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
+- [~] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
+      Two PRs: the lock, then the run directory.
+      - The lock is system-wide, not per user, so that a user's run and a
+        root crontab's do not overlap. It is a Linux abstract Unix socket
+        (`@emergup/run`): no file, so nothing is left behind by a crash, and
+        `/run/lock` is not writable by an ordinary user; the kernel frees it
+        when the process ends, the commands do not inherit it, and its
+        peer credentials tell a second run which process and user hold it.
+        Only `run` takes it, not `--pretend`. Other systems have no lock. A
+        local user can hold the name and block the others' runs, as with
+        any lock in a place everyone can write.
+      - The run directory is `runs/<local time>/` under the state directory
+        (0700), with `emergup.log` (0600): the whole transcript without
+        colours. `[runs] keep` (10 by default, 0 keeps all) removes the
+        oldest. `--pretend` creates none; without a usable state directory
+        the run does not start.
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
 
