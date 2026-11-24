@@ -18,6 +18,7 @@ import (
 
 	"github.com/OrbintSoft/emergup/internal/config"
 	"github.com/OrbintSoft/emergup/internal/elevation"
+	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/pipeline"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/steps"
@@ -69,6 +70,8 @@ type Env struct {
 	// looks at.
 	Runner runner.Runner
 	System elevation.System
+	// Lock keeps two runs from overlapping.
+	Lock lock.Locker
 	// Color turns emergup's colours on, see ui.ColorEnabled.
 	Color bool
 	// Now gives the time; nil means time.Now.
@@ -133,6 +136,19 @@ func runCommand(ctx context.Context, env Env, prog string, args []string) int {
 	}
 
 	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color}
+
+	if !options.pretend {
+		release, err := env.Lock.Lock(ctx)
+		if err != nil {
+			printer.Failure(err.Error())
+
+			return exitProblem
+		}
+
+		// The kernel frees the lock when emergup ends anyway.
+		defer func() { _ = release() }()
+	}
+
 	if elevation.IsRoot(env.System) {
 		printer.Notice(runningAsRoot)
 	}
