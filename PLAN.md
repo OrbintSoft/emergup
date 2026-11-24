@@ -202,8 +202,29 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         otherwise answer the next question. Ctrl-C and the end of the input
         abort, never take the usual action. `--yes` takes the usual action
         and says so; the flag itself comes with `run` in 3.4.
-- [ ] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
+- [~] **3.4** Step model and pipeline: enable/disable, `--pretend`, final summary
       with the time of each step and of the run (UPD-3, UPD-6, UPD-7, UPD-12).
+      Two PRs: the engine (`internal/pipeline`), then `emergup run`.
+      - Each enabled step has a heading (`[2/6] update: update @world`), the
+        question "Run this step?" (run it, skip it, abort the run), and an end
+        line with its outcome and time. A failure stops the run; the
+        diagnostics and the failure menu come in phases 8 and 9. A disabled
+        step is neither announced nor asked about. The summary has a row per
+        step: succeeded, skipped, failed, stopped (interrupted while it ran),
+        disabled or not run, with its time and reason.
+      - A step's time runs from its start to its end, without the question;
+        the run's is the whole wall-clock time.
+      - `--pretend` shows each enabled step and what it would run, asks
+        nothing and runs nothing.
+      - `run` exits with 0 when every step succeeded or was skipped, 1 when a
+        step failed or the run could not start, 130 when it was stopped
+        (Ctrl-C, the abort key, the end of the input, SIGTERM). The
+        elevation is resolved before the first step (PRIV-2), and a run as
+        root says so once (PRIV-4).
+      - Until phase 4 the built-in steps are placeholders that run nothing
+        and are skipped as "not available yet"; each phase-4 item replaces
+        one. In phase 4 a step that confirms itself after its `--pretend`
+        (update, depclean) replaces the pipeline's question with its own.
 - [ ] **3.5** Single-instance lock and run directory (UPD-8; open questions 3, 5).
 
 ## Phase 4 — Built-in steps: parity with the old script (MVP)  `[ ]`
