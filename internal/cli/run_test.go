@@ -55,6 +55,11 @@ var listRepositories = runner.Command{
 	Args: []string{"portageq", "repos_config", "/"}, Mode: runner.Capture, Root: false,
 }
 
+// queryVDB is the command that asks where the installed packages are.
+//
+//nolint:gochecknoglobals // The query several tests expect.
+var queryVDB = runner.Command{Args: []string{"portageq", "vdb_path"}, Mode: runner.Capture, Root: false}
+
 // updatePretend is the command the update shows what it would do with.
 //
 //nolint:gochecknoglobals // The command several tests expect.
@@ -173,12 +178,49 @@ func (s *store) Prune(keep int, current string) error {
 	return s.pruneErr
 }
 
+// The kinds of command portage answers.
+const (
+	kindPretend    = "pretend"
+	kindVDB        = "portageq vdb_path"
+	kindRepository = "portageq repos_config"
+)
+
+// portage is a runner.Runner for a system's Portage: it answers each
+// command with what outputs holds for its kind, and records every command.
+type portage struct {
+	recorded runnertest.Fake
+	outputs  map[string]string
+}
+
+// commandKind says what cmd does, for portage: kindPretend for a pretend,
+// otherwise its first two words.
+func commandKind(cmd runner.Command) string {
+	if slices.Contains(cmd.Args, "--pretend") {
+		return kindPretend
+	}
+
+	return strings.Join(cmd.Args[:min(2, len(cmd.Args))], " ")
+}
+
+func (p *portage) Run(ctx context.Context, cmd runner.Command) (runner.Result, error) {
+	if _, err := p.recorded.Run(ctx, cmd); err != nil {
+		return runner.Result{}, err //nolint:wrapcheck // The fake's own error.
+	}
+
+	return runner.Result{ExitCode: 0, Output: []byte(p.outputs[commandKind(cmd)]), Duration: 0}, nil
+}
+
+// Commands returns the commands run so far, in order.
+func (p *portage) Commands() []runner.Command {
+	return p.recorded.Commands()
+}
+
 // session is a system emergup runs on, for the run command.
 type session struct {
 	root      fs.FS
 	keys      keys
 	system    system
-	runner    runnertest.Fake
+	runner    portage
 	runnerLog io.Writer
 	runs      store
 	lock      locker
@@ -194,10 +236,11 @@ func newSession(t *testing.T, keys ...rune) *session {
 	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{"sudo"}, euid: userID}}
 	sess.keys.t = t
 	sess.keys.keys = keys
-	sess.runner.Script(
-		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: nil}},
-		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte(nothingToUpdate)}},
-	)
+	sess.runner.outputs = map[string]string{
+		kindPretend:    nothingToUpdate,
+		kindVDB:        "/var/db/pkg\n",
+		kindRepository: "",
+	}
 
 	return sess
 }
@@ -250,9 +293,8 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 				"    sync               skipped       <1s  "+noRepository+"\n"+
 				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Equal(t, []runner.Command{listRepositories, updatePretend}, sess.runner.Commands(),
-				"the listing of the repositories and the pretend of the update, unprivileged; "+
-					"the steps not written yet run nothing")
+			assert.Equal(t, []runner.Command{listRepositories, updatePretend, queryVDB}, sess.runner.Commands(),
+				"the queries and the pretend of the update, unprivileged; the steps not written yet run nothing")
 		})
 	}
 }
@@ -309,7 +351,7 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 			assert.True(t, strings.HasPrefix(stdout, firstHeading+"    "+noRepository+"\n"), stdout)
 			assert.True(t, strings.HasSuffix(stdout, lastHeading+"    "+notAvailable+"\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
-			assert.Equal(t, []runner.Command{listRepositories}, sess.runner.Commands())
+			assert.Equal(t, []runner.Command{listRepositories, queryVDB}, sess.runner.Commands())
 		})
 	}
 }
@@ -574,10 +616,7 @@ func TestRunForceSyncSyncsEveryRepository(t *testing.T) {
 			sess.root = fstest.MapFS{
 				"var/db/repos/gentoo/metadata/timestamp.chk": {Data: []byte("Tue, 24 Nov 2026 09:00:00 +0000\n")},
 			}
-			sess.runner = runnertest.Fake{}
-			sess.runner.Script(runnertest.Answer{Result: runner.Result{
-				ExitCode: 0, Output: []byte("[gentoo]\nlocation = /var/db/repos/gentoo\nsync-type = rsync\n"),
-			}})
+			sess.runner.outputs[kindRepository] = "[gentoo]\nlocation = /var/db/repos/gentoo\nsync-type = rsync\n"
 
 			code, stdout, _ := sess.run(t, append([]string{commandRun, optionPretend}, tt.args...)...)
 			assert.Equal(t, 0, code)
@@ -590,11 +629,7 @@ func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 	t.Parallel()
 
 	sess := newSession(t, ui.KeyEnter, ui.KeyEnter, 'a')
-	sess.runner = runnertest.Fake{}
-	sess.runner.Script(
-		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: nil}},
-		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte("Total: 2 packages (2 upgrades)\n")}},
-	)
+	sess.runner.outputs[kindPretend] = "Total: 2 packages (2 upgrades)\n"
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 130, code, "stopped at the next step")

@@ -290,10 +290,21 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       - A `make.conf` that only root can read (binhost credentials) would
         show the unprivileged pretend another configuration than the real
         run's; no option for it yet.
-- [ ] **4.3** Live-package rebuild by mode (UPD-4, UPD-9): `smart`
+- [x] **4.3** Live-package rebuild by mode (UPD-4, UPD-9): `smart`
       (smart-live-rebuild), `interval` (live packages of `@live-rebuild` whose
       `BUILD_TIME` in the Portage database is older than the interval, rebuilt
       `--oneshot`; no state file), `always`, `auto`.
+      - The live packages are those of `@live-rebuild`: the installed
+        packages with `live` in `PROPERTIES`, read from the database
+        `portageq vdb_path` names, with their `BUILD_TIME`.
+      - `interval` and `always` rebuild them with one elevated `emerge
+        --oneshot =cat/pkg-version …`, the exact versions so that no other
+        version is picked; a row says what is done with each. `smart` runs
+        smart-live-rebuild, elevated, which checks the upstreams itself;
+        not installed, the step is skipped with a notice. `auto` is `smart`
+        when it is installed and `interval` otherwise, and says so.
+      - The pipeline asks "Run this step?" as for any step: only the
+        `@world` update and the depclean show a pretend first.
 - [ ] **4.4** Preserved-library rebuild, only when needed; `haskell-updater`
       (UPD-5; open question 7).
 - [ ] **4.5** Config-file updates delegated to `dispatch-conf` (ETC-3).

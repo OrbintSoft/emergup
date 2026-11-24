@@ -94,6 +94,9 @@ type Env struct {
 	// Root is the system's root file system, from which the steps read
 	// the state of the system, such as when a repository was synced.
 	Root fs.FS
+	// LookPath finds a program on PATH, as exec.LookPath does, for the
+	// steps whose tool may not be installed.
+	LookPath func(file string) (string, error)
 }
 
 // Step is one step of a run.

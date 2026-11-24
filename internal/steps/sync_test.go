@@ -285,7 +285,7 @@ func TestSyncFails(t *testing.T) {
 		{
 			"when emerge fails",
 			[]runnertest.Answer{{}, {Result: runner.Result{ExitCode: 1}}},
-			"emerge exited with status 1", 2,
+			emergeFailed, 2,
 		},
 		{
 			"when emerge does not start",
