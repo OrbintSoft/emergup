@@ -80,7 +80,14 @@ func TestCFG3_CheckReportsEachProblemWithItsFileAndLine(t *testing.T) {
 			"/etc/emergup/config.d/10-unknown.toml:9:2: steps.nope: unknown key\n" +
 			"/etc/emergup/config.d/20-value.toml:6:1: runs.keep: must be 0 or more; 0 keeps every run\n" +
 			"/etc/emergup/config.d/30-syntax.toml:5:12: expected ']' to close table name\n" +
-			"4 problems in the configuration.\n",
+			`/etc/emergup/config.d/40-one-file.toml:7:16: steps.sync.min-interval: invalid duration "soon", ` +
+			`expected for example "24h" or "90m"` + "\n" +
+			"/etc/emergup/config.d/40-one-file.toml:8:1: steps.sync.bogus: unknown key\n" +
+			"/etc/emergup/config.d/40-one-file.toml:9:11: steps.sync.command: expected a list of strings, " +
+			"found an integer\n" +
+			`/etc/emergup/config.d/40-one-file.toml:12:8: steps.live-rebuild.mode: unknown live-rebuild mode "smrt", ` +
+			"expected one of auto, smart, interval, always\n" +
+			"8 problems in the configuration.\n",
 		code: 1,
 	}
 
