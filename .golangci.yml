@@ -3,6 +3,11 @@
 # golangci-lint configuration, used by `make lint-go`, `make fmt` and CI.
 version: "2"
 
+# The integration tests are behind their build tag, and linted too.
+run:
+  build-tags:
+    - integration
+
 linters:
   # Every linter is enabled; one is disabled only where its rule is
   # counterproductive for this project, with the reason next to it.

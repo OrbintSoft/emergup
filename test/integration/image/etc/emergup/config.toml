@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The emergup configuration of the integration tests. The update works on
+# the packages of the test repository only, so a test never updates a
+# package of the stage3; the depclean removes only what a test leaves
+# behind, since the image puts the stage3's packages in the world set.
+
+[steps.update]
+target = "@emergup-test"

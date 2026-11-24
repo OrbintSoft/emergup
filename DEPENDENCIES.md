@@ -24,7 +24,20 @@ when a dependency is not updated by them.
 | **renovate** (npm) | Validating [renovate.json5](renovate.json5) with `renovate-config-validator --strict` (`make lint-renovate`). | Pinned in the [Makefile](Makefile) and run with `npx`; Renovate bumps the pin. |
 | **yamllint** | Linting the YAML files (`make lint-yaml`), configured by [.yamllint.yaml](.yamllint.yaml). | Taken from `PATH` (for example `dev-util/yamllint` or `pip install yamllint`), so the local version is not pinned; CI pins it in [ci.yml](.github/workflows/ci.yml), and Renovate bumps that pin. |
 | **sed**, **awk**, **install** | Reading the toolchain from `go.mod`, `make help`, `make install`. | Any POSIX `sed`/`awk` and coreutils `install`. |
+| **Docker** | Building the integration image and running the integration tests in its containers (`make integration`); running hadolint (`make lint-docker`). | Any recent version; the legacy builder is enough. Another command that takes the arguments of docker can replace it (`DOCKER=podman`). |
+| **hadolint** | Linting the Dockerfile of the integration image (`make lint-docker`). | Run from its image `hadolint/hadolint`, pinned by tag and digest in the [Makefile](Makefile); Renovate bumps the pin. |
 | **tar**, **gzip**, **xz**, **sha256sum** | The release archives and their checksums (`make dist`). | GNU tar, for `--sort` and the owner options that make the archives the same on every machine; coreutils `sha256sum`. |
+
+## Integration image
+
+The integration tests run emergup in containers of an image built from
+[test/integration/image/Dockerfile](test/integration/image/Dockerfile).
+
+| Dependency | Purpose | Version and updates |
+| --- | --- | --- |
+| `gentoo/stage3` (`amd64-openrc`) | The system the integration tests run emergup in. | Pinned by its dated tag and digest in the Dockerfile; Dependabot and Renovate bump it, Renovate together with the tree. |
+| `gentoo/portage` | The Gentoo tree of the image. | Pinned by its dated tag and digest in the Dockerfile; Dependabot and Renovate bump it, Renovate together with the stage3. |
+| `app-admin/sudo` | The elevation of the tests run as an ordinary user. | Installed when the image is built, from the Gentoo binary host when it has the version of the tree, built otherwise; it follows the tree. |
 
 ## Continuous integration
 
@@ -41,8 +54,8 @@ Makefile, and only helpers such as pipx and shellcheck come from the image.
 | `actions/setup-node` | Installing Node.js for markdownlint-cli2 and the Renovate configuration validator. | Pinned to a commit SHA; Dependabot and Renovate bump it. The Node.js version is the latest LTS. |
 | **pipx** | Installing yamllint at the pinned version. | Preinstalled on the runner. |
 | **DCO** GitHub App | Checking that every commit of a pull request is signed off; commits by bots are exempt. | Installed on the repository; maintained by its authors. |
-| **Dependabot** | Opening update pull requests for the Go modules and the actions, one per ecosystem, on Saturday mornings. | Configured by [.github/dependabot.yml](.github/dependabot.yml); part of GitHub. |
-| **Renovate** GitHub App (Mend-hosted) | Opening update pull requests for go.mod, the actions and the tool pins in the Makefile and the workflow (actions and tool pins grouped in one), on Thursday afternoons. | Configured by [renovate.json5](renovate.json5); installed on the repository, so it needs no token or workflow. |
+| **Dependabot** | Opening update pull requests for the Go modules, the actions and the images of the integration Dockerfile, one per ecosystem, on Saturday mornings. | Configured by [.github/dependabot.yml](.github/dependabot.yml); part of GitHub. |
+| **Renovate** GitHub App (Mend-hosted) | Opening update pull requests for go.mod, the actions, the images of the integration Dockerfile (grouped in one) and the tool pins in the Makefile and the workflow (actions and tool pins grouped in one), on Thursday afternoons. | Configured by [renovate.json5](renovate.json5); installed on the repository, so it needs no token or workflow. |
 
 ## Go modules
 

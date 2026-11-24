@@ -8,8 +8,9 @@
 // inside it.
 //
 // It manages go.mod (the go and toolchain lines and the modules), the GitHub
-// Actions, and, through the custom managers below, the tool versions pinned in
-// the Makefile and in the CI workflow.
+// Actions, the images of the integration tests' Dockerfile, and, through the
+// custom managers below, the tool versions pinned in the Makefile and in the
+// CI workflow.
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
@@ -46,6 +47,19 @@
       groupName: "CI and lint tools",
     },
     {
+      // The stage3 and the Gentoo tree of the integration image, updated
+      // together so that the tree matches the stage3.
+      matchManagers: ["dockerfile"],
+      groupName: "integration image",
+    },
+    {
+      // The stage3 tags carry the date of the build after the profile, as
+      // in amd64-openrc-20261123.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/(^|/)gentoo/stage3$/"],
+      versioning: "regex:^amd64-openrc-(?<major>\\d{8})$",
+    },
+    {
       // The go line is the minimum supported Go and stays one release behind
       // the latest, always at X.Y.0. Go ships a release about every six
       // months, so a release older than that already has a successor; the
@@ -68,6 +82,15 @@
         "\\$\\(GO\\) run (?<depName>\\S+?)/cmd/\\S+@(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)",
       ],
       datasourceTemplate: "go",
+    },
+    {
+      customType: "regex",
+      description: "Container images run by the Makefile, pinned by tag and digest",
+      managerFilePatterns: ["/^Makefile$/"],
+      matchStrings: [
+        "docker\\.io/(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})",
+      ],
+      datasourceTemplate: "docker",
     },
     {
       customType: "regex",

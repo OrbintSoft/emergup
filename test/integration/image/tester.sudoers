@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# tester, the ordinary user of the integration tests, runs any command as
+# root without a password, as emergup's elevation needs.
+tester ALL=(ALL:ALL) NOPASSWD: ALL

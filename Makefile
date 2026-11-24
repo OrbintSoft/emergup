@@ -26,23 +26,37 @@ export GOTOOLCHAIN
 # The version `emergup version` reports. When empty, the Go toolchain records
 # the module version itself (a pseudo-version in a git checkout).
 VERSION ?=
-LDFLAGS := $(if $(VERSION),-X github.com/OrbintSoft/emergup/internal/version.stamped=$(VERSION))
+STAMP   := -X github.com/OrbintSoft/emergup/internal/version.stamped=
+LDFLAGS := $(if $(VERSION),$(STAMP)$(VERSION))
 
 # The Go linters run at pinned versions, built with the toolchain above, and
 # markdownlint-cli2 and the Renovate configuration validator at pinned versions
 # through npx, so the result does not depend on what happens to be installed.
 # yamllint is taken from PATH: Python has no standard runner that fetches a
-# pinned version. Renovate updates every pin. Override any of them to use
-# another binary.
+# pinned version. hadolint runs from its image, pinned by digest, as Haskell
+# has no such runner either. Renovate updates every pin. Override any of
+# them to use another binary.
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 CHECKMAKE     ?= $(GO) run github.com/checkmake/checkmake/cmd/checkmake@v0.3.2
 ACTIONLINT    ?= $(GO) run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 MARKDOWNLINT  ?= npx --yes markdownlint-cli2@0.24.2
 RENOVATE_VALIDATE ?= npx --yes --package renovate@44.257.9 -- renovate-config-validator --strict
 YAMLLINT      ?= yamllint
+HADOLINT      ?= $(DOCKER) run --rm --interactive docker.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint
 
 BUILDDIR := bin
 BINARY   := emergup
+
+# The integration tests run a static emergup binary, stamped with a version
+# of its own, in containers of the image built from test/integration/image.
+# DOCKER is any command that takes the arguments of docker.
+DOCKER              ?= docker
+INTEGRATION_IMAGE   ?= emergup-integration
+INTEGRATION_BINARY  := $(BUILDDIR)/integration/$(BINARY)
+INTEGRATION_VERSION := 0.0.0-integration
+# A pattern of `go test -run` that picks the tests to run; all of them when
+# empty.
+INTEGRATION_RUN     ?=
 
 # The release archives `make dist` builds: a binary for each architecture
 # with the documents and the example configuration, and the vendored Go
@@ -56,7 +70,7 @@ TAR         := tar --sort=name --owner=0 --group=0 --numeric-owner
 
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate fmt check install uninstall dist dist-version help
+.PHONY: all clean test build race vet integration integration-docker lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker fmt check install uninstall dist dist-version help
 
 all: build ## Build the binary (the default)
 
@@ -69,10 +83,18 @@ test: ## Run the unit tests
 race: ## Run the unit tests with the race detector
 	$(GO) test -race ./...
 
-vet: ## Run go vet
-	$(GO) vet ./...
+vet: ## Run go vet, on the integration tests too
+	$(GO) vet -tags integration ./...
 
-lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate ## Run every linter
+integration: integration-docker ## Run the integration tests in Docker containers
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(STAMP)$(INTEGRATION_VERSION)' -o $(INTEGRATION_BINARY) ./cmd/emergup
+	$(DOCKER) build --tag $(INTEGRATION_IMAGE) test/integration/image
+	EMERGUP_TEST_DOCKER='$(DOCKER)' EMERGUP_TEST_IMAGE='$(INTEGRATION_IMAGE)' EMERGUP_TEST_BINARY='$(abspath $(INTEGRATION_BINARY))' EMERGUP_TEST_VERSION='$(INTEGRATION_VERSION)' $(GO) test -tags integration -count=1 -timeout 30m -run '$(INTEGRATION_RUN)' ./test/integration/...
+
+integration-docker:
+	@command -v $(firstword $(DOCKER)) > /dev/null || { echo 'integration: the integration tests need $(firstword $(DOCKER)), which is not installed' >&2; exit 1; }
+
+lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker ## Run every linter
 
 lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
@@ -94,6 +116,9 @@ lint-yaml: ## Lint the YAML files
 
 lint-renovate: ## Validate the Renovate configuration
 	$(RENOVATE_VALIDATE)
+
+lint-docker: ## Lint the Dockerfile of the integration tests
+	$(HADOLINT) - < test/integration/image/Dockerfile
 
 fmt: ## Format the Go code with gofumpt
 	$(GOLANGCI_LINT) fmt
