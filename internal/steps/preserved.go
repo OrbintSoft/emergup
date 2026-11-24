@@ -42,23 +42,12 @@ func (p preservedStep) Enabled() bool { return p.config.Enabled }
 // knows there is something to rebuild, and skips without asking otherwise.
 func (preservedStep) ConfirmsItself() bool { return true }
 
-// Pretend implements pipeline.Step.
-func (p preservedStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, error) {
-	libraries, err := preservedLibraries(ctx, env.Runner)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(libraries) == 0 {
-		return []string{noPreservedLibraries}, nil
-	}
-
-	lines := make([]string, 0, len(libraries)+1)
-	for _, row := range rows(libraries) {
-		lines = append(lines, row.text)
-	}
-
-	return append(lines, strings.Join(p.command(env), " ")), nil
+// Pretend implements pipeline.Step. Listing the preserved libraries needs
+// root, so it only says what the step would do.
+func (p preservedStep) Pretend(_ context.Context, env pipeline.Env) ([]string, error) {
+	return []string{
+		"would list the preserved libraries, as root, and if there are any run: " + strings.Join(p.command(env), " "),
+	}, nil
 }
 
 // Run implements pipeline.Step.
@@ -95,12 +84,13 @@ func (p preservedStep) command(env pipeline.Env) []string {
 }
 
 // preservedLibraries asks Portage which libraries it preserved, as
-// decisions that name the package and the library; the query changes
-// nothing, so it runs unprivileged.
+// decisions that name the package and the library. The query changes
+// nothing, but it runs elevated: Portage keeps the libraries in a registry
+// that only root and the portage group can read.
 func preservedLibraries(ctx context.Context, run runner.Runner) ([]decision, error) {
 	command := []string{portageq, "list_preserved_libs", "/"}
 
-	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
+	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: true})
 	if err != nil {
 		return nil, fmt.Errorf("could not list the preserved libraries: %w", err)
 	}

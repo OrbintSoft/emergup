@@ -62,7 +62,7 @@ own: emergup does not pin or update them.
 | Command | Purpose | Package |
 | --- | --- | --- |
 | `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. | `sys-apps/portage` |
-| `portageq` | Asking Portage about the system, unprivileged and read-only: the repositories (`repos_config`), the package database (`vdb_path`), the preserved libraries (`list_preserved_libs`), the protected configuration paths (`envvar`). | `sys-apps/portage` |
+| `portageq` | Asking Portage about the system, read-only: unprivileged for the repositories (`repos_config`), the package database (`vdb_path`) and the protected configuration paths (`envvar`); elevated for the preserved libraries (`list_preserved_libs`), since only root and the portage group can read their registry. | `sys-apps/portage` |
 | `dispatch-conf` | Merging the pending configuration-file updates, the default tool of the config-files step; `etc-update` can be configured instead. | `sys-apps/portage` |
 | `find` | Looking for the pending configuration-file updates, elevated since some protected directories can be read by root alone; read-only. | `sys-apps/findutils` |
 | `sudo`, `doas` or `run0` | Running the commands that need root, when emergup is not root; the first one installed, or the one the configuration names. | `app-admin/sudo`, `app-admin/doas`, `sys-apps/systemd` |

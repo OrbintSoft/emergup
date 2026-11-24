@@ -28,11 +28,12 @@ const (
 		"    dev-libs/bar-2.0  /usr/lib64/libbar.so.2.0.0\n"
 )
 
-// listPreserved is the query of the preserved libraries.
+// listPreserved is the query of the preserved libraries, elevated: only
+// root and the portage group can read the registry of them.
 //
 //nolint:gochecknoglobals // The query every test expects.
 var listPreserved = runner.Command{
-	Args: []string{portageq, "list_preserved_libs", "/"}, Mode: runner.Capture, Root: false,
+	Args: []string{portageq, "list_preserved_libs", "/"}, Mode: runner.Capture, Root: true,
 }
 
 // preservedRun is a run of the preserved rebuild where Portage preserved
@@ -215,7 +216,7 @@ func TestPreservedRebuildFails(t *testing.T) {
 	}
 }
 
-func TestPreservedRebuildPretend(t *testing.T) {
+func TestPreservedRebuildPretendElevatesNothing(t *testing.T) {
 	t.Parallel()
 
 	run := newPreservedRun(t)
@@ -224,18 +225,7 @@ func TestPreservedRebuildPretend(t *testing.T) {
 	lines, err := run.step(t).Pretend(t.Context(), run.env())
 	require.NoError(t, err)
 	assert.Equal(t, []string{
-		"dev-libs/foo-1.0  /usr/lib64/libfoo.so.1",
-		"dev-libs/bar-2.0  /usr/lib64/libbar.so.2",
-		"dev-libs/bar-2.0  /usr/lib64/libbar.so.2.0.0",
-		"emerge @preserved-rebuild --color=n",
+		"would list the preserved libraries, as root, and if there are any run: emerge @preserved-rebuild --color=n",
 	}, lines)
-	assert.Equal(t, []runner.Command{listPreserved}, run.runner.Commands(), "nothing is rebuilt")
-
-	run = newPreservedRun(t)
-	run.runner = runnertest.Fake{}
-	run.runner.Script(runnertest.Answer{Result: runner.Result{ExitCode: 1}})
-
-	lines, err = run.step(t).Pretend(t.Context(), run.env())
-	require.NoError(t, err)
-	assert.Equal(t, []string{noPreserved}, lines)
+	assert.Empty(t, run.runner.Commands(), "not even the query")
 }
