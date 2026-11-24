@@ -142,3 +142,27 @@ func TestFormatDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestPrinterRow(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		kind    ui.Kind
+		colored string
+	}{
+		{ui.KindPlain, "    text\n"},
+		{ui.KindSuccess, "    \x1b[32mtext\x1b[0m\n"},
+		{ui.KindSkip, "    \x1b[33mtext\x1b[0m\n"},
+		{ui.KindFailure, "    \x1b[1;31mtext\x1b[0m\n"},
+	}
+	for _, tt := range tests {
+		var out bytes.Buffer
+
+		ui.Printer{Out: &out, Colors: config.Default().Colors, Color: true}.Row(tt.kind, "text")
+		assert.Equal(t, tt.colored, out.String(), "coloured, kind %d", tt.kind)
+
+		out.Reset()
+		ui.Printer{Out: &out, Colors: config.Default().Colors, Color: false}.Row(tt.kind, "text")
+		assert.Equal(t, "    text\n", out.String(), "without colours, kind %d", tt.kind)
+	}
+}

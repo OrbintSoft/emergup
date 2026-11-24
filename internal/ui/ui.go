@@ -48,30 +48,69 @@ func (p Printer) Failure(text string) { p.line(&p.Colors.Failure, text) }
 // Notice writes a warning that is not a failure.
 func (p Printer) Notice(text string) { p.line(&p.Colors.Notice, text) }
 
-// line writes text as a line in style. The style ends before the newline,
-// so that a background colour does not run on to the next line.
-func (p Printer) line(style *config.Style, text string) {
-	sgr := style.SGR()
-	if !p.Color || sgr == "" {
-		_, _ = fmt.Fprintf(p.Out, "%s%s\n", linePrefix, text)
+// Kind is a kind of row, each in the colour of the outcome it reports.
+type Kind int
 
-		return
+// The kinds of row.
+const (
+	// KindPlain has no colour.
+	KindPlain Kind = iota
+	KindSuccess
+	KindSkip
+	KindFailure
+)
+
+// rowIndent starts every row, which sets them under the line before.
+const rowIndent = "    "
+
+// Row writes text as an indented row of a table, such as the summary of a
+// run, in the colour of kind.
+func (p Printer) Row(kind Kind, text string) {
+	p.styled(rowIndent, p.kindStyle(kind), text, "\n")
+}
+
+// kindStyle returns the style of kind, nil for KindPlain.
+func (p Printer) kindStyle(kind Kind) *config.Style {
+	switch kind {
+	case KindSuccess:
+		return &p.Colors.Success
+	case KindSkip:
+		return &p.Colors.Skip
+	case KindFailure:
+		return &p.Colors.Failure
+	case KindPlain:
 	}
 
-	_, _ = fmt.Fprintf(p.Out, "\x1b[%sm%s%s\x1b[0m\n", sgr, linePrefix, text)
+	return nil
+}
+
+// line writes text as a line in style.
+func (p Printer) line(style *config.Style, text string) {
+	p.styled("", style, linePrefix+text, "\n")
 }
 
 // prompt writes text as a question in the prompt's style, followed by a
 // space and without a newline: the answer ends the line.
 func (p Printer) prompt(text string) {
-	sgr := p.Colors.Prompt.SGR()
-	if !p.Color || sgr == "" {
-		_, _ = fmt.Fprintf(p.Out, "%s%s ", linePrefix, text)
+	p.styled("", &p.Colors.Prompt, linePrefix+text, " ")
+}
+
+// styled writes text in style, nil for none, between before and after,
+// which keep no style: a background colour must not run on to the next
+// line.
+func (p Printer) styled(before string, style *config.Style, text, after string) {
+	sgr := ""
+	if p.Color && style != nil {
+		sgr = style.SGR()
+	}
+
+	if sgr == "" {
+		_, _ = fmt.Fprint(p.Out, before, text, after)
 
 		return
 	}
 
-	_, _ = fmt.Fprintf(p.Out, "\x1b[%sm%s%s\x1b[0m ", sgr, linePrefix, text)
+	_, _ = fmt.Fprintf(p.Out, "%s\x1b[%sm%s\x1b[0m%s", before, sgr, text, after)
 }
 
 // FormatDuration writes a duration the way the step times show it: "<1s",
