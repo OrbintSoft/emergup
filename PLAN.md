@@ -345,7 +345,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
       - A step can leave notes, which the pipeline writes after the rows of
         the summary: "2 excluded packages have an update:" and a row for
         each. A failed check is a note, not a failure of the update.
-- [~] **4.8** First tagged pre-release `v0.1.0`.
+- [x] **4.8** First tagged pre-release `v0.1.0`.
       - The README gets its badges, as the other OrbintSoft repositories have
         them: CI, release, coverage, licence and sponsor. The release and
         coverage badges need their workflows (coverage published to a branch
@@ -362,8 +362,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         make the archives the same on every machine.
       - The coverage workflow publishes a shields.io endpoint file on the
         orphan `badges` branch, as redo-backups does.
-      - The tag itself is pushed with the maintainer's approval, after a
-        real run on the maintainer's system.
+      - The tag itself is pushed with the maintainer's approval. `v0.1.0` was
+        published on 2026-11-24: a pre-release with the two archives, the
+        vendored modules and `SHA256SUMS`.
 - [ ] **4.9** Ebuild `app-portage/emergup` in the orbintsoft overlay
       (`orbintsoft-ebuild` repository), from `v0.1.0` on: the tool is
       packaged as soon as it can be used, and each pre-release bumps it.
