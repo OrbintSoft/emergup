@@ -54,7 +54,8 @@ func (s Status) String() string {
 
 // Outcome is how a step's Run ended.
 type Outcome struct {
-	// Status is Succeeded, Skipped or Failed.
+	// Status is Succeeded, Skipped, Failed, or Stopped when the step ends
+	// the run.
 	Status Status
 	// Reason says why the step was skipped or failed.
 	Reason string
@@ -68,6 +69,12 @@ func Success() Outcome {
 // Skip is the Outcome of a step that had nothing to do, and says why.
 func Skip(reason string) Outcome {
 	return Outcome{Status: Skipped, Reason: reason}
+}
+
+// Abort is the Outcome of a step at whose question the user stopped the
+// run, and says why.
+func Abort(reason string) Outcome {
+	return Outcome{Status: Stopped, Reason: reason}
 }
 
 // Fail is the Outcome of a step that failed, and says why.
@@ -103,6 +110,14 @@ type Step interface {
 	// Run does the step's work. When ctx ends, the step stops as soon as it
 	// can.
 	Run(ctx context.Context, env Env) Outcome
+}
+
+// SelfConfirming is a Step that asks the user itself, once it knows what
+// it would do, such as an update after its --pretend: the pipeline does
+// not ask its own question before it.
+type SelfConfirming interface {
+	// ConfirmsItself reports whether the step asks its own question.
+	ConfirmsItself() bool
 }
 
 // Result is how a run ended.
@@ -193,14 +208,16 @@ func Run(ctx context.Context, env Env, steps []Step) Report {
 func runStep(ctx context.Context, env Env, step Step, heading string, report *StepReport) Result {
 	env.Printer.Heading(heading)
 
-	switch run, result := askToRun(ctx, env); {
-	case result != RunFinished:
-		return result
-	case !run:
-		report.Status, report.Reason = Skipped, skippedAtTheQuestion
-		writeEnd(env.Printer, *report)
+	if !confirmsItself(step) {
+		switch run, result := askToRun(ctx, env); {
+		case result != RunFinished:
+			return result
+		case !run:
+			report.Status, report.Reason = Skipped, skippedAtTheQuestion
+			writeEnd(env.Printer, *report)
 
-		return RunFinished
+			return RunFinished
+		}
 	}
 
 	begin := env.Now()
@@ -223,6 +240,13 @@ func runStep(ctx context.Context, env Env, step Step, heading string, report *St
 	}
 
 	return RunFinished
+}
+
+// confirmsItself reports whether step asks its own question.
+func confirmsItself(step Step) bool {
+	confirming, isConfirming := step.(SelfConfirming)
+
+	return isConfirming && confirming.ConfirmsItself()
 }
 
 // askToRun asks whether to run the step, and returns whether to, and

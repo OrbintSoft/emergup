@@ -4,6 +4,7 @@ package steps_test
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -68,7 +69,7 @@ func TestBuiltInTakesWhetherEachStepRunsFromTheConfiguration(t *testing.T) {
 	}
 
 	assert.Equal(t, map[string]bool{
-		"sync": true, "update": true, "live-rebuild": false,
+		"sync": true, updateName: true, "live-rebuild": false,
 		"preserved-rebuild": true, "config-files": true, "depclean": false,
 	}, enabled)
 }
@@ -86,7 +87,7 @@ func TestBuiltInTitles(t *testing.T) {
 
 	assert.Equal(t, map[string]string{
 		"sync":              "sync the repositories",
-		"update":            "update @system",
+		updateName:          "update @system",
 		"live-rebuild":      "rebuild the live packages",
 		"preserved-rebuild": "rebuild the packages that use preserved libraries",
 		"config-files":      "update the configuration files",
@@ -110,8 +111,8 @@ func TestStepsNotWrittenYetRunNothing(t *testing.T) {
 	require.NotEmpty(t, all)
 
 	for _, step := range all {
-		if step.Name() == syncName {
-			continue
+		if slices.Contains([]string{syncName, updateName}, step.Name()) {
+			continue // written
 		}
 
 		lines, err := step.Pretend(t.Context(), env)

@@ -1,0 +1,8 @@
+
+These are the packages that would be merged, in order:
+
+Calculating dependencies... done!
+[ebuild     U  ] app-misc/example-2.0::gentoo [1.0::gentoo] USE="-doc" 120 KiB
+[ebuild  N     ] dev-libs/libexample-0.3::gentoo  48 KiB
+
+Total: 2 packages (1 upgrade, 1 new), Size of downloads: 168 KiB

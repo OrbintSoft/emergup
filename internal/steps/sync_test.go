@@ -280,7 +280,7 @@ func TestSyncFails(t *testing.T) {
 		{
 			"when portageq does not start",
 			[]runnertest.Answer{{Err: errCannotStart}},
-			"could not list the repositories: exec: no such file", 1,
+			"could not list the repositories: " + errCannotStart.Error(), 1,
 		},
 		{
 			"when emerge fails",
@@ -290,7 +290,7 @@ func TestSyncFails(t *testing.T) {
 		{
 			"when emerge does not start",
 			[]runnertest.Answer{{}, {Err: errCannotStart}},
-			"exec: no such file", 2,
+			errCannotStart.Error(), 2,
 		},
 	}
 	for _, tt := range tests {

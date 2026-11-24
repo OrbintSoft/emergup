@@ -27,24 +27,25 @@ import (
 
 // The lines of a run of the built-in steps.
 const (
-	question       = "==> Run this step? [Y/s/a/?] "
-	withYes        = question + "run the step (--yes)\n"
-	notAvailable   = "not available yet in this version of emergup"
-	noRepository   = "no repository to sync"
-	firstHeading   = "==> [1/6] sync: sync the repositories\n"
-	lastHeading    = "==> [6/6] depclean: remove the packages no longer needed\n"
-	finished       = "==> The run finished in <1s.\n"
-	stopped        = "==> The run was stopped after <1s.\n"
-	noTool         = "no elevation tool found: install sudo, doas or run0, or run emergup as root"
-	runningAsRoot  = "==> Running as root: the commands run without sudo, doas or run0, and AI assistance is off.\n"
-	optionYes      = "--yes"
-	optionPretend  = "--pretend"
-	userID         = 1000
-	commandRun     = "run"
-	invalidSyncKey = "[steps.sync]\nenabled = 1\n"
-	runDir         = "/state/emergup/runs/2026-11-24T10-00-00"
-	configFile     = "etc/emergup/config.toml"
-	logLine        = "==> The log is in " + runDir + "/emergup.log\n"
+	question        = "==> Run this step? [Y/s/a/?] "
+	withYes         = question + "run the step (--yes)\n"
+	notAvailable    = "not available yet in this version of emergup"
+	noRepository    = "no repository to sync"
+	nothingToUpdate = "Total: 0 packages, Size of downloads: 0 KiB\n"
+	firstHeading    = "==> [1/6] sync: sync the repositories\n"
+	lastHeading     = "==> [6/6] depclean: remove the packages no longer needed\n"
+	finished        = "==> The run finished in <1s.\n"
+	stopped         = "==> The run was stopped after <1s.\n"
+	noTool          = "no elevation tool found: install sudo, doas or run0, or run emergup as root"
+	runningAsRoot   = "==> Running as root: the commands run without sudo, doas or run0, and AI assistance is off.\n"
+	optionYes       = "--yes"
+	optionPretend   = "--pretend"
+	userID          = 1000
+	commandRun      = "run"
+	invalidSyncKey  = "[steps.sync]\nenabled = 1\n"
+	runDir          = "/state/emergup/runs/2026-11-24T10-00-00"
+	configFile      = "etc/emergup/config.toml"
+	logLine         = "==> The log is in " + runDir + "/emergup.log\n"
 )
 
 // listRepositories is the command the sync lists the repositories with.
@@ -52,6 +53,17 @@ const (
 //nolint:gochecknoglobals // The query several tests expect.
 var listRepositories = runner.Command{
 	Args: []string{"portageq", "repos_config", "/"}, Mode: runner.Capture, Root: false,
+}
+
+// updatePretend is the command the update shows what it would do with.
+//
+//nolint:gochecknoglobals // The command several tests expect.
+var updatePretend = runner.Command{
+	Args: []string{
+		"emerge", "--verbose", "--update", "--deep", "--newuse", "--verbose-conflicts", "--pretend", "--color=n",
+		"@world",
+	},
+	Mode: runner.StreamCapture, Root: false,
 }
 
 // Errors of the fake run directories.
@@ -174,13 +186,18 @@ type session struct {
 }
 
 // newSession returns a system without configuration files, where an
-// ordinary user has sudo, and a keyboard that answers with keys.
+// ordinary user has sudo, and a keyboard that answers with keys. Its
+// Portage has no repository to sync and nothing to update.
 func newSession(t *testing.T, keys ...rune) *session {
 	t.Helper()
 
 	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{"sudo"}, euid: userID}}
 	sess.keys.t = t
 	sess.keys.keys = keys
+	sess.runner.Script(
+		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: nil}},
+		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte(nothingToUpdate)}},
+	)
 
 	return sess
 }
@@ -231,10 +248,11 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 			assert.Contains(t, stdout, lastHeading)
 			assert.Contains(t, stdout, "==> Summary\n"+
 				"    sync               skipped       <1s  "+noRepository+"\n"+
-				"    update             skipped       <1s  "+notAvailable+"\n")
+				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
-			assert.Equal(t, []runner.Command{listRepositories}, sess.runner.Commands(),
-				"the listing of the repositories, unprivileged; the steps not written yet run nothing")
+			assert.Equal(t, []runner.Command{listRepositories, updatePretend}, sess.runner.Commands(),
+				"the listing of the repositories and the pretend of the update, unprivileged; "+
+					"the steps not written yet run nothing")
 		})
 	}
 }
@@ -242,11 +260,12 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 func TestRunAsksBeforeEachStep(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, 'y', ui.KeyEnter, 'y', 's', ui.KeyEnter)
+	sess := newSession(t, ui.KeyEnter, 'y', ui.KeyEnter, 's', ui.KeyEnter)
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Equal(t, 5, strings.Count(stdout, question+"run the step\n"))
+	assert.Equal(t, 4, strings.Count(stdout, question+"run the step\n"),
+		"the update, with nothing to update, asks nothing")
 	assert.Contains(t, stdout, question+"skip the step\n==> config-files skipped: you chose to skip it\n")
 	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
@@ -555,6 +574,7 @@ func TestRunForceSyncSyncsEveryRepository(t *testing.T) {
 			sess.root = fstest.MapFS{
 				"var/db/repos/gentoo/metadata/timestamp.chk": {Data: []byte("Tue, 24 Nov 2026 09:00:00 +0000\n")},
 			}
+			sess.runner = runnertest.Fake{}
 			sess.runner.Script(runnertest.Answer{Result: runner.Result{
 				ExitCode: 0, Output: []byte("[gentoo]\nlocation = /var/db/repos/gentoo\nsync-type = rsync\n"),
 			}})
@@ -564,4 +584,29 @@ func TestRunForceSyncSyncsEveryRepository(t *testing.T) {
 			assert.Contains(t, stdout, firstHeading+tt.want)
 		})
 	}
+}
+
+func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t, ui.KeyEnter, ui.KeyEnter, 'a')
+	sess.runner = runnertest.Fake{}
+	sess.runner.Script(
+		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: nil}},
+		runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte("Total: 2 packages (2 upgrades)\n")}},
+	)
+
+	code, stdout, _ := sess.run(t, commandRun)
+	assert.Equal(t, 130, code, "stopped at the next step")
+	assert.Contains(t, stdout, "==> [2/6] update: update @world\n"+
+		"==> Update these packages? [Y/s/a/?] update them\n"+
+		"==> update succeeded in <1s\n", "one question, after the pretend")
+
+	elevated := runner.Command{
+		Args: append([]string{"sudo"}, slices.DeleteFunc(slices.Clone(updatePretend.Args),
+			func(arg string) bool { return arg == "--pretend" })...),
+		Mode: runner.Stream,
+		Root: true,
+	}
+	assert.Equal(t, []runner.Command{listRepositories, updatePretend, elevated}, sess.runner.Commands())
 }

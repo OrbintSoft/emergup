@@ -79,7 +79,7 @@ one, so an older golangci-lint installed on the system may fail where
 | `cmd/emergup` | `main`: creates the root context, gives `cli.Main` the real system (standard streams, files, commands, clock) and exits with its status; nothing else. |
 | `internal/cli` | Subcommand dispatch, option parsing and the usage text, hand-written and unit-tested. |
 | `internal/config` | The configuration: its types, the generic defaults, and the loader that reads `config.toml` and `config.d`. |
-| `internal/runner` | Running the external commands: output shown, collected or left to the terminal, copied to a log without colours, stopped cleanly on Ctrl-C. `runnertest` holds the fake the other packages' tests use. |
+| `internal/runner` | Running the external commands: output shown, collected, both, or left to the terminal, copied to a log without colours, stopped cleanly on Ctrl-C. `runnertest` holds the fake the other packages' tests use. |
 | `internal/elevation` | Running the commands that need root through sudo, doas or run0, or directly as root. |
 | `internal/ui` | emergup's own output on the terminal: a line for each kind of message in its colour, the durations, and the questions, each answered with one key. |
 | `internal/lock` | The lock file that keeps two runs of one user from overlapping. |

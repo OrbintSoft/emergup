@@ -104,16 +104,9 @@ func (s syncStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	return pipeline.Success()
 }
 
-// command returns the command line that syncs the repositories due. emerge
-// writes in colour when emergup does: its output reaches the terminal
-// through a pipe, where it would not by itself.
+// command returns the command line that syncs the repositories due.
 func (s syncStep) command(env pipeline.Env, due []string) []string {
-	color := "--color=n"
-	if env.Printer.Color {
-		color = "--color=y"
-	}
-
-	command := append(slices.Clone(s.config.Command), color)
+	command := append(slices.Clone(s.config.Command), colorOption(env))
 
 	return append(command, due...)
 }
