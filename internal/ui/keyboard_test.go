@@ -143,6 +143,8 @@ func TestNewKeyboardReadsLinesWhenTheInputIsNotATerminal(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = reader.Close() })
 
+	assert.False(t, IsTerminal(reader))
+
 	keyboard := NewKeyboard(reader)
 	require.IsType(t, &lineKeyboard{}, keyboard)
 

@@ -21,6 +21,13 @@ func newFileTTY(file *os.File) (fileTTY, bool) {
 	return terminal, term.IsTerminal(terminal.fd)
 }
 
+// IsTerminal reports whether file is a terminal.
+func IsTerminal(file *os.File) bool {
+	_, isTerminal := newFileTTY(file)
+
+	return isTerminal
+}
+
 // Flush implements tty.
 func (t fileTTY) Flush() error { return flushInput(t.fd) }
 

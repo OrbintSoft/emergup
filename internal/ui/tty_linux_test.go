@@ -73,6 +73,8 @@ func TestNewKeyboardReadsKeysFromATerminal(t *testing.T) {
 			before := settings(terminal)
 			require.NotNil(t, before)
 
+			assert.True(t, IsTerminal(terminal))
+
 			keyboard := NewKeyboard(terminal)
 			require.IsType(t, &terminalKeyboard{}, keyboard)
 
