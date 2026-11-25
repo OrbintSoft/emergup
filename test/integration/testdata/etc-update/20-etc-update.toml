@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The configuration files updated by etc-update, which takes every new file
+# without a question: dispatch-conf, the default, waits for keys.
+
+[steps.config-files]
+command = ["etc-update", "--automode", "-5"]

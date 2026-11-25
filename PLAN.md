@@ -92,7 +92,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   built, and Portage reads the Portage files (make.conf, repos.conf, the set,
   the test repository's layout.conf and ebuilds) in every integration test.
   pkgcheck is not used on the synthetic ebuilds: it needs the Gentoo tree and
-  judges ebuilds meant for a real repository. Shell (shellcheck) is evaluated
+  judges ebuilds meant for a real repository. The two C sources of the test
+  library and program have no linter either: a few lines each, compiled by
+  their ebuilds in the tests that need them. Shell (shellcheck) is evaluated
   when the first script arrives.
 
 ## Open questions
@@ -425,6 +427,13 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         `PROPERTIES="live"`); an old build is an old `BUILD_TIME` in the
         Portage database. The smart mode itself needs smart-live-rebuild,
         which the image does not have.
+      - Preserved libraries, configuration files, depclean: UPD-5, ETC-1,
+        ETC-3, UPD-10 (the depclean). A library whose soname changes
+        between versions, and a program linked against it without a slot
+        operator, give Portage a library to preserve. A configuration file
+        edited before its package is updated leaves a `._cfg0000_` file;
+        dispatch-conf waits for keys, so the delegation is tested with
+        `etc-update --automode -5`.
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.
