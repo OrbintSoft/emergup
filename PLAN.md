@@ -388,7 +388,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         (`>=dev-lang/go-1.26.0:=`): go-module's EAPI 9 check dies otherwise,
         so a release that moves the go line moves it in the ebuild too.
 
-## Phase 5 — Docker integration tests  `[~]`
+## Phase 5 — Docker integration tests  `[x]`
 
 - [x] **5.1** Harness: `gentoo/stage3` image (digest pinned, tracked by Renovate),
       local test repository with synthetic ebuilds and news, `make integration`.
@@ -447,7 +447,12 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         pseudo-terminal for `docker exec --tty`. A key pressed while the
         update's pretend runs shows that the keys typed before a question
         are ignored.
-- [ ] **5.3** CI job for the integration suite.
+- [x] **5.3** CI job for the integration suite.
+      - The integration workflow runs `make integration` on every push to
+        `master`, on demand, and on the pull requests that change the Go
+        code, `go.mod`, the Makefile or test/integration. A check that runs
+        only on some pull requests cannot be required by the ruleset (it
+        would wait forever on the others), so it is not.
 
 From here on, every feature lands with its integration test.
 
