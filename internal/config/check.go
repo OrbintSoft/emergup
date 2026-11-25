@@ -126,6 +126,7 @@ func hookProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
 		}{
 			{key: prefix + ".at", err: checkHookPlace(hook.At)},
 			{key: prefix + ".command", err: checkHookCommand(hook.Command)},
+			{key: prefix + ".remedy", err: checkHookCommand(hook.Remedy)},
 		}
 
 		for _, check := range checks {
@@ -140,8 +141,8 @@ func hookProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
 	return problems
 }
 
-// checkHookCommand rejects a hook command whose program is empty; an empty
-// command is left to incompleteHooks.
+// checkHookCommand rejects a hook's command or remedy whose program is
+// empty; an empty one is left to incompleteHooks.
 func checkHookCommand(command []string) error {
 	if len(command) == 0 {
 		return nil
@@ -177,9 +178,9 @@ func firstPlace(keys map[string]keyPlace, prefix string) keyPlace {
 	return first
 }
 
-// incompleteHooks returns a problem for each hook of cfg that runs without
-// a place or a command once every file is read, against the last file that
-// writes its table.
+// incompleteHooks returns a problem for each value of a hook of cfg that
+// runs which, once every file is read, is missing or does not go with the
+// others, against the last file that writes its table.
 func incompleteHooks(cfg Config, origins Origins) []error {
 	var problems []error
 
@@ -190,20 +191,28 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 		}
 
 		prefix := hooksTable + "." + name
-		file := origins.hooks[name]
 
-		if hook.At == "" {
-			problems = append(problems, &Error{
-				File: file, Line: 0, Column: 0, Key: prefix + ".at",
-				Err: message(`missing: say where the hook runs, such as at = "before-update"`),
-			})
+		checks := []struct {
+			key     string
+			wrong   bool
+			problem string
+		}{
+			{"at", hook.At == "", `missing: say where the hook runs, such as at = "before-update"`},
+			{"command", len(hook.Command) == 0, "missing: give the program the hook runs and its arguments"},
+			{
+				"remedy", len(hook.Remedy) > 0 && hook.OnFailure != HookAsk,
+				`only a hook that asks has a remedy: set on-failure = "ask"`,
+			},
+			{"remedy-elevated", hook.RemedyElevated && len(hook.Remedy) == 0, "there is no remedy to elevate"},
 		}
 
-		if len(hook.Command) == 0 {
-			problems = append(problems, &Error{
-				File: file, Line: 0, Column: 0, Key: prefix + ".command",
-				Err: message("missing: give the program the hook runs and its arguments"),
-			})
+		for _, check := range checks {
+			if check.wrong {
+				problems = append(problems, &Error{
+					File: origins.hooks[name], Line: 0, Column: 0, Key: prefix + "." + check.key,
+					Err: message(check.problem),
+				})
+			}
 		}
 	}
 

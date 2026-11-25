@@ -87,8 +87,16 @@
 #               whole run, or by a step: sync, update, live-rebuild,
 #               preserved-rebuild, config-files, depclean;
 #   command     the program and its arguments;
+#   elevated    true runs the command as root, through the elevation method;
 #   on-failure  "stop", the default, fails the run when the hook fails, as a
-#               failed step does; "continue" only shows a notice;
+#               failed step does; "continue" only shows a notice; "ask" makes
+#               the hook a check: its failure asks whether to run its remedy
+#               and check again, to go on, or to abort the run;
+#   remedy      the command a check offers to run, then checks again; Enter
+#               and --yes run it, --yes only once; without one, Enter and
+#               --yes abort the run;
+#   remedy-elevated
+#               true runs the remedy as root;
 #   enabled     true by default; a drop-in turns off a hook another file adds
 #               with enabled = false.
 #
@@ -99,8 +107,9 @@
 # in its environment: EMERGUP_HOOK (its name), EMERGUP_STEP (the step, or
 # run), EMERGUP_WHEN (before or after), EMERGUP_RUN_DIR and EMERGUP_LOG (the
 # run's directory and log), and after a step EMERGUP_STEP_STATUS (succeeded,
-# skipped or failed), after the run EMERGUP_RESULT (finished or failed).
-# For example:
+# skipped or failed), after the run EMERGUP_RESULT (finished or failed); a
+# hook or a remedy run as root does not get them, as the elevation resets
+# the environment. For example:
 #
 # [hooks.snapshot]
 # at = "before-update"

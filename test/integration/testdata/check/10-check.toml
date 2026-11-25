@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A check before the run, the hook of the tests, which passes once a file
+# exists; its remedy, run as root, creates it. The hook after the run
+# records how the run ended.
+
+[hooks.backup]
+at = "before-run"
+command = ["/usr/local/bin/emergup-test-hook", "need:/var/tmp/emergup-test-backup"]
+on-failure = "ask"
+remedy = ["touch", "/var/tmp/emergup-test-backup"]
+remedy-elevated = true
+
+[hooks.last]
+at = "after-run"
+command = ["/usr/local/bin/emergup-test-hook"]

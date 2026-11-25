@@ -32,6 +32,22 @@ func TestHooksAreTheEnabledOnesInTheOrderOfTheirNames(t *testing.T) {
 	}, hooks)
 }
 
+func TestHooksKeepWhatAHookRunsAsRootAndAsks(t *testing.T) {
+	t.Parallel()
+
+	hooks := steps.Hooks(config.Hooks{
+		"backup": {
+			Enabled: true, At: "before-run", Command: []string{"fresh"}, Elevated: true,
+			OnFailure: config.HookAsk, Remedy: []string{"redo-backup", "run"}, RemedyElevated: true,
+		},
+	})
+
+	assert.Equal(t, []pipeline.Hook{{
+		Name: "backup", When: pipeline.Before, Step: pipeline.RunStep, Command: []string{"fresh"}, Root: true,
+		GoesOn: false, Asks: true, Remedy: []string{"redo-backup", "run"}, RemedyRoot: true,
+	}}, hooks)
+}
+
 func TestHooksWithoutAny(t *testing.T) {
 	t.Parallel()
 
