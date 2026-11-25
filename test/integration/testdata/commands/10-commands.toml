@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A command and options of its own for every step, each with an option
+# that changes nothing the tests look at.
+
+[steps.sync]
+command = ["emerge", "--sync", "--quiet"]
+
+[steps.update]
+command = ["emerge", "--quiet-build"]
+options = ["--update", "--newuse"]
+
+[steps.live-rebuild]
+command = ["emerge", "--oneshot", "--quiet-build"]
+
+[steps.preserved-rebuild]
+command = ["emerge", "--quiet-build", "@preserved-rebuild"]
+
+[steps.config-files]
+command = ["etc-update", "--automode", "-5"]
+
+[steps.depclean]
+command = ["emerge", "--depclean", "--with-bdeps=y"]
