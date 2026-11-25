@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,6 +43,10 @@ const (
 
 // program is emergup's command in the container: the binary under test.
 const program = "emergup"
+
+// interactive is the option of exec that gives a command its standard
+// input.
+const interactive = "--interactive"
 
 // The users of the image.
 const (
@@ -176,13 +181,53 @@ func (c *container) emergupTerminal(env []string, args ...string) result {
 	return c.command(c.t.Context(), nil, c.execArgs(tester, options, append([]string{program}, args...))...)
 }
 
-// background is an emergup run that goes on while the test does, until
-// the test gives it the rest of its input.
+// runTimeout is how long a run in the background gets to end once it has
+// all its input.
+const runTimeout = 2 * time.Minute
+
+// background is an emergup run that goes on while the test does: the test
+// reads its output as it comes and gives it its input.
 type background struct {
-	t      *testing.T
-	cmd    *exec.Cmd
-	input  io.WriteCloser
-	output *syncBuffer
+	t   *testing.T
+	cmd *exec.Cmd
+	// input is the run's standard input, or the keyboard of its terminal.
+	input io.Writer
+	// endInput ends the input of a run that reads it from a pipe; nil for
+	// a terminal, whose input ends with the run.
+	endInput func() error
+	output   *syncBuffer
+	// copied, when not nil, is closed once the whole output is in output.
+	copied chan struct{}
+	// ended receives how the command ended; finished says that finish
+	// received it.
+	ended    chan error
+	finished bool
+}
+
+// begin starts the command of the run and waits for its end in the
+// background; release frees what the run uses, once it has ended. A test
+// that fails before the end of the run ends it: the test's context, which
+// ends first, stops the command.
+func (b *background) begin(release func()) {
+	b.t.Helper()
+
+	require.NoError(b.t, b.cmd.Start())
+
+	b.ended = make(chan error, 1)
+
+	go func() { b.ended <- b.cmd.Wait() }()
+
+	b.t.Cleanup(func() {
+		if !b.finished {
+			if b.endInput != nil {
+				_ = b.endInput()
+			}
+
+			b.t.Logf("the run ended before the test finished it: %v", <-b.ended)
+		}
+
+		release()
+	})
 }
 
 // emergupBackground starts emergup with args as tester, with its standard
@@ -192,7 +237,7 @@ func (c *container) emergupBackground(args ...string) *background {
 
 	//nolint:gosec // The tests choose what runs.
 	cmd := exec.CommandContext(c.t.Context(), c.docker,
-		c.execArgs(tester, []string{"--interactive"}, append([]string{program}, args...))...)
+		c.execArgs(tester, []string{interactive}, append([]string{program}, args...))...)
 
 	input, err := cmd.StdinPipe()
 	require.NoError(c.t, err)
@@ -201,17 +246,11 @@ func (c *container) emergupBackground(args ...string) *background {
 	cmd.Stdout = output
 	cmd.Stderr = output
 
-	require.NoError(c.t, cmd.Start())
-
-	run := &background{t: c.t, cmd: cmd, input: input, output: output}
-
-	// A test that fails before the end of the run ends it with its input.
-	c.t.Cleanup(func() {
-		if cmd.ProcessState == nil {
-			_ = input.Close()
-			_ = cmd.Wait()
-		}
-	})
+	run := &background{
+		t: c.t, cmd: cmd, input: input, endInput: input.Close, output: output, copied: nil,
+		ended: nil, finished: false,
+	}
+	run.begin(func() {})
 
 	return run
 }
@@ -221,7 +260,16 @@ func (b *background) waitFor(text string) {
 	b.t.Helper()
 
 	require.Eventually(b.t, func() bool { return strings.Contains(b.output.String(), text) },
-		time.Minute, 100*time.Millisecond, "the output never holds %q:\n%s", text, b.output)
+		30*time.Second, 100*time.Millisecond, "the output never holds %q:\n%s", text, b.output)
+}
+
+// send gives the run text as its input: lines, or the keys pressed on its
+// terminal.
+func (b *background) send(text string) {
+	b.t.Helper()
+
+	_, err := io.WriteString(b.input, text)
+	require.NoError(b.t, err)
 }
 
 // finish gives the run the rest of its input, then its end, and returns
@@ -229,15 +277,29 @@ func (b *background) waitFor(text string) {
 func (b *background) finish(input string) result {
 	b.t.Helper()
 
-	_, err := io.WriteString(b.input, input)
-	require.NoError(b.t, err)
-	require.NoError(b.t, b.input.Close())
+	b.send(input)
 
-	err = b.cmd.Wait()
+	if b.endInput != nil {
+		require.NoError(b.t, b.endInput())
+	}
+
+	var err error
+
+	select {
+	case err = <-b.ended:
+		b.finished = true
+	case <-time.After(runTimeout):
+		// The end of the test stops the run.
+		require.FailNow(b.t, "the run does not end", "its output:\n%s", b.output)
+	}
 
 	var exitError *exec.ExitError
 	if err != nil && !errors.As(err, &exitError) {
 		require.NoError(b.t, err)
+	}
+
+	if b.copied != nil {
+		<-b.copied
 	}
 
 	return result{stdout: b.output.String(), stderr: "", code: b.cmd.ProcessState.ExitCode()}
@@ -263,6 +325,23 @@ func (s *syncBuffer) String() string {
 	defer s.mutex.Unlock()
 
 	return s.buffer.String()
+}
+
+// assertInOrder checks that text holds each of parts, each after the one
+// before it.
+func assertInOrder(t *testing.T, text string, parts ...string) {
+	t.Helper()
+
+	rest := text
+
+	for _, part := range parts {
+		_, after, found := strings.Cut(rest, part)
+		if !assert.True(t, found, "%q is missing, or comes too early, in:\n%s", part, text) {
+			return
+		}
+
+		rest = after
+	}
 }
 
 // logLine is the last line of a run, which says where its log is.
@@ -396,7 +475,7 @@ func (c *container) dropIns(name string) {
 func (c *container) exec(user, input string, args ...string) result {
 	c.t.Helper()
 
-	return c.command(c.t.Context(), strings.NewReader(input), c.execArgs(user, []string{"--interactive"}, args)...)
+	return c.command(c.t.Context(), strings.NewReader(input), c.execArgs(user, []string{interactive}, args)...)
 }
 
 // execArgs returns the arguments of the container command that runs args

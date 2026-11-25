@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every step but the sync and the update disabled: a run that asks the
+# pipeline's question, then a step's own.
+
+[steps.live-rebuild]
+enabled = false
+
+[steps.preserved-rebuild]
+enabled = false
+
+[steps.config-files]
+enabled = false
+
+[steps.depclean]
+enabled = false

@@ -388,7 +388,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         (`>=dev-lang/go-1.26.0:=`): go-module's EAPI 9 check dies otherwise,
         so a release that moves the go line moves it in the ebuild too.
 
-## Phase 5 — Docker integration tests  `[ ]`
+## Phase 5 — Docker integration tests  `[~]`
 
 - [x] **5.1** Harness: `gentoo/stage3` image (digest pinned, tracked by Renovate),
       local test repository with synthetic ebuilds and news, `make integration`.
@@ -411,7 +411,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         runs them, `INTEGRATION_RUN` picks some. The first ones cover CLI-1
         and UPD-6; UPD-6 found the preserved-library query failing for a
         user outside the portage group, fixed in its own change.
-- [~] **5.2** Integration tests for the Phase 2–4 features, each naming its id.
+- [x] **5.2** Integration tests for the Phase 2–4 features, each naming its id.
       - Configuration and command line: CLI-2, CLI-3 (status 130 at a
         question), CFG-1–6. The configuration files of a test are fixtures
         in test/integration/testdata, installed owned by root; the colours
@@ -442,8 +442,11 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         first question, its input left open. A version of a test package
         that fails to build gives a failed step, and emerge's own colours
         are checked on the packages of the test repository.
-      - Still to do: tests named after UPD-1, UPD-2, UPD-3 and UPD-14,
-        which every run goes through.
+      - The run itself: UPD-1, UPD-2, UPD-3, UPD-14. A key read without
+        Enter needs a terminal whose keys the test presses: the test opens a
+        pseudo-terminal for `docker exec --tty`. A key pressed while the
+        update's pretend runs shows that the keys typed before a question
+        are ignored.
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.

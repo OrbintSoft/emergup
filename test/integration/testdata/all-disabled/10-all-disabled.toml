@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every step disabled.
+
+[steps.sync]
+enabled = false
+
+[steps.update]
+enabled = false
+
+[steps.live-rebuild]
+enabled = false
+
+[steps.preserved-rebuild]
+enabled = false
+
+[steps.config-files]
+enabled = false
+
+[steps.depclean]
+enabled = false
