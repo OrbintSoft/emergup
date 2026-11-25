@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -48,6 +49,10 @@ type Command struct {
 	// Root marks a command that needs root; a runner that elevates runs it
 	// through sudo, doas or run0.
 	Root bool
+	// Env holds variables, NAME=value, that the command gets on top of
+	// emergup's own environment; a name emergup has already gets the value
+	// given here.
+	Env []string
 }
 
 // Result is how a command ended.
@@ -106,6 +111,11 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 	child := exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
 	child.Cancel = func() error { return child.Process.Signal(syscall.SIGTERM) }
 	child.WaitDelay = e.gracePeriod()
+
+	if len(cmd.Env) > 0 {
+		// exec keeps the last value of a name that appears twice.
+		child.Env = append(os.Environ(), cmd.Env...)
+	}
 
 	var output bytes.Buffer
 

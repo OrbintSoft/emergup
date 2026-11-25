@@ -24,6 +24,7 @@ const (
 	keyKeep        = "runs.keep"
 	unknownKey     = "unknown key"
 	emptyCommand   = "empty command"
+	emptyProgram   = "empty program"
 	otherFile      = "/f.toml"
 )
 
@@ -140,8 +141,8 @@ func TestLoadReportsWhereEachProblemIs(t *testing.T) {
 			2, 1, "steps.depclean.command", emptyCommand,
 		},
 		{
-			"empty program", "[steps.depclean]\ncommand = [\"\", \"--depclean\"]\n",
-			2, 1, "steps.depclean.command", "empty program",
+			emptyProgram, "[steps.depclean]\ncommand = [\"\", \"--depclean\"]\n",
+			2, 1, "steps.depclean.command", emptyProgram,
 		},
 		{
 			"empty smart command", "[steps.live-rebuild]\nsmart-command = []\n",
@@ -319,5 +320,6 @@ func TestTextKeysAreTheNamedValuesDurationsAndStyles(t *testing.T) {
 		"colors.skip",
 		"colors.failure",
 		"colors.notice",
+		"hooks.*.on-failure",
 	}, textKeys())
 }

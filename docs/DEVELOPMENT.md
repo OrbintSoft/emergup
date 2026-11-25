@@ -16,7 +16,8 @@ tool mentioned here, with its version, is in
 - **Node.js** with **npm**, for markdownlint-cli2 and the Renovate
   configuration validator.
 - **yamllint** on `PATH`.
-- **Docker**, for the integration tests and for hadolint (`make lint-docker`).
+- **Docker**, for the integration tests and for hadolint and shellcheck
+  (`make lint-docker`, `make lint-shell`).
 - Optionally **shellcheck**, which actionlint uses to check the workflow
   scripts.
 
@@ -26,8 +27,9 @@ On Gentoo: `dev-lang/go`, `dev-build/make`, `dev-vcs/git`,
 `dev-util/shellcheck-bin`.
 
 The first `make lint` needs the network: the Go linters are fetched and built
-by `go run`, the npm tools by `npx` and the hadolint image by Docker, at the
-versions pinned in the [Makefile](../Makefile). All are cached afterwards.
+by `go run`, the npm tools by `npx` and the hadolint and shellcheck images by
+Docker, at the versions pinned in the [Makefile](../Makefile). All are cached
+afterwards.
 
 ## Building and testing
 
@@ -56,6 +58,7 @@ make integration  # the integration tests, in Docker
 | `lint-yaml` | yamllint on the YAML files. |
 | `lint-renovate` | Validates [renovate.json5](../renovate.json5). |
 | `lint-docker` | hadolint on the Dockerfile of the integration image. |
+| `lint-shell` | shellcheck on the shell scripts. |
 | `fmt` | Formats the Go code with gofumpt. |
 | `check` | `build`, `vet`, `lint` and `race`: run it before opening a pull request. |
 | `install`, `uninstall` | Installs or removes the binary under `$(DESTDIR)$(PREFIX)/bin`. |
@@ -71,8 +74,8 @@ Variables that can be set on the command line:
 - `PREFIX` (default `/usr/local`) and `DESTDIR` place the installed binary.
 - `GOTOOLCHAIN` chooses the Go toolchain, as above.
 - `GOLANGCI_LINT`, `CHECKMAKE`, `ACTIONLINT`, `MARKDOWNLINT`,
-  `RENOVATE_VALIDATE`, `YAMLLINT` and `HADOLINT` replace a linter with another
-  command.
+  `RENOVATE_VALIDATE`, `YAMLLINT`, `HADOLINT` and `SHELLCHECK` replace a linter
+  with another command.
 - `DOCKER` (default `docker`) is the command that builds and runs the
   containers; `INTEGRATION_IMAGE` (default `emergup-integration`) names the
   image; `INTEGRATION_RUN` picks the integration tests to run, as a pattern of

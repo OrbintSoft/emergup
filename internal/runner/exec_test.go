@@ -162,6 +162,33 @@ func TestStreamAndCaptureGiveNoStandardInput(t *testing.T) {
 	}
 }
 
+// The test sets emergup's own environment, so it does not run in parallel.
+func TestTheCommandGetsItsVariablesOnTopOfTheEnvironment(t *testing.T) {
+	t.Setenv("EMERGUP_TEST_KEPT", "kept")
+	t.Setenv("EMERGUP_TEST_REPLACED", "old")
+
+	exec, out := newExec("")
+
+	cmd := childCommand(runner.Stream,
+		"env:EMERGUP_TEST_KEPT", "env:EMERGUP_TEST_REPLACED", "env:EMERGUP_TEST_ADDED", "env:EMERGUP_TEST_UNSET")
+	cmd.Env = []string{"EMERGUP_TEST_REPLACED=new", "EMERGUP_TEST_ADDED=added"}
+
+	result, err := exec.Run(t.Context(), cmd)
+	require.NoError(t, err)
+	assert.Zero(t, result.ExitCode)
+	assert.Equal(t, "kept\nnew\nadded\nunset\n", out.stdout.String())
+}
+
+func TestWithoutVariablesTheCommandGetsTheEnvironment(t *testing.T) {
+	t.Setenv("EMERGUP_TEST_KEPT", "kept")
+
+	exec, out := newExec("")
+
+	_, err := exec.Run(t.Context(), childCommand(runner.Stream, "env:EMERGUP_TEST_KEPT"))
+	require.NoError(t, err)
+	assert.Equal(t, "kept\n", out.stdout.String())
+}
+
 func TestACommandThatCannotStart(t *testing.T) {
 	t.Parallel()
 

@@ -42,7 +42,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | --- | --- | --- |
 | PRIV-1 | emergup is started as an ordinary user and asks for elevation only for the commands that need root. | planned |
 | PRIV-2 | The elevation method is detected automatically (`sudo`, `doas`, `run0`) and can be set in the configuration. When none is installed, emergup says so before a run that needs root starts, not halfway through it. | done |
-| PRIV-3 | Hooks, custom steps and AI backends run as the invoking user, unless a hook or a custom step is explicitly configured to be elevated (a backup tool, `haskell-updater`). | planned |
+| PRIV-3 | Hooks, custom steps and AI backends run as the invoking user, unless a hook or a custom step is explicitly configured to be elevated (a backup tool, `haskell-updater`). | partial |
 | PRIV-4 | Started as root (a root shell, a root crontab), emergup runs the commands directly, turns AI assistance off, and says so once at the start. | done |
 | PRIV-5 | Environment variables listed in the configuration, such as `EDITOR` for `dispatch-conf`, are kept for the commands run as root, through `sudo --preserve-env` or `run0 --setenv`; doas has no such option, and emergup says that `doas.conf` must keep them. | planned |
 
@@ -68,10 +68,10 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| HOOK-1 | User scripts can run before and after the whole run and before and after any step. | planned |
+| HOOK-1 | User commands, *hooks*, can run before and after the whole run and before and after any step. A step's hooks run when the run reaches it, before its question, and once it has ended, however it ended, unless the step is disabled; the hooks after the run run before the summary, even after a failure. Hooks at the same place run in the order of their names, a configuration file can turn off a hook another one adds, and `--pretend` shows them. A hook that fails stops the run as a failed step does, unless it is configured to go on with a notice. No hook starts once the run is stopped, by an interruption or at a question. | done |
 | HOOK-2 | When a *check* hook fails, emergup asks whether to run its configured remedy, if it has one, and check again (e.g. "the last backup is older than 20 days — run the backup now?"), to go on without it, or to abort the run. | planned |
 | HOOK-3 | Custom steps can be defined in the configuration and placed after any built-in step. | planned |
-| HOOK-4 | Hooks receive the run context in environment variables (step name, phase, run directory). | planned |
+| HOOK-4 | Hooks receive the run context in environment variables: the hook's name (`EMERGUP_HOOK`), the step (`EMERGUP_STEP`, `run` for the whole run), whether the hook runs `before` or `after` it (`EMERGUP_WHEN`), the run directory (`EMERGUP_RUN_DIR`) and its log (`EMERGUP_LOG`), and how the step or the run ended (`EMERGUP_STEP_STATUS`, `EMERGUP_RESULT`) for the hooks after them. | done |
 
 ## News (NEWS)
 

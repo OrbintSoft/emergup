@@ -103,13 +103,18 @@ func (s *step) Run(context.Context, pipeline.Env) pipeline.Outcome {
 	return s.outcome
 }
 
-// testRig runs fake steps and records what the run writes.
+// testRig runs fake steps and records what the run writes, and the
+// commands of its hooks.
 type testRig struct {
-	out   bytes.Buffer
-	clock clock
-	keys  keyboard
-	yes   bool
-	color bool
+	out    bytes.Buffer
+	clock  clock
+	keys   keyboard
+	yes    bool
+	color  bool
+	runner runnertest.Fake
+	// hooks and hookEnv are those of the run.
+	hooks   []pipeline.Hook
+	hookEnv []string
 }
 
 func newRig(t *testing.T, keys ...rune) *testRig {
@@ -130,10 +135,12 @@ func (rig *testRig) env() pipeline.Env {
 	printer := ui.Printer{Out: &rig.out, Colors: config.Default().Colors, Color: rig.color}
 
 	return pipeline.Env{
-		Runner:  &runnertest.Fake{},
+		Runner:  &rig.runner,
 		Printer: printer,
 		Menu:    ui.Menu{Printer: printer, Keyboard: &rig.keys, Yes: rig.yes},
 		Now:     rig.clock.Now,
+		Hooks:   rig.hooks,
+		HookEnv: rig.hookEnv,
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -106,6 +107,12 @@ func collectValues(lines *[]string, subTables *[]subTable, name string, value re
 			continue
 		}
 
+		if field.Type.Kind() == reflect.Map {
+			*subTables = append(*subTables, mapTables(joinKey(name, tomlName(field)), fieldValue)...)
+
+			continue
+		}
+
 		line, err := valueLine(tomlName(field), joinKey(name, tomlName(field)), fieldValue.Interface(), origins)
 		if err != nil {
 			return err
@@ -115,6 +122,20 @@ func collectValues(lines *[]string, subTables *[]subTable, name string, value re
 	}
 
 	return nil
+}
+
+// mapTables returns a table for each entry of the map of tables value, the
+// table name, in the order of the entries' names.
+func mapTables(name string, value reflect.Value) []subTable {
+	keys := value.MapKeys()
+	slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(a.String(), b.String()) })
+
+	tables := make([]subTable, 0, len(keys))
+	for _, key := range keys {
+		tables = append(tables, subTable{name: joinKey(name, key.String()), value: value.MapIndex(key)})
+	}
+
+	return tables
 }
 
 // valueLine writes `name = value  # origin` for the value of key.

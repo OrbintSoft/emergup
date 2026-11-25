@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The run goes on when the hook before the sync fails.
+
+[hooks.snapshot]
+on-failure = "continue"

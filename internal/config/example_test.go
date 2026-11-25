@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -53,9 +54,39 @@ func TestExampleMainFileDocumentsEveryDefault(t *testing.T) {
 
 	shown := fileKeys(uncommented)
 
+	// The hooks have no defaults: the file shows an example instead.
 	for key, typ := range schemaKeys(reflect.TypeFor[Config]()) {
-		if typ.Kind() != reflect.Struct || isTextValue(typ) {
+		isHookKey := key == hooksTable || strings.HasPrefix(key, hooksTable+".")
+		if !isHookKey && (typ.Kind() != reflect.Struct || isTextValue(typ)) {
 			assert.Contains(t, shown, key, "the example main file does not show %s", key)
 		}
+	}
+}
+
+// exampleHook matches the hook the example main file shows: the lines of
+// a commented "# [hooks.<name>]" table, each starting with "# ".
+var exampleHook = regexp.MustCompile(`(?m)^# (\[hooks\.[a-z0-9-]+\]\n)((?:# .+\n)+)`)
+
+// TestExampleMainFileShowsAValidHook keeps the example hook of the main file
+// valid: uncommented, it is a hook that runs.
+func TestExampleMainFileShowsAValidHook(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(examples(), MainFile)
+	require.NoError(t, err)
+
+	match := exampleHook.FindSubmatch(data)
+	require.NotNil(t, match, "the example main file shows no hook")
+
+	hook := string(match[1]) + strings.ReplaceAll(string(match[2]), "# ", "")
+
+	cfg, err := Load(t.Context(), fstest.MapFS{MainFile: &fstest.MapFile{Data: []byte(hook)}})
+	require.NoError(t, err)
+	require.Len(t, cfg.Hooks, 1)
+
+	for _, each := range cfg.Hooks {
+		assert.True(t, each.Enabled)
+		assert.Equal(t, HookPlace("before-update"), each.At)
+		assert.NotEmpty(t, each.Command)
 	}
 }

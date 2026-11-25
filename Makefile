@@ -33,8 +33,8 @@ LDFLAGS := $(if $(VERSION),$(STAMP)$(VERSION))
 # markdownlint-cli2 and the Renovate configuration validator at pinned versions
 # through npx, so the result does not depend on what happens to be installed.
 # yamllint is taken from PATH: Python has no standard runner that fetches a
-# pinned version. hadolint runs from its image, pinned by digest, as Haskell
-# has no such runner either. Renovate updates every pin. Override any of
+# pinned version. hadolint and shellcheck run from their images, pinned by
+# digest, as Haskell has no such runner either. Renovate updates every pin. Override any of
 # them to use another binary.
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 CHECKMAKE     ?= $(GO) run github.com/checkmake/checkmake/cmd/checkmake@v0.3.2
@@ -43,6 +43,10 @@ MARKDOWNLINT  ?= npx --yes markdownlint-cli2@0.24.2
 RENOVATE_VALIDATE ?= npx --yes --package renovate@44.257.9 -- renovate-config-validator --strict
 YAMLLINT      ?= yamllint
 HADOLINT      ?= $(DOCKER) run --rm --interactive docker.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint
+SHELLCHECK    ?= $(DOCKER) run --rm --volume '$(CURDIR):/mnt:ro' --workdir /mnt docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+
+# The shell scripts shellcheck lints.
+SHELL_SCRIPTS := $(wildcard test/integration/testdata/*/*.sh)
 
 BUILDDIR := bin
 BINARY   := emergup
@@ -70,7 +74,7 @@ TAR         := tar --sort=name --owner=0 --group=0 --numeric-owner
 
 .DEFAULT_GOAL := build
 
-.PHONY: all clean test build race vet integration integration-docker lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker fmt check install uninstall dist dist-version help
+.PHONY: all clean test build race vet integration integration-docker lint lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker lint-shell fmt check install uninstall dist dist-version help
 
 all: build ## Build the binary (the default)
 
@@ -94,7 +98,7 @@ integration: integration-docker ## Run the integration tests in Docker container
 integration-docker:
 	@command -v $(firstword $(DOCKER)) > /dev/null || { echo 'integration: the integration tests need $(firstword $(DOCKER)), which is not installed' >&2; exit 1; }
 
-lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker ## Run every linter
+lint: lint-go lint-mod lint-make lint-actions lint-markdown lint-yaml lint-renovate lint-docker lint-shell ## Run every linter
 
 lint-go: ## Lint the Go code, formatting included
 	$(GOLANGCI_LINT) run ./...
@@ -119,6 +123,9 @@ lint-renovate: ## Validate the Renovate configuration
 
 lint-docker: ## Lint the Dockerfile of the integration tests
 	$(HADOLINT) - < test/integration/image/Dockerfile
+
+lint-shell: ## Lint the shell scripts
+	$(SHELLCHECK) $(SHELL_SCRIPTS)
 
 fmt: ## Format the Go code with gofumpt
 	$(GOLANGCI_LINT) fmt

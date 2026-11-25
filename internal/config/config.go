@@ -11,6 +11,7 @@ import "time"
 type Config struct {
 	Elevation Elevation `toml:"elevation"`
 	Steps     Steps     `toml:"steps"`
+	Hooks     Hooks     `toml:"hooks"`
 	Colors    Colors    `toml:"colors"`
 	Runs      Runs      `toml:"runs"`
 }
@@ -119,6 +120,47 @@ type LiveRebuild struct {
 	SmartCommand []string `toml:"smart-command"`
 }
 
+// Hooks maps the name of each hook to the hook. A file adds a hook with a
+// table of its own, [hooks.<name>], and a later file changes the values it
+// sets of a hook an earlier one added.
+type Hooks map[string]Hook
+
+// Hook is a command run before or after the whole run or a step.
+type Hook struct {
+	Enabled bool `toml:"enabled"`
+	// At is where the hook runs, such as before the update.
+	At HookPlace `toml:"at"`
+	// Command is the program the hook starts, with its arguments.
+	Command []string `toml:"command"`
+	// OnFailure says whether a hook that fails stops the run.
+	OnFailure HookFailure `toml:"on-failure"`
+}
+
+// HookPlace is where a hook runs, written "before-<step>" or
+// "after-<step>", where the step is the name of a step or "run" for the
+// whole run: "before-update", "after-run". The empty place is no place, that
+// of a hook a file has not finished. Load checks the place a file writes, see
+// checkHookPlace.
+type HookPlace string
+
+// HookFailure says what a hook that fails does to the run; the
+// configuration writes it by name, see String.
+type HookFailure int
+
+// The hook failures.
+const (
+	// HookStop fails the run, as a failed step does.
+	HookStop HookFailure = iota
+	// HookContinue only shows a notice, and the run goes on.
+	HookContinue
+)
+
+// NewHook returns what a hook is before a file sets its values: enabled,
+// and stopping the run when it fails.
+func NewHook() Hook {
+	return Hook{Enabled: true, At: "", Command: []string{}, OnFailure: HookStop}
+}
+
 // emerge is Portage's command, which most built-in steps start.
 const emerge = "emerge"
 
@@ -133,7 +175,7 @@ const defaultKeep = 10
 
 // Default returns the generic defaults, a new value on every call. They suit
 // any Gentoo system: every built-in step enabled, running Portage's own tools,
-// and nothing excluded or always synced. The colours are among the sixteen
+// nothing excluded or always synced, and no hooks. The colours are among the sixteen
 // that every terminal's theme sets, so they suit light and dark themes.
 func Default() Config {
 	return Config{
@@ -160,6 +202,7 @@ func Default() Config {
 			ConfigFiles:      Step{Enabled: true, Command: []string{"dispatch-conf"}},
 			Depclean:         Step{Enabled: true, Command: []string{emerge, "--depclean"}},
 		},
+		Hooks: Hooks{},
 		Colors: Colors{
 			Heading: style(bold, named(blue)),
 			Prompt:  style(bold, named(cyan)),

@@ -13,7 +13,7 @@ import (
 const durationWidth = len("12m03s")
 
 // writeSummary writes a row for each step of report, in the colour of its
-// status, and how the run ended.
+// status, the hooks that failed, and how the run ended.
 func writeSummary(printer ui.Printer, report Report) {
 	printer.Heading("Summary")
 
@@ -35,15 +35,8 @@ func writeSummary(printer ui.Printer, report Report) {
 		printer.Row(statusKind(step.Status), strings.TrimRight(row, " "))
 	}
 
-	for _, step := range report.Steps {
-		for _, note := range step.Notes {
-			printer.Notice(note.Text)
-
-			for _, row := range note.Rows {
-				printer.Row(ui.KindPlain, row)
-			}
-		}
-	}
+	writeFailedHooks(printer, report.FailedHooks)
+	writeNotes(printer, report.Steps)
 
 	took := ui.FormatDuration(report.Duration)
 
@@ -54,6 +47,33 @@ func writeSummary(printer ui.Printer, report Report) {
 		printer.Failure("The run failed after " + took + ".")
 	case RunStopped:
 		printer.Failure("The run was stopped after " + took + ".")
+	}
+}
+
+// writeFailedHooks writes a line for each hook of hooks, a failure or, for
+// a hook after which the run went on, a notice.
+func writeFailedHooks(printer ui.Printer, hooks []FailedHook) {
+	for _, hook := range hooks {
+		failure := fmt.Sprintf("The hook %s (%s) failed: %s", hook.Name, hook.Place, hook.Reason)
+
+		if hook.WentOn {
+			printer.Notice(failure + "; the run went on.")
+		} else {
+			printer.Failure(failure + ".")
+		}
+	}
+}
+
+// writeNotes writes the notes of steps, each with its rows.
+func writeNotes(printer ui.Printer, steps []StepReport) {
+	for _, step := range steps {
+		for _, note := range step.Notes {
+			printer.Notice(note.Text)
+
+			for _, row := range note.Rows {
+				printer.Row(ui.KindPlain, row)
+			}
+		}
 	}
 }
 

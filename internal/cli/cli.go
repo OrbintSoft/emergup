@@ -173,6 +173,7 @@ func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer
 	}
 
 	stepsEnv := newStepsEnv(env, printer, prefix, nil, false)
+	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
 
 	return exitStatus(pipeline.Pretend(ctx, stepsEnv, builtInSteps(cfg, options)))
 }
@@ -223,6 +224,8 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 	}
 
 	stepsEnv := newStepsEnv(env, printer, prefix, run.Log, options.yes)
+	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
+	stepsEnv.HookEnv = pipeline.RunDirEnv(run.Dir, run.LogPath)
 
 	return exitStatus(pipeline.Run(ctx, stepsEnv, builtInSteps(cfg, options)).Result)
 }
@@ -235,7 +238,7 @@ func builtInSteps(cfg config.Config, options runOptions) []pipeline.Step {
 
 // newStepsEnv returns what the steps work with: commands elevated with
 // prefix and copied to log, nil for none, and printer for the lines and the
-// questions.
+// questions; the caller adds the hooks.
 func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, yes bool) pipeline.Env {
 	return pipeline.Env{
 		Runner:   elevation.Runner{Next: env.NewRunner(log), Prefix: prefix},
@@ -244,6 +247,8 @@ func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, ye
 		Now:      env.now(),
 		Root:     env.Root,
 		LookPath: env.System.LookPath,
+		Hooks:    nil,
+		HookEnv:  nil,
 	}
 }
 
