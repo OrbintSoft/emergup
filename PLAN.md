@@ -94,8 +94,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   pkgcheck is not used on the synthetic ebuilds: it needs the Gentoo tree and
   judges ebuilds meant for a real repository. The two C sources of the test
   library and program have no linter either: a few lines each, compiled by
-  their ebuilds in the tests that need them. Shell (shellcheck) is evaluated
-  when the first script arrives.
+  their ebuilds in the tests that need them. The shell scripts, the first
+  being the hook of the integration tests, are linted by shellcheck (`make
+  lint-shell`), run from its image pinned by digest like hadolint.
 
 ## Open questions
 
@@ -456,7 +457,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 From here on, every feature lands with its integration test.
 
-## Phase 6 — Hooks and custom steps  `[ ]`  (HOOK-*, PRIV-3, PRIV-5, UPD-16)
+## Phase 6 — Hooks and custom steps  `[~]`  (HOOK-*, PRIV-3, PRIV-5, UPD-16)
 
 This phase also brings what the old script still does and phase 4 left out:
 `haskell-updater` after the preserved-library rebuild (6.3), the user's
@@ -464,8 +465,29 @@ editor in `dispatch-conf`, which the script kept with `sudo -E` (6.5), and the
 live packages to rebuild shown before they are (6.6); and, new, a backup
 check before the run (6.2, 6.4).
 
-- [ ] **6.1** Hooks before/after the run and each step, with context in the
+- [x] **6.1** Hooks before/after the run and each step, with context in the
       environment (HOOK-1, HOOK-4).
+      - A hook is a named table, `[hooks.<name>]`, with `at`
+        (`before-run`, `after-run`, `before-<step>`, `after-<step>`), its
+        `command` and `on-failure` (`stop`, the default, or `continue`).
+        Named tables let a drop-in add a hook, or turn one off with
+        `enabled = false`, without repeating the others: an array of tables
+        would be replaced as a whole. Hooks at the same place run in the
+        order of their names, as the drop-ins are read.
+      - A step's hooks run when the run reaches it, before its question,
+        even if the step is then skipped: the same place for every step,
+        update and depclean too, which ask after their own pretend.
+      - A hook runs as the invoking user (PRIV-3), without a question; its
+        output is shown and logged like a step's.
+      - The hooks before a place stop at the first that fails; every hook
+        after a place runs, whatever an earlier one did. A step whose hooks
+        before it fail is not run and runs no hook after it; a hook after a
+        step that fails keeps the step's status and stops the next steps.
+        The summary lists the hooks that failed.
+      - A hook's place is checked as a value of its own rather than decoded
+        by a text unmarshaler: go-toml hands the raw text of an integer to
+        one and returns its error without a position, which would hide the
+        other problems of the file.
 - [ ] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
       - A failed check asks: run the remedy and check again, go on without
         it, or abort the run; Enter, and `--yes`, run the remedy. Without a

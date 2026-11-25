@@ -5,6 +5,7 @@ package config
 import (
 	"encoding"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -30,13 +31,13 @@ func textProblems(file string, keys map[string]keyPlace) []*Error {
 
 	schema := schemaKeys(reflect.TypeFor[Config]())
 
-	for _, key := range textKeys() {
-		place, isSet := keys[key]
-		if !isSet || place.kind == unstable.String {
+	for key, place := range keys {
+		typ, known := schema[schemaKey(schema, key)]
+		if !known || place.kind == unstable.String {
 			continue
 		}
 
-		value, isText := reflect.TypeAssert[textValue](reflect.New(schema[key]))
+		value, isText := reflect.TypeAssert[textValue](reflect.New(typ))
 		if !isText {
 			continue
 		}
@@ -96,6 +97,119 @@ func valueRules() []valueRule {
 	}
 }
 
+// hookProblems returns a problem for each hook of set, what file alone
+// decodes to, whose name a key cannot hold, and for each place and command
+// of a hook that keys, the keys the file sets, holds and that is wrong. A
+// hook's place and command may be empty here, as a hook a file turns off
+// needs neither: a hook that runs without them is found once every file is
+// read, see incompleteHooks.
+func hookProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
+	var problems []*Error
+
+	for _, name := range slices.Sorted(maps.Keys(set.Hooks)) {
+		prefix := hooksTable + "." + name
+
+		if !isHookName(name) {
+			place := firstPlace(keys, prefix+".")
+			problems = append(problems, &Error{
+				File: file, Line: place.line, Column: place.column, Key: prefix,
+				Err: message(fmt.Sprintf("hook name %q: use lowercase letters, digits and dashes", name)),
+			})
+
+			continue
+		}
+
+		hook := set.Hooks[name]
+		checks := []struct {
+			key string
+			err error
+		}{
+			{key: prefix + ".at", err: checkHookPlace(hook.At)},
+			{key: prefix + ".command", err: checkHookCommand(hook.Command)},
+		}
+
+		for _, check := range checks {
+			if place, isSet := keys[check.key]; isSet && check.err != nil {
+				problems = append(problems, &Error{
+					File: file, Line: place.line, Column: place.column, Key: check.key, Err: check.err,
+				})
+			}
+		}
+	}
+
+	return problems
+}
+
+// checkHookCommand rejects a hook command whose program is empty; an empty
+// command is left to incompleteHooks.
+func checkHookCommand(command []string) error {
+	if len(command) == 0 {
+		return nil
+	}
+
+	return checkCommand(command)
+}
+
+// isHookName reports whether name can name a hook: lowercase letters,
+// digits and dashes, starting with a letter or a digit, as the keys of the
+// configuration are written, so that a dotted key names one hook only.
+func isHookName(name string) bool {
+	if name == "" || name[0] == '-' {
+		return false
+	}
+
+	return !strings.ContainsFunc(name, func(char rune) bool {
+		return (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '-'
+	})
+}
+
+// firstPlace returns the first place of keys where a key that starts with
+// prefix is set, or no place when there is none.
+func firstPlace(keys map[string]keyPlace, prefix string) keyPlace {
+	var first keyPlace
+
+	for key, place := range keys {
+		if strings.HasPrefix(key, prefix) && (first.line == 0 || place.offset < first.offset) {
+			first = place
+		}
+	}
+
+	return first
+}
+
+// incompleteHooks returns a problem for each hook of cfg that runs without
+// a place or a command once every file is read, against the last file that
+// writes its table.
+func incompleteHooks(cfg Config, origins Origins) []error {
+	var problems []error
+
+	for _, name := range slices.Sorted(maps.Keys(cfg.Hooks)) {
+		hook := cfg.Hooks[name]
+		if !hook.Enabled {
+			continue
+		}
+
+		prefix := hooksTable + "." + name
+		file := origins.hooks[name]
+
+		if hook.At == "" {
+			problems = append(problems, &Error{
+				File: file, Line: 0, Column: 0, Key: prefix + ".at",
+				Err: message(`missing: say where the hook runs, such as at = "before-update"`),
+			})
+		}
+
+		if len(hook.Command) == 0 {
+			problems = append(problems, &Error{
+				File: file, Line: 0, Column: 0, Key: prefix + ".command",
+				Err: message("missing: give the program the hook runs and its arguments"),
+			})
+		}
+	}
+
+	return problems
+}
+
 // commandRule checks the command line that command returns.
 func commandRule(key string, command func(cfg *Config) []string) valueRule {
 	return valueRule{key: key, check: func(cfg *Config) error { return checkCommand(command(cfg)) }}
@@ -148,8 +262,16 @@ func checkEntries(entries Entries) error {
 	return nil
 }
 
+// hooksTable is the table of the hooks.
+const hooksTable = "hooks"
+
+// anyName stands, in a key of the schema, for the name of an entry of a
+// table of tables such as the hooks: "hooks.*.command".
+const anyName = "*"
+
 // schemaKeys maps every dotted key of the configuration type typ to its Go
-// type; an embedded struct adds its keys to the table it is embedded in.
+// type; an embedded struct adds its keys to the table it is embedded in, and
+// a map of tables adds the keys of its tables under anyName.
 func schemaKeys(typ reflect.Type) map[string]reflect.Type {
 	keys := make(map[string]reflect.Type)
 	addSchemaKeys(keys, "", typ)
@@ -174,10 +296,30 @@ func addSchemaKeys(keys map[string]reflect.Type, table string, typ reflect.Type)
 
 		keys[key] = field.Type
 
-		if field.Type.Kind() == reflect.Struct && !isTextValue(field.Type) {
+		switch {
+		case field.Type.Kind() == reflect.Struct && !isTextValue(field.Type):
 			addSchemaKeys(keys, key, field.Type)
+		case field.Type.Kind() == reflect.Map && field.Type.Elem().Kind() == reflect.Struct:
+			keys[key+"."+anyName] = field.Type.Elem()
+			addSchemaKeys(keys, key+"."+anyName, field.Type.Elem())
 		}
 	}
+}
+
+// schemaKey returns the key of schema that key, a dotted key of a file,
+// sets: the name of an entry of a map of tables becomes anyName, so that
+// "hooks.snapshot.at" is "hooks.*.at".
+func schemaKey(schema map[string]reflect.Type, key string) string {
+	parts := strings.Split(key, ".")
+
+	for i := 1; i < len(parts); i++ {
+		table, known := schema[strings.Join(parts[:i], ".")]
+		if known && table.Kind() == reflect.Map {
+			parts[i] = anyName
+		}
+	}
+
+	return strings.Join(parts, ".")
 }
 
 // textKeys are the keys whose value must be a TOML string, in sorted order.

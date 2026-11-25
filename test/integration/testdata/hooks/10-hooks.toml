@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A hook at every place of a run with the sync alone, each one the hook of
+# the tests, which records its context. The two after the sync are written
+# in the reverse order of their names; the one before the update never
+# runs, the update being disabled.
+
+[hooks.first]
+at = "before-run"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.snapshot]
+at = "before-sync"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.sync-2]
+at = "after-sync"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.sync-1]
+at = "after-sync"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.update]
+at = "before-update"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.last]
+at = "after-run"
+command = ["/usr/local/bin/emergup-test-hook"]

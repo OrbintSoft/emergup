@@ -90,7 +90,7 @@ func (p preservedStep) command(env pipeline.Env) []string {
 func preservedLibraries(ctx context.Context, run runner.Runner) ([]decision, error) {
 	command := []string{portageq, "list_preserved_libs", "/"}
 
-	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: true})
+	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: true, Env: nil})
 	if err != nil {
 		return nil, fmt.Errorf("could not list the preserved libraries: %w", err)
 	}

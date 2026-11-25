@@ -92,7 +92,7 @@ func (s syncStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 
 	command := s.command(env, due)
 
-	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Stream, Root: true})
+	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Stream, Root: true, Env: nil})
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}
@@ -198,7 +198,7 @@ func alwaysSyncNotices(always config.Entries, repositories []repository) []strin
 func listRepositories(ctx context.Context, run runner.Runner) ([]repository, error) {
 	command := []string{portageq, "repos_config", "/"}
 
-	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
+	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false, Env: nil})
 	if err != nil {
 		return nil, fmt.Errorf("could not list the repositories: %w", err)
 	}

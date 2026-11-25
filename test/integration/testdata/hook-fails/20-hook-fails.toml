@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The hook before the sync of the hooks drop-in fails: it exits with
+# status 3.
+
+[hooks.snapshot]
+command = ["/usr/local/bin/emergup-test-hook", "3"]

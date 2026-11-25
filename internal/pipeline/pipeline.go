@@ -106,6 +106,11 @@ type Env struct {
 	// LookPath finds a program on PATH, as exec.LookPath does, for the
 	// steps whose tool may not be installed.
 	LookPath func(file string) (string, error)
+	// Hooks are the hooks of the run, in the order they run at each place.
+	Hooks []Hook
+	// HookEnv holds the variables, NAME=value, that every hook gets, such as
+	// the run directory.
+	HookEnv []string
 }
 
 // Step is one step of a run.
@@ -135,15 +140,29 @@ type SelfConfirming interface {
 // Result is how a run ended.
 type Result int
 
-// The results.
+// The results, from the best to the worst.
 const (
 	// RunFinished: every step succeeded, was skipped or was disabled.
 	RunFinished Result = iota
-	// RunFailed: a step failed, or a question could not be asked.
+	// RunFailed: a step or a hook failed, or a question could not be asked.
 	RunFailed
 	// RunStopped: the run was interrupted or aborted.
 	RunStopped
 )
+
+// String returns the result as the hooks after the run get it.
+func (r Result) String() string {
+	switch r {
+	case RunFinished:
+		return "finished"
+	case RunFailed:
+		return "failed"
+	case RunStopped:
+		return "stopped"
+	}
+
+	return fmt.Sprintf("Result(%d)", int(r))
+}
 
 // StepReport is how one step went.
 type StepReport struct {
@@ -161,9 +180,11 @@ type StepReport struct {
 // Report is how a run went.
 type Report struct {
 	// Steps has a StepReport for every step, in order.
-	Steps    []StepReport
-	Result   Result
-	Duration time.Duration
+	Steps []StepReport
+	// FailedHooks are the hooks that failed, in the order they ran.
+	FailedHooks []FailedHook
+	Result      Result
+	Duration    time.Duration
 }
 
 // The question asked before each step.
@@ -172,13 +193,17 @@ const runQuestion = "Run this step?"
 // skippedAtTheQuestion is the reason of a step skipped at its question.
 const skippedAtTheQuestion = "you chose to skip it"
 
-// Run runs the enabled steps in order and writes the summary. Before each
-// step it writes the step's heading and asks whether to run it, then writes
-// how it ended and how long it took. A failure, an abort or the end of ctx
-// stops the run.
+// Run runs the enabled steps in order, with their hooks and those of the
+// run, and writes the summary. Before each step it writes the step's
+// heading, runs its before hooks and asks whether to run it, then writes how
+// it ended and how long it took, and runs its after hooks. A failure, an
+// abort or the end of ctx stops the run; the hooks after the run still run
+// after a failure.
 func Run(ctx context.Context, env Env, steps []Step) Report {
 	start := env.Now()
-	report := Report{Steps: make([]StepReport, 0, len(steps)), Result: RunFinished, Duration: 0}
+	report := Report{
+		Steps: make([]StepReport, 0, len(steps)), FailedHooks: nil, Result: RunFinished, Duration: 0,
+	}
 
 	for _, step := range steps {
 		status := NotRun
@@ -191,23 +216,14 @@ func Run(ctx context.Context, env Env, steps []Step) Report {
 		})
 	}
 
-	headings := newHeadings(steps)
+	report.Result = runHooks(ctx, env, Before, RunStep, nil, &report)
+	if report.Result == RunFinished {
+		report.Result = runSteps(ctx, env, steps, &report)
+	}
 
-	for index, step := range steps {
-		if !step.Enabled() {
-			continue
-		}
-
-		if ctx.Err() != nil {
-			report.Result = RunStopped
-
-			break
-		}
-
-		report.Result = runStep(ctx, env, step, headings.next(step), &report.Steps[index])
-		if report.Result != RunFinished {
-			break
-		}
+	if report.Result != RunStopped {
+		after := runHooks(ctx, env, After, RunStep, []string{envResult + "=" + report.Result.String()}, &report)
+		report.Result = worse(report.Result, after)
 	}
 
 	report.Duration = env.Now().Sub(start)
@@ -216,12 +232,55 @@ func Run(ctx context.Context, env Env, steps []Step) Report {
 	return report
 }
 
-// runStep writes heading, asks whether to run step and runs it, recording
-// in report how it went, and returns whether the run goes on: RunFinished
-// when it does.
-func runStep(ctx context.Context, env Env, step Step, heading string, report *StepReport) Result {
+// runSteps runs the enabled steps in order, recording in report how each
+// went, until one stops the run, and returns how the run goes on.
+func runSteps(ctx context.Context, env Env, steps []Step, report *Report) Result {
+	headings := newHeadings(steps)
+
+	for index, step := range steps {
+		if !step.Enabled() {
+			continue
+		}
+
+		if ctx.Err() != nil {
+			return RunStopped
+		}
+
+		result := runStep(ctx, env, step, headings.next(step), &report.Steps[index], report)
+		if result != RunFinished {
+			return result
+		}
+	}
+
+	return RunFinished
+}
+
+// runStep writes heading, runs the before hooks of step, asks whether to
+// run it, runs it and its after hooks, recording in stepReport how it went
+// and in report the hooks that failed, and returns whether the run goes on:
+// RunFinished when it does. A step whose before hooks fail does not run,
+// and runs no after hook.
+func runStep(ctx context.Context, env Env, step Step, heading string, stepReport *StepReport, report *Report) Result {
 	env.Printer.Heading(heading)
 
+	result := runHooks(ctx, env, Before, step.Name(), nil, report)
+	if result != RunFinished {
+		return result
+	}
+
+	result = askAndRun(ctx, env, step, stepReport)
+	if result == RunStopped || stepReport.Status == NotRun {
+		return result
+	}
+
+	after := runHooks(ctx, env, After, step.Name(), []string{envStepStatus + "=" + stepReport.Status.String()}, report)
+
+	return worse(result, after)
+}
+
+// askAndRun asks whether to run step and runs it, recording in report how
+// it went, and returns whether the run goes on: RunFinished when it does.
+func askAndRun(ctx context.Context, env Env, step Step, report *StepReport) Result {
 	if !confirmsItself(step) {
 		switch run, result := askToRun(ctx, env); {
 		case result != RunFinished:
@@ -335,12 +394,15 @@ func (h *headings) next(step Step) string {
 	return fmt.Sprintf("[%d/%d] %s: %s", h.number, h.total, step.Name(), step.Title())
 }
 
-// Pretend writes the heading of each enabled step and what it would do,
-// without asking anything or running a step. It returns RunFailed when a
-// step cannot say what it would do.
+// Pretend writes the heading of each enabled step and what it would do, its
+// hooks and those of the run included, without asking anything or running a
+// step or a hook. It returns RunFailed when a step cannot say what it would
+// do.
 func Pretend(ctx context.Context, env Env, steps []Step) Result {
 	result := RunFinished
 	headings := newHeadings(steps)
+
+	pretendHooks(env, Before, RunStep)
 
 	for _, step := range steps {
 		if ctx.Err() != nil {
@@ -354,20 +416,23 @@ func Pretend(ctx context.Context, env Env, steps []Step) Result {
 		}
 
 		env.Printer.Heading(headings.next(step))
+		pretendHooks(env, Before, step.Name())
 
 		lines, err := step.Pretend(ctx, env)
 		if err != nil {
 			env.Printer.Failure(fmt.Sprintf("could not work out what %s would do: %v", step.Name(), err))
 
 			result = RunFailed
-
-			continue
 		}
 
 		for _, line := range lines {
 			env.Printer.Row(ui.KindPlain, line)
 		}
+
+		pretendHooks(env, After, step.Name())
 	}
+
+	pretendHooks(env, After, RunStep)
 
 	return result
 }

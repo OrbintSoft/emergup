@@ -150,7 +150,7 @@ func runElevated(ctx context.Context, env pipeline.Env, command []string, progra
 func runElevatedIn(ctx context.Context, env pipeline.Env, mode runner.Mode, command []string,
 	program string,
 ) pipeline.Outcome {
-	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: mode, Root: true})
+	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: mode, Root: true, Env: nil})
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}
@@ -248,7 +248,7 @@ func (l liveStep) plan(ctx context.Context, env pipeline.Env, mode config.LiveRe
 func packageDatabase(ctx context.Context, run runner.Runner) (string, error) {
 	command := []string{portageq, "vdb_path"}
 
-	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false})
+	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false, Env: nil})
 	if err != nil {
 		return "", fmt.Errorf("could not find the installed packages: %w", err)
 	}

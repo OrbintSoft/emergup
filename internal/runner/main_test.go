@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 //	err:TEXT     writes TEXT and a newline to standard error
 //	green:TEXT   writes TEXT in green and a newline to standard output
 //	bold:TEXT    writes TEXT in bold and a newline to standard error
+//	env:NAME     writes the value of the variable NAME, or "unset", and a
+//	             newline to standard output
 //	echo-stdin   copies standard input to standard output
 //	wait-term    writes "ready", waits for SIGTERM, writes "terminated", exits 3
 //	ignore-term  ignores SIGTERM, writes "ready" and waits for a minute
@@ -50,6 +52,14 @@ func child(ops []string) int {
 		"err":   func(text string) { _, _ = fmt.Fprintln(os.Stderr, text) },
 		"green": func(text string) { _, _ = fmt.Fprintln(os.Stdout, greenEscape+text+resetEscape) },
 		"bold":  func(text string) { _, _ = fmt.Fprintln(os.Stderr, boldEscape+text+resetEscape) },
+		"env": func(name string) {
+			value, isSet := os.LookupEnv(name)
+			if !isSet {
+				value = "unset"
+			}
+
+			_, _ = fmt.Fprintln(os.Stdout, value)
+		},
 	}
 
 	for _, operation := range ops {

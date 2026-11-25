@@ -63,6 +63,8 @@ const (
 	anInteger = "an integer"
 	aList     = "a list"
 	aTable    = "a table"
+
+	aListOfStrings = "a list of strings"
 )
 
 // message is an error that is only a description of a problem.
@@ -109,37 +111,47 @@ func fromDecodeError(file string, keys map[string]keyPlace, decodeErr *toml.Deco
 func decoderReason(decodeErr *toml.DecodeError) error {
 	text := strings.TrimPrefix(decodeErr.Error(), "toml: ")
 
-	// "cannot decode TOML <found> into struct field <field> of type <expected>"
+	// "cannot decode TOML <found> into struct field <field> of type
+	// <expected>", or "cannot decode TOML <found> into <expected>" for the
+	// value of a map such as the hooks.
 	rest, isTypeError := strings.CutPrefix(text, "cannot decode TOML ")
 	found, field, hasField := strings.Cut(rest, " into struct field ")
 	typeAt := strings.LastIndex(field, " of type ")
 
-	if !isTypeError || !hasField || typeAt < 0 {
-		return message(text)
-	}
+	var expected string
 
-	expected := field[typeAt+len(" of type "):]
+	switch {
+	case !isTypeError:
+		return message(text)
+	case hasField && typeAt >= 0:
+		expected = field[typeAt+len(" of type "):]
+	default:
+		var isMapValue bool
+		if found, expected, isMapValue = strings.Cut(rest, " into "); !isMapValue {
+			return message(text)
+		}
+	}
 
 	return message(fmt.Sprintf("expected %s, found %s", describeGoType(expected), describeTOMLType(found)))
 }
 
 // describeGoType names what a value of the Go type looks like in a file.
 func describeGoType(name string) string {
-	switch name {
-	case "bool":
-		return aBool
-	case "int":
-		return anInteger
-	case "string":
-		return "a string"
-	case "[]string", "config.Entries":
-		return "a list of strings"
-	case "config.Duration":
-		return (*Duration)(nil).expected()
-	case "config.ElevationMethod":
-		return (*ElevationMethod)(nil).expected()
-	case "config.LiveRebuildMode":
-		return (*LiveRebuildMode)(nil).expected()
+	described := map[string]string{
+		"bool":                   aBool,
+		"int":                    anInteger,
+		"string":                 "a string",
+		"[]string":               aListOfStrings,
+		"config.Entries":         aListOfStrings,
+		"config.Duration":        (*Duration)(nil).expected(),
+		"config.ElevationMethod": (*ElevationMethod)(nil).expected(),
+		"config.LiveRebuildMode": (*LiveRebuildMode)(nil).expected(),
+		"config.HookPlace":       hookPlaceExpected(),
+		"config.HookFailure":     (*HookFailure)(nil).expected(),
+	}
+
+	if description, isDescribed := described[name]; isDescribed {
+		return description
 	}
 
 	if strings.HasPrefix(name, "config.") {

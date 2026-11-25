@@ -18,6 +18,9 @@ type Origins struct {
 
 	keys    map[string]string
 	entries map[string]map[string]string
+	// hooks maps the name of each hook to the last file that writes its
+	// table, even one that sets none of its values.
+	hooks map[string]string
 }
 
 // Of returns the file that last set key, or "" when key keeps its generic
@@ -35,7 +38,10 @@ func (o Origins) OfEntry(key, entry string) string {
 // Inspect reads the configuration like Load, and also says where each of its
 // values comes from.
 func Inspect(ctx context.Context, fsys fs.FS) (Config, Origins, error) {
-	origins := Origins{Files: nil, keys: make(map[string]string), entries: make(map[string]map[string]string)}
+	origins := Origins{
+		Files: nil, keys: make(map[string]string), entries: make(map[string]map[string]string),
+		hooks: make(map[string]string),
+	}
 
 	files, err := configurationFiles(fsys)
 	if err != nil {
@@ -59,6 +65,10 @@ func Inspect(ctx context.Context, fsys fs.FS) (Config, Origins, error) {
 		}
 	}
 
+	if len(problems) == 0 {
+		problems = incompleteHooks(cfg, origins)
+	}
+
 	if len(problems) > 0 {
 		return Config{}, Origins{}, errors.Join(problems...)
 	}
@@ -73,10 +83,18 @@ func (o Origins) setBy(file string, keys map[string]keyPlace) {
 	schema := schemaKeys(reflect.TypeFor[Config]())
 
 	for key := range keys {
-		typ, known := schema[key]
+		typ, known := schema[schemaKey(schema, key)]
 		if known && (typ.Kind() != reflect.Struct || isTextValue(typ)) {
 			o.keys[key] = file
 		}
+	}
+}
+
+// setHooksBy records file as the last file that writes the table of each
+// hook of hooks.
+func (o Origins) setHooksBy(file string, hooks Hooks) {
+	for name := range hooks {
+		o.hooks[name] = file
 	}
 }
 

@@ -5,6 +5,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
 	"strings"
 	"time"
 )
@@ -148,4 +150,97 @@ func indexOf(kind, name string, names []string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("%w %s %q, expected one of %s", errUnknownName, kind, name, strings.Join(names, ", "))
+}
+
+// The two halves of a HookPlace: when the hook runs, and the name that
+// stands for the whole run.
+const (
+	hookBefore = "before"
+	hookAfter  = "after"
+	// RunName is the step of a HookPlace that stands for the whole run.
+	RunName = "run"
+)
+
+// When returns "before" or "after", or "" for no place.
+func (p HookPlace) When() string {
+	when, _, _ := strings.Cut(string(p), "-")
+
+	return when
+}
+
+// Step returns the name of the step, "run" for the whole run, or "" for no
+// place.
+func (p HookPlace) Step() string {
+	_, step, _ := strings.Cut(string(p), "-")
+
+	return step
+}
+
+// MarshalText writes the place as the configuration does.
+func (p HookPlace) MarshalText() ([]byte, error) {
+	return []byte(p), nil
+}
+
+// hookPlaceExpected says what a hook's place looks like in a configuration
+// file.
+func hookPlaceExpected() string {
+	return `"before-" or "after-" followed by run or a step: ` + strings.Join(StepNames(), ", ")
+}
+
+// checkHookPlace rejects a place that names no step, or neither before nor
+// after; the empty place, no place, is left to incompleteHooks.
+func checkHookPlace(place HookPlace) error {
+	isWhen := place.When() == hookBefore || place.When() == hookAfter
+	isStep := place.Step() == RunName || slices.Contains(StepNames(), place.Step())
+
+	if place != "" && (!isWhen || !isStep) {
+		return fmt.Errorf("%w hook place %q, expected %s", errUnknownName, string(place), hookPlaceExpected())
+	}
+
+	return nil
+}
+
+// StepNames returns the names of the built-in steps, as the configuration
+// writes them, in the order a run performs them.
+func StepNames() []string {
+	var names []string
+
+	for field := range reflect.TypeFor[Steps]().Fields() {
+		names = append(names, tomlName(field))
+	}
+
+	return names
+}
+
+// hookFailureNames are the names of the hook failures, in the order of
+// their constants.
+func hookFailureNames() []string {
+	return []string{"stop", "continue"}
+}
+
+// String returns the name the configuration uses for the failure.
+func (f HookFailure) String() string {
+	return nameOf("HookFailure", int(f), hookFailureNames())
+}
+
+// MarshalText writes the name of the failure.
+func (f HookFailure) MarshalText() ([]byte, error) {
+	return []byte(f.String()), nil
+}
+
+// expected says what a hook failure looks like in a configuration file.
+func (*HookFailure) expected() string {
+	return "one of " + strings.Join(hookFailureNames(), ", ")
+}
+
+// UnmarshalText reads the name of a hook failure.
+func (f *HookFailure) UnmarshalText(text []byte) error {
+	index, err := indexOf("on-failure", string(text), hookFailureNames())
+	if err != nil {
+		return err
+	}
+
+	*f = HookFailure(index)
+
+	return nil
 }

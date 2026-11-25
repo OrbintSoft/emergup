@@ -78,6 +78,34 @@
 #enabled = true
 #command = ["emerge", "--depclean"]
 
+# Hooks are commands run before or after the whole run or a step, as the
+# user who started emergup, without a question; there are none by default.
+# Each hook is a table of its own, [hooks.<name>], named with lowercase
+# letters, digits and dashes:
+#
+#   at          where it runs: "before-" or "after-" followed by run, for the
+#               whole run, or by a step: sync, update, live-rebuild,
+#               preserved-rebuild, config-files, depclean;
+#   command     the program and its arguments;
+#   on-failure  "stop", the default, fails the run when the hook fails, as a
+#               failed step does; "continue" only shows a notice;
+#   enabled     true by default; a drop-in turns off a hook another file adds
+#               with enabled = false.
+#
+# A step's hooks run when the run reaches it, before its question, and once
+# it has ended, however it ended; the hooks after the run run before the
+# summary, even after a failure. Hooks at the same place run in the order of
+# their names, and none starts once the run is stopped. A hook finds the run
+# in its environment: EMERGUP_HOOK (its name), EMERGUP_STEP (the step, or
+# run), EMERGUP_WHEN (before or after), EMERGUP_RUN_DIR and EMERGUP_LOG (the
+# run's directory and log), and after a step EMERGUP_STEP_STATUS (succeeded,
+# skipped or failed), after the run EMERGUP_RESULT (finished or failed).
+# For example:
+#
+# [hooks.snapshot]
+# at = "before-update"
+# command = ["/usr/local/sbin/snapshot", "before-update"]
+
 [colors]
 # How emergup's own lines look on a terminal; emerge keeps its own colours.
 # A colour is written as words separated by spaces: attributes (bold, dim,
