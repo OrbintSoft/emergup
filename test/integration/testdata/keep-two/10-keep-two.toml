@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The two latest run directories kept.
+
+[runs]
+keep = 2

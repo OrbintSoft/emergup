@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# doas as the elevation method, which the image does not have.
+
+[elevation]
+method = "doas"
