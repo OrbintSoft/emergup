@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every run directory kept; read after 10-keep-two.toml, it wins.
+
+[runs]
+keep = 0

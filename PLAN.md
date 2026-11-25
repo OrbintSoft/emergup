@@ -434,6 +434,16 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
         edited before its package is updated leaves a `._cfg0000_` file;
         dispatch-conf waits for keys, so the delegation is tested with
         `etc-update --automode -5`.
+      - Privileges, lock, summary, colours, log: PRIV-2, PRIV-4, UPD-7,
+        UPD-8, UPD-12, UPD-13, UPD-15. sudo is the image's only elevation
+        tool: a test takes it off the PATH for a run without one, and for a
+        run as root, which needs none; doas set by name stands for a method
+        that is not installed. The lock is held by a run that waits at its
+        first question, its input left open. A version of a test package
+        that fails to build gives a failed step, and emerge's own colours
+        are checked on the packages of the test repository.
+      - Still to do: tests named after UPD-1, UPD-2, UPD-3 and UPD-14,
+        which every run goes through.
 - [ ] **5.3** CI job for the integration suite.
 
 From here on, every feature lands with its integration test.

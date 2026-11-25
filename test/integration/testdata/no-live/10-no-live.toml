@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The live-package rebuild disabled, which the summary reports.
+
+[steps.live-rebuild]
+enabled = false

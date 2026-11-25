@@ -17,7 +17,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,6 +39,9 @@ const (
 	// The command that runs the containers; docker when it is not set.
 	dockerVariable = "EMERGUP_TEST_DOCKER"
 )
+
+// program is emergup's command in the container: the binary under test.
+const program = "emergup"
 
 // The users of the image.
 const (
@@ -130,7 +136,15 @@ func (c *container) emergup(args ...string) result {
 func (c *container) emergupInput(input string, args ...string) result {
 	c.t.Helper()
 
-	return c.exec(tester, input, append([]string{"emergup"}, args...)...)
+	return c.emergupAs(tester, input, args...)
+}
+
+// emergupAs runs emergup with args as user, with input on its standard
+// input.
+func (c *container) emergupAs(user, input string, args ...string) result {
+	c.t.Helper()
+
+	return c.exec(user, input, append([]string{program}, args...)...)
 }
 
 // emergupRun runs `emergup run` with options as tester, with input on its
@@ -146,12 +160,134 @@ func (c *container) emergupRun(input string, options ...string) string {
 }
 
 // emergupTerminal runs emergup with args as tester on a terminal of its
-// own, with no input. A terminal has a single output: everything is in
+// own, with no input and the variables of env, each NAME=value, added to
+// its environment. A terminal has a single output: everything is in
 // stdout, each line ending with "\r\n".
-func (c *container) emergupTerminal(args ...string) result {
+func (c *container) emergupTerminal(env []string, args ...string) result {
 	c.t.Helper()
 
-	return c.command(c.t.Context(), nil, append([]string{"exec", "--tty", "--user", tester, c.id, "emergup"}, args...)...)
+	options := make([]string, 0, 1+2*len(env))
+	options = append(options, "--tty")
+
+	for _, variable := range env {
+		options = append(options, "--env", variable)
+	}
+
+	return c.command(c.t.Context(), nil, c.execArgs(tester, options, append([]string{program}, args...))...)
+}
+
+// background is an emergup run that goes on while the test does, until
+// the test gives it the rest of its input.
+type background struct {
+	t      *testing.T
+	cmd    *exec.Cmd
+	input  io.WriteCloser
+	output *syncBuffer
+}
+
+// emergupBackground starts emergup with args as tester, with its standard
+// input open and empty, so that it waits at its first question.
+func (c *container) emergupBackground(args ...string) *background {
+	c.t.Helper()
+
+	//nolint:gosec // The tests choose what runs.
+	cmd := exec.CommandContext(c.t.Context(), c.docker,
+		c.execArgs(tester, []string{"--interactive"}, append([]string{program}, args...))...)
+
+	input, err := cmd.StdinPipe()
+	require.NoError(c.t, err)
+
+	output := &syncBuffer{mutex: sync.Mutex{}, buffer: bytes.Buffer{}}
+	cmd.Stdout = output
+	cmd.Stderr = output
+
+	require.NoError(c.t, cmd.Start())
+
+	run := &background{t: c.t, cmd: cmd, input: input, output: output}
+
+	// A test that fails before the end of the run ends it with its input.
+	c.t.Cleanup(func() {
+		if cmd.ProcessState == nil {
+			_ = input.Close()
+			_ = cmd.Wait()
+		}
+	})
+
+	return run
+}
+
+// waitFor waits until the output of the run holds text.
+func (b *background) waitFor(text string) {
+	b.t.Helper()
+
+	require.Eventually(b.t, func() bool { return strings.Contains(b.output.String(), text) },
+		time.Minute, 100*time.Millisecond, "the output never holds %q:\n%s", text, b.output)
+}
+
+// finish gives the run the rest of its input, then its end, and returns
+// what it did, both of its outputs in stdout.
+func (b *background) finish(input string) result {
+	b.t.Helper()
+
+	_, err := io.WriteString(b.input, input)
+	require.NoError(b.t, err)
+	require.NoError(b.t, b.input.Close())
+
+	err = b.cmd.Wait()
+
+	var exitError *exec.ExitError
+	if err != nil && !errors.As(err, &exitError) {
+		require.NoError(b.t, err)
+	}
+
+	return result{stdout: b.output.String(), stderr: "", code: b.cmd.ProcessState.ExitCode()}
+}
+
+// syncBuffer is a buffer that a command writes while the test reads it.
+type syncBuffer struct {
+	mutex  sync.Mutex
+	buffer bytes.Buffer
+}
+
+// Write implements io.Writer.
+func (s *syncBuffer) Write(data []byte) (int, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.buffer.Write(data) //nolint:wrapcheck // bytes.Buffer.Write returns no error.
+}
+
+// String returns what was written so far.
+func (s *syncBuffer) String() string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.buffer.String()
+}
+
+// logLine is the last line of a run, which says where its log is.
+var logLine = regexp.MustCompile(`==> The log is in (\S+)\r?\n$`)
+
+// logPath returns the path of the log of the run whose output is stdout.
+func logPath(t *testing.T, stdout string) string {
+	t.Helper()
+
+	found := logLine.FindStringSubmatch(stdout)
+	require.NotNil(t, found, "the run does not say where its log is:\n%s", stdout)
+
+	return found[1]
+}
+
+// runLog returns the log of the run whose output is stdout, read as user.
+func (c *container) runLog(user, stdout string) string {
+	c.t.Helper()
+
+	path := logPath(c.t, stdout)
+
+	read := c.exec(user, "", "cat", path)
+	require.Equal(c.t, 0, read.code, "the log %s is not read: %s", path, read.stderr)
+
+	return read.stdout
 }
 
 // root runs args as root, as the set-up of a test, which fails when the
@@ -260,8 +396,13 @@ func (c *container) dropIns(name string) {
 func (c *container) exec(user, input string, args ...string) result {
 	c.t.Helper()
 
-	return c.command(c.t.Context(), strings.NewReader(input),
-		append([]string{"exec", "--interactive", "--user", user, c.id}, args...)...)
+	return c.command(c.t.Context(), strings.NewReader(input), c.execArgs(user, []string{"--interactive"}, args)...)
+}
+
+// execArgs returns the arguments of the container command that runs args
+// in the container as user, with the options of exec.
+func (c *container) execArgs(user string, options, args []string) []string {
+	return slices.Concat([]string{"exec"}, options, []string{"--user", user, c.id}, args)
 }
 
 // command runs the container command with args, and input on its standard

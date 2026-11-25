@@ -179,7 +179,7 @@ func TestCFG6_TheHeadingsTakeTheirConfiguredStyle(t *testing.T) {
 				ctr.dropIns(style.dropIns)
 			}
 
-			got := ctr.emergupTerminal("run", "--pretend")
+			got := ctr.emergupTerminal(nil, "run", "--pretend")
 			assert.Equal(t, 0, got.code, "the exit status, with the output:\n%s", got.stdout)
 			assert.True(t, strings.HasPrefix(got.stdout, style.want), "%q", got.stdout)
 		})
