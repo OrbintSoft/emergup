@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Runs the integration tests, which run the real emergup in Gentoo containers,
+# through the same Makefile target used locally: on every push to master, on
+# demand, and on the pull requests that change what the tests depend on.
+name: Integration
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - "**.go"
+      - go.mod
+      - go.sum
+      - Makefile
+      - test/integration/**
+      - .github/workflows/integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: make integration
+    runs-on: ubuntu-latest
+    # The suite takes a few minutes, most of them downloading the image's
+    # stage3 and Gentoo tree; a run that hangs is stopped well before the
+    # runner's own limit.
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+
+      # Docker is preinstalled on the runner.
+      - name: Run the integration tests
+        run: make integration

@@ -91,7 +91,11 @@ run the real emergup with the real `emerge`, `portageq` and `sudo`.
 `make integration` builds a static binary, builds the image of
 [test/integration/image](../test/integration/image), and runs the tests; the
 first build downloads the stage3 and the Gentoo tree, over 1 GB, and later
-ones reuse Docker's cache.
+ones reuse Docker's cache. The
+[integration workflow](../.github/workflows/integration.yml) runs
+`make integration` on every push to `master`, on demand, and on the pull
+requests that change the Go code, `go.mod`, the Makefile or
+test/integration.
 
 Each test starts a container of its own, without a network, with the binary
 mounted on `PATH`, runs emergup as `tester`, an ordinary user who may use
@@ -200,7 +204,10 @@ of `master` for the README's badge on the orphan `badges` branch.
 
 - Work on a branch; `master` changes only through pull requests. A pull request
   can be merged when the `make test` and `make lint` checks pass and every
-  review thread is resolved; force pushes to `master` are refused.
+  review thread is resolved; force pushes to `master` are refused. The
+  `make integration` check runs only on the pull requests that change the
+  code or the tests, so it is not a required one: look at it before merging
+  such a pull request.
 - Sign off every commit (`git commit -s`), as
   [CONTRIBUTING.md](../CONTRIBUTING.md) explains.
 - Write [Conventional Commits](https://www.conventionalcommits.org/): `feat`,

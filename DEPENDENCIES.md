@@ -41,18 +41,21 @@ The integration tests run emergup in containers of an image built from
 
 ## Continuous integration
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs the Makefile targets
-on GitHub-hosted `ubuntu-latest` runners. The image moves with GitHub and is
-not pinned: the tools that decide a result are pinned in the workflow or in the
-Makefile, and only helpers such as pipx and shellcheck come from the image.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) and
+[.github/workflows/integration.yml](.github/workflows/integration.yml) run the
+Makefile targets on GitHub-hosted `ubuntu-latest` runners. The image moves with
+GitHub and is not pinned: the tools that decide a result are pinned in the
+workflows or in the Makefile, and only helpers such as Docker, pipx and
+shellcheck come from the image.
 
 | Dependency | Purpose | Version and updates |
 | --- | --- | --- |
-| `actions/checkout` | Checking out the repository. | Pinned to a commit SHA in the workflow; Dependabot and Renovate bump it. |
-| `actions/setup-go` | Installing the toolchain named in [go.mod](go.mod). | Pinned to a commit SHA in the workflow; Dependabot and Renovate bump it. |
+| `actions/checkout` | Checking out the repository. | Pinned to a commit SHA in the workflows; Dependabot and Renovate bump it. |
+| `actions/setup-go` | Installing the toolchain named in [go.mod](go.mod). | Pinned to a commit SHA in the workflows; Dependabot and Renovate bump it. |
 | **GitHub CLI** (`gh`) | Publishing a release with its archives and notes, in the release workflow. | Preinstalled on the runner. |
 | `actions/setup-node` | Installing Node.js for markdownlint-cli2 and the Renovate configuration validator. | Pinned to a commit SHA; Dependabot and Renovate bump it. The Node.js version is the latest LTS. |
 | **pipx** | Installing yamllint at the pinned version. | Preinstalled on the runner. |
+| **Docker** | Building the integration image and running its containers (`make integration`), and running hadolint (`make lint`). | Preinstalled on the runner. |
 | **DCO** GitHub App | Checking that every commit of a pull request is signed off; commits by bots are exempt. | Installed on the repository; maintained by its authors. |
 | **Dependabot** | Opening update pull requests for the Go modules, the actions and the images of the integration Dockerfile, one per ecosystem, on Saturday mornings. | Configured by [.github/dependabot.yml](.github/dependabot.yml); part of GitHub. |
 | **Renovate** GitHub App (Mend-hosted) | Opening update pull requests for go.mod, the actions, the images of the integration Dockerfile (grouped in one) and the tool pins in the Makefile and the workflow (actions and tool pins grouped in one), on Thursday afternoons. | Configured by [renovate.json5](renovate.json5); installed on the repository, so it needs no token or workflow. |
