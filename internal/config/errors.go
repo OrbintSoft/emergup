@@ -146,7 +146,7 @@ func describeGoType(name string) string {
 		"config.Duration":        (*Duration)(nil).expected(),
 		"config.ElevationMethod": (*ElevationMethod)(nil).expected(),
 		"config.LiveRebuildMode": (*LiveRebuildMode)(nil).expected(),
-		"config.HookPlace":       hookPlaceExpected(),
+		"config.HookPlace":       hookPlaceExpected(nil),
 		"config.HookFailure":     (*HookFailure)(nil).expected(),
 	}
 

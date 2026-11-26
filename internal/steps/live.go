@@ -150,7 +150,13 @@ func runElevated(ctx context.Context, env pipeline.Env, command []string, progra
 func runElevatedIn(ctx context.Context, env pipeline.Env, mode runner.Mode, command []string,
 	program string,
 ) pipeline.Outcome {
-	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: mode, Root: true, Env: nil})
+	return runCommand(ctx, env, runner.Command{Args: command, Mode: mode, Root: true, Env: nil}, program)
+}
+
+// runCommand runs command and returns how it ended; program names it in a
+// failure.
+func runCommand(ctx context.Context, env pipeline.Env, command runner.Command, program string) pipeline.Outcome {
+	result, err := env.Runner.Run(ctx, command)
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}

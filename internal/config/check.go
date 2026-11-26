@@ -109,41 +109,119 @@ func hookProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
 	for _, name := range slices.Sorted(maps.Keys(set.Hooks)) {
 		prefix := hooksTable + "." + name
 
-		if !isHookName(name) {
-			place := firstPlace(keys, prefix+".")
-			problems = append(problems, &Error{
-				File: file, Line: place.line, Column: place.column, Key: prefix,
-				Err: message(fmt.Sprintf("hook name %q: use lowercase letters, digits and dashes", name)),
-			})
+		if problem := nameProblem(file, keys, prefix, "hook", name); problem != nil {
+			problems = append(problems, problem)
 
 			continue
 		}
 
 		hook := set.Hooks[name]
-		checks := []struct {
-			key string
-			err error
-		}{
+		problems = append(problems, keyProblems(file, keys, []keyCheck{
 			{key: prefix + ".at", err: checkHookPlace(hook.At)},
-			{key: prefix + ".command", err: checkHookCommand(hook.Command)},
-			{key: prefix + ".remedy", err: checkHookCommand(hook.Remedy)},
+			{key: prefix + ".command", err: checkTableCommand(hook.Command)},
+			{key: prefix + ".remedy", err: checkTableCommand(hook.Remedy)},
+		})...)
+	}
+
+	return problems
+}
+
+// customStepProblems returns a problem for each custom step of set, what
+// file alone decodes to, whose name a key cannot hold or is taken, and for
+// each place and command of a custom step that keys, the keys the file
+// sets, holds and that is wrong. As for hooks, a custom step that runs
+// without them is found once every file is read, see incompleteCustomSteps.
+func customStepProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
+	var problems []*Error
+
+	for _, name := range slices.Sorted(maps.Keys(set.CustomSteps)) {
+		prefix := customStepsTable + "." + name
+
+		problem := nameProblem(file, keys, prefix, "custom step", name)
+		if problem == nil {
+			problem = takenNameProblem(file, keys, prefix, name)
 		}
 
-		for _, check := range checks {
-			if place, isSet := keys[check.key]; isSet && check.err != nil {
-				problems = append(problems, &Error{
-					File: file, Line: place.line, Column: place.column, Key: check.key, Err: check.err,
-				})
-			}
+		if problem != nil {
+			problems = append(problems, problem)
+
+			continue
+		}
+
+		step := set.CustomSteps[name]
+		problems = append(problems, keyProblems(file, keys, []keyCheck{
+			{key: prefix + ".after", err: checkAfter(step.After)},
+			{key: prefix + ".command", err: checkTableCommand(step.Command)},
+		})...)
+	}
+
+	return problems
+}
+
+// nameProblem returns the problem of the table prefix of file, a kind of
+// table named name, when a key cannot hold its name, or nil.
+func nameProblem(file string, keys map[string]keyPlace, prefix, kind, name string) *Error {
+	if isTableName(name) {
+		return nil
+	}
+
+	place := firstPlace(keys, prefix+".")
+
+	return &Error{
+		File: file, Line: place.line, Column: place.column, Key: prefix,
+		Err: message(fmt.Sprintf("%s name %q: use lowercase letters, digits and dashes", kind, name)),
+	}
+}
+
+// takenNameProblem returns the problem of the custom step prefix of file,
+// named name, when a hook's place could not tell it from a built-in step or
+// from the whole run, or nil.
+func takenNameProblem(file string, keys map[string]keyPlace, prefix, name string) *Error {
+	var problem string
+
+	switch {
+	case name == RunName:
+		problem = "hooks name the whole run so"
+	case slices.Contains(StepNames(), name):
+		problem = "a built-in step has it"
+	default:
+		return nil
+	}
+
+	place := firstPlace(keys, prefix+".")
+
+	return &Error{
+		File: file, Line: place.line, Column: place.column, Key: prefix,
+		Err: message(fmt.Sprintf("custom step name %q: %s", name, problem)),
+	}
+}
+
+// keyCheck is what is wrong, nil for nothing, with the value of a key.
+type keyCheck struct {
+	key string
+	err error
+}
+
+// keyProblems returns a problem for each check of a key that keys, the keys
+// file sets, holds and that is wrong.
+func keyProblems(file string, keys map[string]keyPlace, checks []keyCheck) []*Error {
+	var problems []*Error
+
+	for _, check := range checks {
+		if place, isSet := keys[check.key]; isSet && check.err != nil {
+			problems = append(problems, &Error{
+				File: file, Line: place.line, Column: place.column, Key: check.key, Err: check.err,
+			})
 		}
 	}
 
 	return problems
 }
 
-// checkHookCommand rejects a hook's command or remedy whose program is
-// empty; an empty one is left to incompleteHooks.
-func checkHookCommand(command []string) error {
+// checkTableCommand rejects the command of a hook or a custom step, or a
+// hook's remedy, whose program is empty; an empty one is left to the checks
+// made once every file is read.
+func checkTableCommand(command []string) error {
 	if len(command) == 0 {
 		return nil
 	}
@@ -151,10 +229,11 @@ func checkHookCommand(command []string) error {
 	return checkCommand(command)
 }
 
-// isHookName reports whether name can name a hook: lowercase letters,
-// digits and dashes, starting with a letter or a digit, as the keys of the
-// configuration are written, so that a dotted key names one hook only.
-func isHookName(name string) bool {
+// isTableName reports whether name can name a hook or a custom step:
+// lowercase letters, digits and dashes, starting with a letter or a digit,
+// as the keys of the configuration are written, so that a dotted key names
+// one table only.
+func isTableName(name string) bool {
 	if name == "" || name[0] == '-' {
 		return false
 	}
@@ -178,9 +257,90 @@ func firstPlace(keys map[string]keyPlace, prefix string) keyPlace {
 	return first
 }
 
+// configProblems returns the problems that only the whole configuration
+// shows, once every file is read: those of the custom steps, then those of
+// the hooks.
+func configProblems(cfg Config, origins Origins) []error {
+	return slices.Concat(incompleteCustomSteps(cfg, origins), misplacedHooks(cfg, origins), incompleteHooks(cfg, origins))
+}
+
+// missingValue is a value that a hook or a custom step that runs needs, and
+// whether it is missing or does not go with the others.
+type missingValue struct {
+	key     string
+	wrong   bool
+	problem string
+}
+
+// tableProblems returns a problem for each value of the table prefix that
+// is wrong, against the last file that writes the table.
+func tableProblems(origins Origins, prefix string, values []missingValue) []error {
+	var problems []error
+
+	for _, value := range values {
+		if value.wrong {
+			problems = append(problems, &Error{
+				File: origins.tables[prefix], Line: 0, Column: 0, Key: prefix + "." + value.key,
+				Err: message(value.problem),
+			})
+		}
+	}
+
+	return problems
+}
+
+// incompleteCustomSteps returns a problem for each value of a custom step
+// of cfg that runs which, once every file is read, is missing.
+func incompleteCustomSteps(cfg Config, origins Origins) []error {
+	var problems []error
+
+	for _, name := range slices.Sorted(maps.Keys(cfg.CustomSteps)) {
+		step := cfg.CustomSteps[name]
+		if !step.Enabled {
+			continue
+		}
+
+		problems = append(problems, tableProblems(origins, customStepsTable+"."+name, []missingValue{
+			{"after", step.After == "", `missing: say which built-in step it follows, such as after = "preserved-rebuild"`},
+			{"command", len(step.Command) == 0, "missing: give the program the step runs and its arguments"},
+		})...)
+	}
+
+	return problems
+}
+
+// misplacedHooks returns a problem for each hook of cfg whose place names a
+// step that, once every file is read, is neither a built-in step, nor a
+// custom step, nor the whole run, where the file that sets the place sets
+// it. A hook that is turned off is no exception: its place is wrong all the
+// same.
+func misplacedHooks(cfg Config, origins Origins) []error {
+	var problems []error
+
+	custom := slices.Sorted(maps.Keys(cfg.CustomSteps))
+
+	for _, name := range slices.Sorted(maps.Keys(cfg.Hooks)) {
+		place := cfg.Hooks[name].At
+
+		step := place.Step()
+		if place == "" || step == RunName || slices.Contains(StepNames(), step) || slices.Contains(custom, step) {
+			continue
+		}
+
+		key := hooksTable + "." + name + ".at"
+		where := origins.places[key]
+		problems = append(problems, &Error{
+			File: origins.keys[key], Line: where.line, Column: where.column, Key: key,
+			Err: unknownHookPlace(place, custom),
+		})
+	}
+
+	return problems
+}
+
 // incompleteHooks returns a problem for each value of a hook of cfg that
 // runs which, once every file is read, is missing or does not go with the
-// others, against the last file that writes its table.
+// others.
 func incompleteHooks(cfg Config, origins Origins) []error {
 	var problems []error
 
@@ -190,13 +350,7 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 			continue
 		}
 
-		prefix := hooksTable + "." + name
-
-		checks := []struct {
-			key     string
-			wrong   bool
-			problem string
-		}{
+		problems = append(problems, tableProblems(origins, hooksTable+"."+name, []missingValue{
 			{"at", hook.At == "", `missing: say where the hook runs, such as at = "before-update"`},
 			{"command", len(hook.Command) == 0, "missing: give the program the hook runs and its arguments"},
 			{
@@ -204,16 +358,7 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 				`only a hook that asks has a remedy: set on-failure = "ask"`,
 			},
 			{"remedy-elevated", hook.RemedyElevated && len(hook.Remedy) == 0, "there is no remedy to elevate"},
-		}
-
-		for _, check := range checks {
-			if check.wrong {
-				problems = append(problems, &Error{
-					File: origins.hooks[name], Line: 0, Column: 0, Key: prefix + "." + check.key,
-					Err: message(check.problem),
-				})
-			}
-		}
+		})...)
 	}
 
 	return problems
@@ -271,8 +416,11 @@ func checkEntries(entries Entries) error {
 	return nil
 }
 
-// hooksTable is the table of the hooks.
-const hooksTable = "hooks"
+// The tables of tables: those of the hooks and of the custom steps.
+const (
+	hooksTable       = "hooks"
+	customStepsTable = "custom-steps"
+)
 
 // anyName stands, in a key of the schema, for the name of an entry of a
 // table of tables such as the hooks: "hooks.*.command".

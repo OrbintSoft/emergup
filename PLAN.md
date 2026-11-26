@@ -503,12 +503,26 @@ check before the run (6.2, 6.4).
       - The check runs as the invoking user; the remedy can be configured to
         be elevated (`remedy-elevated`), as a backup tool must, and so can a
         hook's own command (`elevated`) (PRIV-3).
-- [ ] **6.3** Custom steps (HOOK-3).
+- [x] **6.3** Custom steps (HOOK-3).
+      - A custom step is a named table, `[custom-steps.<name>]`, with
+        `after` (a built-in step), its `command`, an optional `title`, and
+        `elevated` and `optional`; as for hooks, a drop-in adds one or turns
+        one off by name. Its name is not that of a built-in step nor `run`,
+        so that a hook can name it (`before-<name>`).
+      - Custom steps go after a built-in step only, those after the same
+        one in the order of their names: an order that needs no check for
+        cycles, as custom steps after custom steps would.
+      - A custom step whose command fails fails the run, as a built-in step
+        does; it has no `on-failure`.
       - A custom step can be optional: when its program is not installed it
         is skipped with a notice instead of failing (UPD-4). The example
         configuration has one that runs `haskell-updater` after the
         preserved-library rebuild; nothing in emergup is specific to one
-        language's tools.
+        language's tools. A program is installed when it is found as the
+        invoking user would start it, on their `PATH`. An optional step
+        whose program is missing is skipped without its question, as there
+        is nothing to run; a custom step that is not optional fails then,
+        so that a mistyped program does not go unnoticed.
       - A custom step runs as the invoking user unless it is configured to be
         elevated (PRIV-3), as `haskell-updater` must be. The example runs
         `haskell-updater --quiet -- --verbose`: emergup asks before the step,

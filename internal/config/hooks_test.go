@@ -131,8 +131,8 @@ func TestLoadReportsWhereEachHookProblemIs(t *testing.T) {
 		},
 		{
 			"integer for a place", "[hooks.h]\nat = 1\ncommand = [\"x\"]\n",
-			2, 6, keyHookAt, `expected "before-" or "after-" followed by run or a step: sync, update, ` +
-				"live-rebuild, preserved-rebuild, config-files, depclean, found an integer",
+			2, 6, keyHookAt, `expected "before-" or "after-" followed by run, a built-in step (sync, update, ` +
+				"live-rebuild, preserved-rebuild, config-files, depclean) or a custom step, found an integer",
 		},
 		{
 			"unknown failure", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ignore\"\n",

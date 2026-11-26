@@ -94,6 +94,7 @@ func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 		maps.DeleteFunc(decodedKeys, func(key string, _ keyPlace) bool { return undecoded[key] })
 
 		problems = withoutRepeatedKeys(problems, valueProblems(file, decodedKeys, set))
+		problems = withoutRepeatedKeys(problems, customStepProblems(file, decodedKeys, set))
 		problems = withoutRepeatedKeys(problems, hookProblems(file, decodedKeys, set))
 	}
 
@@ -108,7 +109,8 @@ func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 		earlier[i] = slices.Clone(*list.entries)
 	}
 
-	cfg.addHooks(set.Hooks)
+	addTables(&cfg.CustomSteps, set.CustomSteps, NewCustomStep)
+	addTables(&cfg.Hooks, set.Hooks, NewHook)
 
 	err = toml.NewDecoder(bytes.NewReader(data)).Decode(cfg)
 	if err != nil {
@@ -122,7 +124,8 @@ func apply(fsys fs.FS, name string, cfg *Config, origins *Origins) []*Error {
 	}
 
 	origins.setBy(file, keys)
-	origins.setHooksBy(file, set.Hooks)
+	origins.setTablesBy(file, customStepsTable, maps.Keys(set.CustomSteps))
+	origins.setTablesBy(file, hooksTable, maps.Keys(set.Hooks))
 
 	return nil
 }
@@ -229,17 +232,17 @@ func sortedProblems(problems []*Error) []*Error {
 	return problems
 }
 
-// addHooks adds to c each hook of hooks it does not have yet, as NewHook
-// returns it, so that a file decoded over c changes only the values it
-// sets of a new hook too.
-func (c *Config) addHooks(hooks Hooks) {
-	if c.Hooks == nil {
-		c.Hooks = Hooks{}
+// addTables adds to tables, a table of tables such as the hooks, each table
+// of added it does not have yet, as fresh returns it, so that a file decoded
+// over it changes only the values it sets of a new table too.
+func addTables[M ~map[string]T, T any](tables *M, added M, fresh func() T) {
+	if *tables == nil {
+		*tables = M{}
 	}
 
-	for name := range hooks {
-		if _, exists := c.Hooks[name]; !exists {
-			c.Hooks[name] = NewHook()
+	for name := range added {
+		if _, exists := (*tables)[name]; !exists {
+			(*tables)[name] = fresh()
 		}
 	}
 }

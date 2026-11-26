@@ -182,19 +182,40 @@ func (p HookPlace) MarshalText() ([]byte, error) {
 }
 
 // hookPlaceExpected says what a hook's place looks like in a configuration
-// file.
-func hookPlaceExpected() string {
-	return `"before-" or "after-" followed by run or a step: ` + strings.Join(StepNames(), ", ")
+// file; custom names the custom steps, when they are known.
+func hookPlaceExpected(custom []string) string {
+	expected := `"before-" or "after-" followed by run, a built-in step (` + strings.Join(StepNames(), ", ") +
+		") or a custom step"
+	if len(custom) > 0 {
+		expected += " (" + strings.Join(custom, ", ") + ")"
+	}
+
+	return expected
 }
 
-// checkHookPlace rejects a place that names no step, or neither before nor
-// after; the empty place, no place, is left to incompleteHooks.
+// checkHookPlace rejects a place that is neither before nor after. The empty
+// place, no place, is left to incompleteHooks, and the step a place names to
+// misplacedHooks, as a later file may add the custom step it names.
 func checkHookPlace(place HookPlace) error {
-	isWhen := place.When() == hookBefore || place.When() == hookAfter
-	isStep := place.Step() == RunName || slices.Contains(StepNames(), place.Step())
+	if place != "" && place.When() != hookBefore && place.When() != hookAfter {
+		return unknownHookPlace(place, nil)
+	}
 
-	if place != "" && (!isWhen || !isStep) {
-		return fmt.Errorf("%w hook place %q, expected %s", errUnknownName, string(place), hookPlaceExpected())
+	return nil
+}
+
+// unknownHookPlace is the problem of a hook's place that names no step;
+// custom names the custom steps, when they are known.
+func unknownHookPlace(place HookPlace, custom []string) error {
+	return fmt.Errorf("%w hook place %q, expected %s", errUnknownName, string(place), hookPlaceExpected(custom))
+}
+
+// checkAfter rejects a custom step's place that names no built-in step; the
+// empty place, no place, is left to incompleteCustomSteps.
+func checkAfter(after string) error {
+	if after != "" && !slices.Contains(StepNames(), after) {
+		return fmt.Errorf("%w step %q, expected a built-in step: %s", errUnknownName, after,
+			strings.Join(StepNames(), ", "))
 	}
 
 	return nil
