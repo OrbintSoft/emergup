@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Two hooks before the run that each create a file: one runs as root, the
+# other as the invoking user.
+
+[hooks.elevated]
+at = "before-run"
+command = ["touch", "/var/tmp/emergup-test-elevated"]
+elevated = true
+
+[hooks.plain]
+at = "before-run"
+command = ["touch", "/var/tmp/emergup-test-plain"]

@@ -24,11 +24,15 @@ func Hooks(hooks config.Hooks) []pipeline.Hook {
 		}
 
 		enabled = append(enabled, pipeline.Hook{
-			Name:    name,
-			When:    hook.At.When(),
-			Step:    hook.At.Step(),
-			Command: slices.Clone(hook.Command),
-			GoesOn:  hook.OnFailure == config.HookContinue,
+			Name:       name,
+			When:       hook.At.When(),
+			Step:       hook.At.Step(),
+			Command:    slices.Clone(hook.Command),
+			Root:       hook.Elevated,
+			GoesOn:     hook.OnFailure == config.HookContinue,
+			Asks:       hook.OnFailure == config.HookAsk,
+			Remedy:     slices.Clone(hook.Remedy),
+			RemedyRoot: hook.RemedyElevated,
 		})
 	}
 

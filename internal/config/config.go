@@ -132,8 +132,15 @@ type Hook struct {
 	At HookPlace `toml:"at"`
 	// Command is the program the hook starts, with its arguments.
 	Command []string `toml:"command"`
-	// OnFailure says whether a hook that fails stops the run.
+	// Elevated runs Command as root, as the commands of the steps that need
+	// root are; a hook runs as the invoking user otherwise.
+	Elevated bool `toml:"elevated"`
+	// OnFailure says what a hook that fails does to the run.
 	OnFailure HookFailure `toml:"on-failure"`
+	// Remedy is the command a hook that asks offers to run when it fails,
+	// before it runs again; RemedyElevated runs it as root.
+	Remedy         []string `toml:"remedy"`
+	RemedyElevated bool     `toml:"remedy-elevated"`
 }
 
 // HookPlace is where a hook runs, written "before-<step>" or
@@ -153,12 +160,18 @@ const (
 	HookStop HookFailure = iota
 	// HookContinue only shows a notice, and the run goes on.
 	HookContinue
+	// HookAsk makes the hook a check: its failure asks whether to run its
+	// remedy and check again, to go on, or to abort the run.
+	HookAsk
 )
 
 // NewHook returns what a hook is before a file sets its values: enabled,
-// and stopping the run when it fails.
+// run as the invoking user, and stopping the run when it fails.
 func NewHook() Hook {
-	return Hook{Enabled: true, At: "", Command: []string{}, OnFailure: HookStop}
+	return Hook{
+		Enabled: true, At: "", Command: []string{}, Elevated: false,
+		OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false,
+	}
 }
 
 // emerge is Portage's command, which most built-in steps start.

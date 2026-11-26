@@ -19,6 +19,18 @@ const keyHookAt = "hooks.h.at"
 // placeBeforeUpdate is the place of snapshotHook.
 const placeBeforeUpdate = HookPlace("before-update")
 
+// hookWith returns NewHook at place, running command, changed by change.
+func hookWith(place HookPlace, command []string, change func(*Hook)) Hook {
+	hook := NewHook()
+	hook.At, hook.Command = place, command
+
+	if change != nil {
+		change(&hook)
+	}
+
+	return hook
+}
+
 func TestLoadAddsAHookWithItsDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -26,7 +38,10 @@ func TestLoadAddsAHookWithItsDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, Hooks{
-		"snapshot": {Enabled: true, At: placeBeforeUpdate, Command: []string{"snap", "pre"}, OnFailure: HookStop},
+		"snapshot": {
+			Enabled: true, At: placeBeforeUpdate, Command: []string{"snap", "pre"}, Elevated: false,
+			OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false,
+		},
 	}, cfg.Hooks)
 }
 
@@ -42,9 +57,23 @@ func TestLoadChangesOnlyTheValuesAFileSetsOfAHook(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, Hooks{
-		"snapshot": {Enabled: false, At: placeBeforeUpdate, Command: []string{"snap", "pre"}, OnFailure: HookStop},
-		"notify":   {Enabled: true, At: "after-run", Command: []string{"notify"}, OnFailure: HookContinue},
+		"snapshot": hookWith(placeBeforeUpdate, []string{"snap", "pre"}, func(h *Hook) { h.Enabled = false }),
+		"notify":   hookWith("after-run", []string{"notify"}, func(h *Hook) { h.OnFailure = HookContinue }),
 	}, cfg.Hooks)
+}
+
+func TestLoadReadsACheckWithItsRemedy(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := Load(t.Context(), fstest.MapFS{
+		MainFile: file("[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\", \"20\"]\nelevated = true\n" +
+			"on-failure = \"ask\"\nremedy = [\"redo-backup\", \"run\"]\nremedy-elevated = true\n"),
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, hookWith("before-run", []string{"fresh", "20"}, func(h *Hook) {
+		h.Elevated, h.OnFailure, h.Remedy, h.RemedyElevated = true, HookAsk, []string{"redo-backup", "run"}, true
+	}), cfg.Hooks["backup"])
 }
 
 func TestLoadAcceptsATurnedOffHookAnotherFileDoesNotAdd(t *testing.T) {
@@ -107,11 +136,16 @@ func TestLoadReportsWhereEachHookProblemIs(t *testing.T) {
 		},
 		{
 			"unknown failure", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ignore\"\n",
-			4, 14, "hooks.h.on-failure", `unknown on-failure "ignore", expected one of stop, continue`,
+			4, 14, "hooks.h.on-failure", `unknown on-failure "ignore", expected one of stop, continue, ask`,
 		},
 		{
 			emptyProgram, "[hooks.h]\nat = \"after-run\"\ncommand = [\"\", \"x\"]\n",
 			3, 1, "hooks.h.command", emptyProgram,
+		},
+		{
+			"empty remedy program", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\n" +
+				"remedy = [\"\"]\n",
+			5, 1, "hooks.h.remedy", emptyProgram,
 		},
 		{
 			"unknown key", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\nwhen = \"now\"\n",
@@ -170,6 +204,29 @@ func TestLoadReportsAHookThatRunsWithoutAPlaceOrACommand(t *testing.T) {
 	}, got)
 }
 
+func TestLoadReportsAValueThatDoesNotGoWithTheOthersOfAHook(t *testing.T) {
+	t.Parallel()
+
+	_, err := Load(t.Context(), fstest.MapFS{
+		MainFile: file("[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\non-failure = \"ask\"\n" +
+			"remedy = [\"redo-backup\"]\n"),
+		dropIn("10-stop.toml"): file("[hooks.backup]\non-failure = \"stop\"\n\n" +
+			"[hooks.lone]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\nremedy-elevated = true\n"),
+	})
+
+	got := make([]string, 0, len(problems(t, err)))
+	for _, problem := range problems(t, err) {
+		got = append(got, problem.Error())
+	}
+
+	const stopping = "/etc/emergup/config.d/10-stop.toml"
+
+	assert.Equal(t, []string{
+		stopping + `: hooks.backup.remedy: only a hook that asks has a remedy: set on-failure = "ask"`,
+		stopping + ": hooks.lone.remedy-elevated: there is no remedy to elevate",
+	}, got)
+}
+
 func TestInspectSaysWhereTheValuesOfAHookComeFrom(t *testing.T) {
 	t.Parallel()
 
@@ -193,19 +250,24 @@ func TestWriteTOMLWritesTheHooksInTheOrderOfTheirNames(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	const defaults = "elevated = false  # default\non-failure = \"stop\"  # default\nremedy = []  # default\n" +
+		"remedy-elevated = false  # default\n"
+
 	out := shown(t, cfg, origins)
 	assert.Contains(t, out, "[steps.depclean]\n")
 	assert.Contains(t, out, "\n\n[hooks.notify]\nenabled = true  # default\nat = \"after-run\"  # "+shownDropIn+"\n"+
-		"command = [\"notify\"]  # "+shownDropIn+"\non-failure = \"stop\"  # default\n\n"+
+		"command = [\"notify\"]  # "+shownDropIn+"\n"+defaults+"\n"+
 		"[hooks.snapshot]\nenabled = true  # default\nat = \"before-update\"  # "+shownMain+"\n"+
-		"command = [\"snap\", \"pre\"]  # "+shownMain+"\non-failure = \"stop\"  # default\n\n[colors]\n")
+		"command = [\"snap\", \"pre\"]  # "+shownMain+"\n"+defaults+"\n[colors]\n")
 }
 
 func TestWriteTOMLReadsBackTheHooks(t *testing.T) {
 	t.Parallel()
 
 	cfg, origins, err := Inspect(t.Context(), fstest.MapFS{
-		MainFile:          file(snapshotHook + "\n[hooks.notify]\nat = \"after-run\"\ncommand = [\"n\"]\n"),
+		MainFile: file(snapshotHook + "\n[hooks.notify]\nat = \"after-run\"\ncommand = [\"n\"]\n" +
+			"\n[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\nelevated = true\non-failure = \"ask\"\n" +
+			"remedy = [\"redo\"]\nremedy-elevated = true\n"),
 		dropIn("10.toml"): file("[hooks.snapshot]\nenabled = false\n\n[hooks.off]\nenabled = false\n"),
 	})
 	require.NoError(t, err)

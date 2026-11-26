@@ -60,6 +60,26 @@ func TestRunRunsTheHooksOfTheConfiguration(t *testing.T) {
 	assert.Contains(t, hooks[1].Env, "EMERGUP_STEP_STATUS=skipped")
 }
 
+func TestRunElevatesAHookConfiguredToBe(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t)
+	sess.root = fstest.MapFS{configFile: {Data: []byte(
+		"[hooks.snapshot]\nat = \"before-run\"\ncommand = [\"/usr/local/bin/snapshot\"]\nelevated = true\n",
+	)}}
+	sess.keys.silent = true
+
+	code, stdout, _ := sess.run(t, commandRun, optionYes)
+	assert.Equal(t, 0, code)
+	assert.True(t, strings.HasPrefix(stdout, "==> hook snapshot (before the run), as root: /usr/local/bin/snapshot\n"),
+		stdout)
+
+	commands := sess.runner.Commands()
+	require.NotEmpty(t, commands)
+	assert.Equal(t, []string{sudo, "/usr/local/bin/snapshot"}, commands[0].Args, "through the elevation method")
+	assert.True(t, commands[0].Root)
+}
+
 func TestRunPretendShowsTheHooksAndRunsNone(t *testing.T) {
 	t.Parallel()
 

@@ -4,4 +4,4 @@
 # status 3.
 
 [hooks.snapshot]
-command = ["/usr/local/bin/emergup-test-hook", "3"]
+command = ["/usr/local/bin/emergup-test-hook", "exit:3"]

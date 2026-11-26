@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The remedy of the check does not help: the check fails again after it.
+
+[hooks.backup]
+remedy = ["true"]

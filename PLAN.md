@@ -488,12 +488,21 @@ check before the run (6.2, 6.4).
         by a text unmarshaler: go-toml hands the raw text of an integer to
         one and returns its error without a position, which would hide the
         other problems of the file.
-- [ ] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
-      - A failed check asks: run the remedy and check again, go on without
-        it, or abort the run; Enter, and `--yes`, run the remedy. Without a
-        remedy the question offers only to go on or abort.
+- [x] **6.2** Check hooks with an optional remedy and re-check (HOOK-2).
+      - A check is a hook with `on-failure = "ask"`, and `remedy` its
+        optional remedy. A failed check asks: run the remedy and check
+        again, go on without it, or abort the run; Enter, and `--yes`, run
+        the remedy, `--yes` only once, so that a remedy that does not help
+        cannot loop. Without a remedy the question offers only to go on or
+        abort, and abort is the usual action: an unattended run does not go
+        on past a failed check.
+      - Aborting at a check fails the run rather than stopping it: the
+        check failed and nobody overrode it, which is a failure of the run,
+        and the hooks after the run, a notification say, still run. Ctrl-C
+        at the question stops the run, as anywhere.
       - The check runs as the invoking user; the remedy can be configured to
-        be elevated, as a backup tool must (PRIV-3).
+        be elevated (`remedy-elevated`), as a backup tool must, and so can a
+        hook's own command (`elevated`) (PRIV-3).
 - [ ] **6.3** Custom steps (HOOK-3).
       - A custom step can be optional: when its program is not installed it
         is skipped with a notice instead of failing (UPD-4). The example
@@ -520,6 +529,8 @@ check before the run (6.2, 6.4).
       `--preserve-env=…`, which the sudoers rule must allow (a rule for
       `ALL` does), run0 with `--setenv=…`; doas has no such option, and
       emergup says that `doas.conf` must keep them.
+      - The `EMERGUP_*` variables of a hook or a remedy run as root (HOOK-4)
+        are kept the same way.
 - [ ] **6.6** The live packages listed before their rebuild in the smart mode
       (UPD-16): `smart-live-rebuild --pretend` first, then the question,
       then the rebuild. How the rebuild avoids checking the upstreams a

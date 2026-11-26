@@ -127,7 +127,7 @@ func TestHOOK1_AHookThatFailsStopsTheRun(t *testing.T) {
 	failed := ctr.emergup("run", "--yes")
 	assert.Equal(t, 1, failed.code, "the exit status, with the output:\n%s%s", failed.stdout, failed.stderr)
 	assertInOrder(t, failed.stdout,
-		"==> hook snapshot (before sync): /usr/local/bin/emergup-test-hook 3\n"+
+		"==> hook snapshot (before sync): /usr/local/bin/emergup-test-hook exit:3\n"+
 			"==> hook snapshot (before sync) failed: exit status 3\n",
 		"==> "+hookLine("last", "after the run"), "==> Summary\n")
 	assert.Regexp(t, summaryRow(`sync +not run`), failed.stdout)

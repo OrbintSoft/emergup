@@ -215,7 +215,7 @@ func StepNames() []string {
 // hookFailureNames are the names of the hook failures, in the order of
 // their constants.
 func hookFailureNames() []string {
-	return []string{"stop", "continue"}
+	return []string{"stop", "continue", "ask"}
 }
 
 // String returns the name the configuration uses for the failure.
