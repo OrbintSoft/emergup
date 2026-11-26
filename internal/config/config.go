@@ -9,11 +9,12 @@ import "time"
 
 // Config is the configuration of a run.
 type Config struct {
-	Elevation Elevation `toml:"elevation"`
-	Steps     Steps     `toml:"steps"`
-	Hooks     Hooks     `toml:"hooks"`
-	Colors    Colors    `toml:"colors"`
-	Runs      Runs      `toml:"runs"`
+	Elevation   Elevation   `toml:"elevation"`
+	Steps       Steps       `toml:"steps"`
+	CustomSteps CustomSteps `toml:"custom-steps"`
+	Hooks       Hooks       `toml:"hooks"`
+	Colors      Colors      `toml:"colors"`
+	Runs        Runs        `toml:"runs"`
 }
 
 // Runs says how many run directories, each with the log of its run, are
@@ -120,6 +121,36 @@ type LiveRebuild struct {
 	SmartCommand []string `toml:"smart-command"`
 }
 
+// CustomSteps maps the name of each custom step to the step. A file adds a
+// custom step with a table of its own, [custom-steps.<name>], and a later
+// file changes the values it sets of a custom step an earlier one added.
+type CustomSteps map[string]CustomStep
+
+// CustomStep is a step that the configuration adds to those of a run, after
+// a built-in step.
+type CustomStep struct {
+	Enabled bool `toml:"enabled"`
+	// After is the name of the built-in step the custom step follows.
+	After string `toml:"after"`
+	// Title says what the step does, for its heading; empty, the heading
+	// names the program.
+	Title string `toml:"title"`
+	// Command is the program the step starts, with its arguments.
+	Command []string `toml:"command"`
+	// Elevated runs Command as root; a custom step runs as the invoking
+	// user otherwise.
+	Elevated bool `toml:"elevated"`
+	// Optional skips the step, with a notice, when its program is not
+	// installed; the step fails then otherwise.
+	Optional bool `toml:"optional"`
+}
+
+// NewCustomStep returns what a custom step is before a file sets its values:
+// enabled, run as the invoking user, and not optional.
+func NewCustomStep() CustomStep {
+	return CustomStep{Enabled: true, After: "", Title: "", Command: []string{}, Elevated: false, Optional: false}
+}
+
 // Hooks maps the name of each hook to the hook. A file adds a hook with a
 // table of its own, [hooks.<name>], and a later file changes the values it
 // sets of a hook an earlier one added.
@@ -144,10 +175,11 @@ type Hook struct {
 }
 
 // HookPlace is where a hook runs, written "before-<step>" or
-// "after-<step>", where the step is the name of a step or "run" for the
-// whole run: "before-update", "after-run". The empty place is no place, that
-// of a hook a file has not finished. Load checks the place a file writes, see
-// checkHookPlace.
+// "after-<step>", where the step is the name of a built-in or a custom step,
+// or "run" for the whole run: "before-update", "after-run". The empty place
+// is no place, that of a hook a file has not finished. Load checks the place
+// a file writes, see checkHookPlace, and the step it names once every file is
+// read, see misplacedHooks.
 type HookPlace string
 
 // HookFailure says what a hook that fails does to the run; the
@@ -188,7 +220,7 @@ const defaultKeep = 10
 
 // Default returns the generic defaults, a new value on every call. They suit
 // any Gentoo system: every built-in step enabled, running Portage's own tools,
-// nothing excluded or always synced, and no hooks. The colours are among the sixteen
+// nothing excluded or always synced, and no custom steps or hooks. The colours are among the sixteen
 // that every terminal's theme sets, so they suit light and dark themes.
 func Default() Config {
 	return Config{
@@ -215,7 +247,8 @@ func Default() Config {
 			ConfigFiles:      Step{Enabled: true, Command: []string{"dispatch-conf"}},
 			Depclean:         Step{Enabled: true, Command: []string{emerge, "--depclean"}},
 		},
-		Hooks: Hooks{},
+		CustomSteps: CustomSteps{},
+		Hooks:       Hooks{},
 		Colors: Colors{
 			Heading: style(bold, named(blue)),
 			Prompt:  style(bold, named(cyan)),

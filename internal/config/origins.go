@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"reflect"
 )
 
@@ -16,11 +17,13 @@ type Origins struct {
 	// as shown to the user.
 	Files []string
 
-	keys    map[string]string
+	keys map[string]string
+	// places holds where the file of keys sets each key.
+	places  map[string]keyPlace
 	entries map[string]map[string]string
-	// hooks maps the name of each hook to the last file that writes its
-	// table, even one that sets none of its values.
-	hooks map[string]string
+	// tables maps each table of a table of tables, such as "hooks.snapshot",
+	// to the last file that writes it, even one that sets none of its values.
+	tables map[string]string
 }
 
 // Of returns the file that last set key, or "" when key keeps its generic
@@ -39,8 +42,8 @@ func (o Origins) OfEntry(key, entry string) string {
 // values comes from.
 func Inspect(ctx context.Context, fsys fs.FS) (Config, Origins, error) {
 	origins := Origins{
-		Files: nil, keys: make(map[string]string), entries: make(map[string]map[string]string),
-		hooks: make(map[string]string),
+		Files: nil, keys: make(map[string]string), places: make(map[string]keyPlace),
+		entries: make(map[string]map[string]string), tables: make(map[string]string),
 	}
 
 	files, err := configurationFiles(fsys)
@@ -66,7 +69,7 @@ func Inspect(ctx context.Context, fsys fs.FS) (Config, Origins, error) {
 	}
 
 	if len(problems) == 0 {
-		problems = incompleteHooks(cfg, origins)
+		problems = configProblems(cfg, origins)
 	}
 
 	if len(problems) > 0 {
@@ -77,24 +80,24 @@ func Inspect(ctx context.Context, fsys fs.FS) (Config, Origins, error) {
 }
 
 // setBy records file as the origin of every value that keys, the keys the
-// file sets, holds; a key of a table is not a value of its own. Origins holds
-// maps, so a copy records into the same ones.
+// file sets, holds, and where it sets it; a key of a table is not a value of
+// its own. Origins holds maps, so a copy records into the same ones.
 func (o Origins) setBy(file string, keys map[string]keyPlace) {
 	schema := schemaKeys(reflect.TypeFor[Config]())
 
-	for key := range keys {
+	for key, place := range keys {
 		typ, known := schema[schemaKey(schema, key)]
 		if known && (typ.Kind() != reflect.Struct || isTextValue(typ)) {
-			o.keys[key] = file
+			o.keys[key], o.places[key] = file, place
 		}
 	}
 }
 
-// setHooksBy records file as the last file that writes the table of each
-// hook of hooks.
-func (o Origins) setHooksBy(file string, hooks Hooks) {
-	for name := range hooks {
-		o.hooks[name] = file
+// setTablesBy records file as the last file that writes each of the tables
+// that names gives of a table of tables, such as the hooks.
+func (o Origins) setTablesBy(file, table string, names iter.Seq[string]) {
+	for name := range names {
+		o.tables[table+"."+name] = file
 	}
 }
 

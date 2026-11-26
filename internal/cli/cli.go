@@ -175,7 +175,7 @@ func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer
 	stepsEnv := newStepsEnv(env, printer, prefix, nil, false)
 	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
 
-	return exitStatus(pipeline.Pretend(ctx, stepsEnv, builtInSteps(cfg, options)))
+	return exitStatus(pipeline.Pretend(ctx, stepsEnv, stepsOf(cfg, options)))
 }
 
 // runSteps runs the built-in steps while it holds the lock, with a log in
@@ -227,13 +227,13 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
 	stepsEnv.HookEnv = pipeline.RunDirEnv(run.Dir, run.LogPath)
 
-	return exitStatus(pipeline.Run(ctx, stepsEnv, builtInSteps(cfg, options)).Result)
+	return exitStatus(pipeline.Run(ctx, stepsEnv, stepsOf(cfg, options)).Result)
 }
 
-// builtInSteps returns the built-in steps as cfg and the options of the run
-// set them up.
-func builtInSteps(cfg config.Config, options runOptions) []pipeline.Step {
-	return steps.BuiltIn(cfg, steps.Options{ForceSync: options.forceSync})
+// stepsOf returns the steps of the run, the built-in ones and the custom
+// ones, as cfg and the options of the run set them up.
+func stepsOf(cfg config.Config, options runOptions) []pipeline.Step {
+	return steps.All(cfg, steps.Options{ForceSync: options.forceSync})
 }
 
 // newStepsEnv returns what the steps work with: commands elevated with

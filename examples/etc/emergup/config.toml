@@ -78,6 +78,37 @@
 #enabled = true
 #command = ["emerge", "--depclean"]
 
+# Custom steps are commands that a run adds to its steps, each after a
+# built-in step; there are none by default. Each custom step is a table of
+# its own, [custom-steps.<name>], named with lowercase letters, digits and
+# dashes, but not as a built-in step nor "run":
+#
+#   after       the built-in step it follows: sync, update, live-rebuild,
+#               preserved-rebuild, config-files, depclean; the custom steps
+#               after the same step run in the order of their names;
+#   command     the program and its arguments;
+#   title       what it does, for its heading; by default the heading names
+#               the program;
+#   elevated    true runs the command as root, through the elevation method;
+#               a custom step runs as the user who started emergup otherwise;
+#   optional    true skips the step, with a notice, when its program is not
+#               installed; the step fails then otherwise;
+#   enabled     true by default; a drop-in turns off a custom step another
+#               file adds with enabled = false.
+#
+# A custom step is announced, asked about and listed in the summary like a
+# built-in step, and fails the run when its command fails; hooks run before
+# and after it as they do around a built-in step. For example, haskell-updater
+# rebuilds the Haskell packages that an update has broken. emergup asks before
+# the step, so the options passed to emerge, after "--", have no --ask:
+#
+# [custom-steps.haskell]
+# after = "preserved-rebuild"
+# title = "rebuild the Haskell packages"
+# command = ["haskell-updater", "--quiet", "--", "--verbose"]
+# elevated = true
+# optional = true
+
 # Hooks are commands run before or after the whole run or a step, as the
 # user who started emergup, without a question; there are none by default.
 # Each hook is a table of its own, [hooks.<name>], named with lowercase
@@ -85,7 +116,8 @@
 #
 #   at          where it runs: "before-" or "after-" followed by run, for the
 #               whole run, or by a step: sync, update, live-rebuild,
-#               preserved-rebuild, config-files, depclean;
+#               preserved-rebuild, config-files, depclean, or the name of a
+#               custom step;
 #   command     the program and its arguments;
 #   elevated    true runs the command as root, through the elevation method;
 #   on-failure  "stop", the default, fails the run when the hook fails, as a

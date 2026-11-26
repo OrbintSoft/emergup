@@ -80,13 +80,17 @@ type step struct {
 	pretendErr error
 	// confirms makes the step ask its own question.
 	confirms bool
-	ran      bool
+	// unavailable, when set, says why the step cannot run.
+	unavailable string
+	ran         bool
 }
 
 func (s *step) Name() string         { return s.name }
 func (s *step) Title() string        { return "do " + s.name }
 func (s *step) Enabled() bool        { return !s.disabled }
 func (s *step) ConfirmsItself() bool { return s.confirms }
+
+func (s *step) Unavailable(pipeline.Env) string { return s.unavailable }
 
 func (s *step) Pretend(context.Context, pipeline.Env) ([]string, error) {
 	return s.pretend, s.pretendErr
@@ -477,6 +481,31 @@ func TestRunDoesNotAskAStepThatConfirmsItself(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rig.out.String(), "==> [1/2] update: do update\n"+
 		"==> update succeeded in 3s\n"+
 		"==> [2/2] depclean: do depclean\n"+question+"run the step\n"), rig.out.String())
+	assert.Equal(t, pipeline.RunFinished, report.Result)
+}
+
+func TestRunSkipsAStepThatCannotRunWithoutAskingAndRunsItsHooks(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t, ui.KeyEnter)
+	rig.hooks = []pipeline.Hook{hook("before", pipeline.Before, "haskell"), hook("after", pipeline.After, "haskell")}
+
+	missing := rig.step("haskell", time.Second, pipeline.Success())
+	missing.unavailable = "haskell-updater is not installed"
+
+	report := rig.run(t.Context(), missing, rig.step("depclean", time.Second, pipeline.Success()))
+
+	assert.True(t, strings.HasPrefix(rig.out.String(), "==> [1/2] haskell: do haskell\n"+
+		"==> hook before (before haskell): run-before\n"+
+		"==> haskell skipped: haskell-updater is not installed\n"+
+		"==> hook after (after haskell): run-after\n"+
+		"==> [2/2] depclean: do depclean\n"+question+"run the step\n"), rig.out.String())
+	assert.False(t, missing.ran)
+	assert.Equal(t, pipeline.StepReport{
+		Name: "haskell", Status: pipeline.Skipped, Reason: "haskell-updater is not installed",
+		Ran: false, Duration: 0, Notes: nil,
+	}, report.Steps[0])
+	assert.Contains(t, rig.runner.Commands()[1].Env, "EMERGUP_STEP_STATUS=skipped")
 	assert.Equal(t, pipeline.RunFinished, report.Result)
 }
 

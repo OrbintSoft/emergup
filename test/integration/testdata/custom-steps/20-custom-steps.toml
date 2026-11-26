@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Two custom steps after the sync, written in the reverse order of their
+# names, each creating a file: one runs as root, the other as the invoking
+# user, with a title and a hook before and after it, the hook of the tests.
+
+[custom-steps.b-plain]
+after = "sync"
+title = "touch a file as the invoking user"
+command = ["touch", "/var/tmp/emergup-test-custom-plain"]
+
+[custom-steps.a-elevated]
+after = "sync"
+command = ["touch", "/var/tmp/emergup-test-custom-root"]
+elevated = true
+
+[hooks.before-plain]
+at = "before-b-plain"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.after-plain]
+at = "after-b-plain"
+command = ["/usr/local/bin/emergup-test-hook"]

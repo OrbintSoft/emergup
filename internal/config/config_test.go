@@ -37,7 +37,8 @@ func TestDefault(t *testing.T) {
 			ConfigFiles:      Step{Enabled: true, Command: []string{"dispatch-conf"}},
 			Depclean:         Step{Enabled: true, Command: []string{emerge, "--depclean"}},
 		},
-		Hooks: Hooks{},
+		CustomSteps: CustomSteps{},
+		Hooks:       Hooks{},
 		Colors: Colors{
 			Heading: parseStyle(t, "bold blue"),
 			Prompt:  parseStyle(t, "bold cyan"),

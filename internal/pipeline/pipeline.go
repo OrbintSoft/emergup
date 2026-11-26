@@ -137,6 +137,14 @@ type SelfConfirming interface {
 	ConfirmsItself() bool
 }
 
+// MayBeUnavailable is a Step that can find, once the run reaches it, that it
+// cannot run, such as an optional step whose program is not installed: the
+// pipeline then skips it without asking whether to run it, and says why.
+type MayBeUnavailable interface {
+	// Unavailable returns why the step cannot run, or "" when it can.
+	Unavailable(env Env) string
+}
+
 // Result is how a run ended.
 type Result int
 
@@ -279,8 +287,16 @@ func runStep(ctx context.Context, env Env, step Step, heading string, stepReport
 }
 
 // askAndRun asks whether to run step and runs it, recording in report how
-// it went, and returns whether the run goes on: RunFinished when it does.
+// it went, and returns whether the run goes on: RunFinished when it does. A
+// step that cannot run is skipped without a question.
 func askAndRun(ctx context.Context, env Env, step Step, report *StepReport) Result {
+	if reason := unavailable(env, step); reason != "" {
+		report.Status, report.Reason = Skipped, reason
+		writeEnd(env.Printer, *report)
+
+		return RunFinished
+	}
+
 	if !confirmsItself(step) {
 		switch run, result := askToRun(ctx, env); {
 		case result != RunFinished:
@@ -320,6 +336,16 @@ func confirmsItself(step Step) bool {
 	confirming, isConfirming := step.(SelfConfirming)
 
 	return isConfirming && confirming.ConfirmsItself()
+}
+
+// unavailable returns why step cannot run, or "" when it can.
+func unavailable(env Env, step Step) string {
+	gated, mayBeUnavailable := step.(MayBeUnavailable)
+	if !mayBeUnavailable {
+		return ""
+	}
+
+	return gated.Unavailable(env)
 }
 
 // askToRun asks whether to run the step, and returns whether to, and

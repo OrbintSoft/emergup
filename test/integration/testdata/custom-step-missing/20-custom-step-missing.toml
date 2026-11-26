@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# An optional custom step whose program is not installed.
+
+[custom-steps.missing]
+after = "sync"
+command = ["emergup-test-not-installed", "--all"]
+optional = true
