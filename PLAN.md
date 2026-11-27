@@ -556,14 +556,22 @@ check before the run (6.2, 6.4).
       - The example configuration shows a backup check before the run, with
         the backup tool as its remedy, elevated, and `remedy-status`;
         emergup ships no script for it.
-- [ ] **6.5** Hooks that run only when someone answers the questions:
-      `interactive-only = true` skips the hook, with a notice, when the run
-      answers them by itself, under `--yes` and in the unattended runs of
-      phase 13; `--pretend` says so.
-      - A backup is long, and an unattended run may rather skip its check
-        than start one. For a check, the user chooses: skipped then, the run
-        going on without it, or failing and aborting the run, as a check
-        without a remedy does under `--yes`.
+- [x] **6.5** Hooks that run only when someone answers the questions
+      (HOOK-5).
+      - `interactive-only = true` skips the hook when the run answers the
+        questions by itself, under `--yes` and in the unattended runs of
+        phase 13: a notice at its place, on the terminal and so in the log,
+        and the run goes on as if the hook had passed. A hook skipped so has
+        not failed, and the summary does not list it.
+      - `remedy-interactive-only = true` keeps a check running but offers
+        its remedy only when someone answers: under `--yes` a failure says
+        so and aborts the run, as for a check without a remedy. It needs a
+        remedy, as `remedy-elevated` does.
+      - A backup is long: an unattended run may rather skip its check, or
+        fail and leave the backup to the user, than start one. Both are
+        the user's choice; by default a hook runs, and `--yes` runs a
+        check's remedy once, as before.
+      - `--pretend` says what each hook would do under `--yes`.
 - [ ] **6.6** The environment of the commands run as root (PRIV-5): an
       `[elevation]` list of variables to keep, such as `EDITOR`, so that
       `dispatch-conf` edits with the user's editor. sudo keeps them with

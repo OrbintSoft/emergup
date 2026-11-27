@@ -47,7 +47,8 @@ func TestLoadAddsAHookWithItsDefaults(t *testing.T) {
 	assert.Equal(t, Hooks{
 		"snapshot": {
 			Enabled: true, At: placeBeforeUpdate, Command: []string{"snap", "pre"}, Elevated: false,
-			OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false, RemedyStatus: []int{},
+			InteractiveOnly: false, OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false,
+			RemedyInteractiveOnly: false, RemedyStatus: []int{},
 		},
 	}, cfg.Hooks)
 }
@@ -58,14 +59,16 @@ func TestLoadChangesOnlyTheValuesAFileSetsOfAHook(t *testing.T) {
 	cfg, err := Load(t.Context(), fstest.MapFS{
 		MainFile: file(snapshotHook),
 		dropIn("10-notify.toml"): file("[hooks.notify]\nat = \"after-run\"\ncommand = [\"notify\"]\n" +
-			"on-failure = \"continue\"\n"),
+			"on-failure = \"continue\"\ninteractive-only = true\n"),
 		dropIn("20-disable.toml"): file("[hooks.snapshot]\nenabled = false\n"),
 	})
 	require.NoError(t, err)
 
 	assert.Equal(t, Hooks{
 		"snapshot": hookWith(placeBeforeUpdate, []string{"snap", "pre"}, func(h *Hook) { h.Enabled = false }),
-		"notify":   hookWith("after-run", []string{"notify"}, func(h *Hook) { h.OnFailure = HookContinue }),
+		"notify": hookWith("after-run", []string{"notify"}, func(h *Hook) {
+			h.OnFailure, h.InteractiveOnly = HookContinue, true
+		}),
 	}, cfg.Hooks)
 }
 
@@ -75,13 +78,13 @@ func TestLoadReadsACheckWithItsRemedy(t *testing.T) {
 	cfg, err := Load(t.Context(), fstest.MapFS{
 		MainFile: file("[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\", \"20\"]\nelevated = true\n" +
 			"on-failure = \"ask\"\nremedy = [\"redo-backup\", \"run\"]\nremedy-elevated = true\n" +
-			"remedy-status = [1, 3]\n"),
+			"remedy-status = [1, 3]\nremedy-interactive-only = true\n"),
 	})
 	require.NoError(t, err)
 
 	assert.Equal(t, hookWith("before-run", []string{"fresh", "20"}, func(h *Hook) {
 		h.Elevated, h.OnFailure, h.Remedy, h.RemedyElevated = true, HookAsk, []string{"redo-backup", "run"}, true
-		h.RemedyStatus = []int{1, 3}
+		h.RemedyStatus, h.RemedyInteractiveOnly = []int{1, 3}, true
 	}), cfg.Hooks["backup"])
 }
 
@@ -266,7 +269,7 @@ func TestLoadReportsAValueThatDoesNotGoWithTheOthersOfAHook(t *testing.T) {
 			"remedy = [\"redo-backup\"]\n"),
 		dropIn("10-stop.toml"): file("[hooks.backup]\non-failure = \"stop\"\n\n" +
 			"[hooks.lone]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\nremedy-elevated = true\n" +
-			"remedy-status = [1]\n"),
+			"remedy-status = [1]\nremedy-interactive-only = true\n"),
 	})
 
 	got := make([]string, 0, len(problems(t, err)))
@@ -279,6 +282,7 @@ func TestLoadReportsAValueThatDoesNotGoWithTheOthersOfAHook(t *testing.T) {
 	assert.Equal(t, []string{
 		stopping + `: hooks.backup.remedy: only a hook that asks has a remedy: set on-failure = "ask"`,
 		stopping + ": hooks.lone.remedy-elevated: there is no remedy to elevate",
+		stopping + ": hooks.lone.remedy-interactive-only: there is no remedy to run only when someone answers",
 		stopping + ": hooks.lone.remedy-status: there is no remedy to offer for these statuses",
 	}, got)
 }
@@ -306,8 +310,9 @@ func TestWriteTOMLWritesTheHooksInTheOrderOfTheirNames(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	const defaults = "elevated = false  # default\non-failure = \"stop\"  # default\nremedy = []  # default\n" +
-		"remedy-elevated = false  # default\nremedy-status = []  # default\n"
+	const defaults = "elevated = false  # default\ninteractive-only = false  # default\n" +
+		"on-failure = \"stop\"  # default\nremedy = []  # default\nremedy-elevated = false  # default\n" +
+		"remedy-interactive-only = false  # default\nremedy-status = []  # default\n"
 
 	out := shown(t, cfg, origins)
 	assert.Contains(t, out, "[steps.depclean]\n")
@@ -323,7 +328,8 @@ func TestWriteTOMLReadsBackTheHooks(t *testing.T) {
 	cfg, origins, err := Inspect(t.Context(), fstest.MapFS{
 		MainFile: file(snapshotHook + "\n[hooks.notify]\nat = \"after-run\"\ncommand = [\"n\"]\n" +
 			"\n[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\nelevated = true\non-failure = \"ask\"\n" +
-			"remedy = [\"redo\"]\nremedy-elevated = true\nremedy-status = [1, 2]\n"),
+			"remedy = [\"redo\"]\nremedy-elevated = true\nremedy-status = [1, 2]\nremedy-interactive-only = true\n" +
+			"\n[hooks.attended]\nat = \"after-run\"\ncommand = [\"a\"]\ninteractive-only = true\n"),
 		dropIn("10.toml"): file("[hooks.snapshot]\nenabled = false\n\n[hooks.off]\nenabled = false\n"),
 	})
 	require.NoError(t, err)

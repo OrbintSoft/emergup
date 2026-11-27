@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The check runs only when someone answers the questions.
+
+[hooks.backup]
+interactive-only = true

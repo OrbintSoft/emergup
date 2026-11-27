@@ -166,12 +166,18 @@ type Hook struct {
 	// Elevated runs Command as root, as the commands of the steps that need
 	// root are; a hook runs as the invoking user otherwise.
 	Elevated bool `toml:"elevated"`
+	// InteractiveOnly runs the hook only when someone answers the
+	// questions: a run that answers them by itself skips it.
+	InteractiveOnly bool `toml:"interactive-only"`
 	// OnFailure says what a hook that fails does to the run.
 	OnFailure HookFailure `toml:"on-failure"`
 	// Remedy is the command a hook that asks offers to run when it fails,
-	// before it runs again; RemedyElevated runs it as root.
-	Remedy         []string `toml:"remedy"`
-	RemedyElevated bool     `toml:"remedy-elevated"`
+	// before it runs again; RemedyElevated runs it as root, and
+	// RemedyInteractiveOnly offers it only when someone answers the
+	// questions.
+	Remedy                []string `toml:"remedy"`
+	RemedyElevated        bool     `toml:"remedy-elevated"`
+	RemedyInteractiveOnly bool     `toml:"remedy-interactive-only"`
 	// RemedyStatus lists the exit statuses of the hook for which it offers
 	// its remedy; any other failure only asks whether to go on. Empty, any
 	// failure offers it.
@@ -205,8 +211,9 @@ const (
 // run as the invoking user, and stopping the run when it fails.
 func NewHook() Hook {
 	return Hook{
-		Enabled: true, At: "", Command: []string{}, Elevated: false,
-		OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false, RemedyStatus: []int{},
+		Enabled: true, At: "", Command: []string{}, Elevated: false, InteractiveOnly: false,
+		OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false, RemedyInteractiveOnly: false,
+		RemedyStatus: []int{},
 	}
 }
 
