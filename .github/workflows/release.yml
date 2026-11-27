@@ -1,35 +1,90 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Publishes a release when the maintainer pushes a version tag (vX.Y.Z): the
-# CI workflow runs first, then the archives `make dist` builds are attached to
-# a GitHub release with notes from the commits. A 0.x version is a
-# pre-release.
+# Releases every change of the Go code that reaches master. The CI workflow
+# and the integration suite run first; then the next version is tagged, from
+# the commits since the last tag read as conventional commits, and the
+# archives `make dist` builds are attached to a GitHub release with notes
+# from the commits. A 0.x version is a pre-release.
+#
+# A push that changes no Go file (documentation, workflows, a dependency or a
+# toolchain update) releases nothing by itself; a run on demand releases such
+# a change.
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [master]
+    paths:
+      - "**.go"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# Two runs at once would both bump the same last tag. A run waits for the one
+# before it; a newer push replaces a run still waiting, and releases its
+# commits too.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   ci:
     name: CI
     uses: ./.github/workflows/ci.yml
 
-  release:
-    name: Publish the release
-    needs: ci
+  integration:
+    name: Integration
+    uses: ./.github/workflows/integration.yml
+
+  tag:
+    name: Tag the next version
+    needs: [ci, integration]
     runs-on: ubuntu-latest
-    # Only the canonical repository publishes releases, never a fork.
-    if: github.repository == 'OrbintSoft/emergup'
+    # Only master of the canonical repository is released, never a fork. On
+    # another branch the action would compute a preview version and create
+    # no tag.
+    if: github.repository == 'OrbintSoft/emergup' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.new_tag }}
+      version: ${{ steps.tag.outputs.new_version }}
+    steps:
+      # The action reads the tags and the commits through the API, and the
+      # local history only when the API fails, which needs all of it.
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # feat bumps the minor version, any other commit the patch, and a
+      # breaking change the major one. The tag is created through the API on
+      # the commit of this run; with no commit since the last tag there is
+      # none, and nothing is published.
+      - name: Tag the next version
+        id: tag
+        uses: mathieudutour/github-tag-action@af99e60ce8132224b8e6ebab5023449fe256ed46 # v7.0.0
+        with:
+          github_token: ${{ github.token }}
+          default_bump: patch
+          tag_prefix: v
+
+  # A job of its own, so that re-running it after a failure publishes the tag
+  # already created: tagging again would find no new commit and skip.
+  publish:
+    name: Publish the release
+    needs: tag
+    runs-on: ubuntu-latest
+    if: needs.tag.outputs.tag != ''
     permissions:
       contents: write
     steps:
       - name: Check out the tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ needs.tag.outputs.tag }}
           persist-credentials: false
 
       - name: Set up Go
@@ -38,14 +93,18 @@ jobs:
           go-version-file: go.mod
 
       - name: Build the archives
-        run: make dist VERSION="${GITHUB_REF_NAME#v}"
+        env:
+          RELEASE_VERSION: ${{ needs.tag.outputs.version }}
+        run: make dist VERSION="$RELEASE_VERSION"
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.tag.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.tag.outputs.version }}
         run: |
-          options=(--verify-tag --generate-notes --title "emergup ${GITHUB_REF_NAME#v}")
-          case "$GITHUB_REF_NAME" in
+          options=(--verify-tag --generate-notes --title "emergup $RELEASE_VERSION")
+          case "$RELEASE_TAG" in
             v0.*) options+=(--prerelease) ;;
           esac
-          gh release create "$GITHUB_REF_NAME" dist/* "${options[@]}"
+          gh release create "$RELEASE_TAG" dist/* "${options[@]}"

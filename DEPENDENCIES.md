@@ -52,6 +52,7 @@ shellcheck come from the image.
 | --- | --- | --- |
 | `actions/checkout` | Checking out the repository. | Pinned to a commit SHA in the workflows; Dependabot and Renovate bump it. |
 | `actions/setup-go` | Installing the toolchain named in [go.mod](go.mod). | Pinned to a commit SHA in the workflows; Dependabot and Renovate bump it. |
+| `mathieudutour/github-tag-action` | Choosing the next version from the commits since the last tag, read as conventional commits, and creating its tag, in the release workflow. | Pinned to a commit SHA; Dependabot and Renovate bump it. |
 | **GitHub CLI** (`gh`) | Publishing a release with its archives and notes, in the release workflow. | Preinstalled on the runner. |
 | `actions/setup-node` | Installing Node.js for markdownlint-cli2 and the Renovate configuration validator. | Pinned to a commit SHA; Dependabot and Renovate bump it. The Node.js version is the latest LTS. |
 | **pipx** | Installing yamllint at the pinned version. | Preinstalled on the runner. |
