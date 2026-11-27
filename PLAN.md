@@ -689,7 +689,7 @@ check before the run (6.2, 6.4).
 
 ## Phase 11 — Documentation, packaging, release  `[~]`
 
-- [ ] **11.0** Automatic releases, as redo-backups cuts them; brought
+- [x] **11.0** Automatic releases, as redo-backups cuts them; brought
       forward on 2026-11-27, before phases 7 to 10.
       - The release workflow runs on every push to `master` that changes a
         Go file (`**.go`), and on demand (`workflow_dispatch`) for a change
@@ -711,8 +711,10 @@ check before the run (6.2, 6.4).
         do not bump the same tag.
       - The ebuild is not bumped with every release: the overlay gets, by
         hand, the releases worth packaging.
-      - The change itself touches no Go file, so the first automatic
-        release, v0.2.0, is cut on demand once it lands.
+      - The change itself touched no Go file, so its merge released
+        nothing. The first automatic release, `v0.2.0`, was cut on demand
+        on 2026-11-27: a pre-release with the two archives, the vendored
+        modules and `SHA256SUMS`.
 - [ ] **11.1** User docs: configuration, hooks, AI, installation; README overhaul.
 - [ ] **11.2** The first stable release, `v1.0.0`, through the release workflow
       of 11.0 (no GoReleaser, see 4.8).
