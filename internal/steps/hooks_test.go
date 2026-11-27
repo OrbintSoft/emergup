@@ -39,12 +39,13 @@ func TestHooksKeepWhatAHookRunsAsRootAndAsks(t *testing.T) {
 		"backup": {
 			Enabled: true, At: "before-run", Command: []string{"fresh"}, Elevated: true,
 			OnFailure: config.HookAsk, Remedy: []string{"redo-backup", "run"}, RemedyElevated: true,
+			RemedyStatus: []int{1, 3},
 		},
 	})
 
 	assert.Equal(t, []pipeline.Hook{{
 		Name: "backup", When: pipeline.Before, Step: pipeline.RunStep, Command: []string{"fresh"}, Root: true,
-		GoesOn: false, Asks: true, Remedy: []string{"redo-backup", "run"}, RemedyRoot: true,
+		GoesOn: false, Asks: true, Remedy: []string{"redo-backup", "run"}, RemedyRoot: true, RemedyStatus: []int{1, 3},
 	}}, hooks)
 }
 

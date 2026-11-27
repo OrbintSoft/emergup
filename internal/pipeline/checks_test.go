@@ -258,3 +258,144 @@ func TestPretendShowsWhatACheckWouldOffer(t *testing.T) {
 		"    hook snapshot (after the run), as root: run-snapshot\n", rig.out.String())
 	assert.Empty(t, rig.programs())
 }
+
+// onlyFor is the notice of the check backup, whose remedy is only for the
+// exit statuses 1 and 2, when it fails otherwise.
+const onlyFor = "==> the remedy of hook backup is only for exit status 1 or 2\n"
+
+// checkFor returns the check of check(true), whose remedy is only for the
+// exit statuses 1 and 2.
+func checkFor() pipeline.Hook {
+	backup := check(true)
+	backup.RemedyStatus = []int{1, 2}
+
+	return backup
+}
+
+func TestACheckOffersItsRemedyOnlyForItsStatuses(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		answer runnertest.Answer
+		failed string
+		offers bool
+	}{
+		{"a status of the list", runnertest.Answer{Result: runner.Result{ExitCode: 2}}, "exit status 2", true},
+		{"another status", runnertest.Answer{Result: runner.Result{ExitCode: 3}}, "exit status 3", false},
+		{"a signal", runnertest.Answer{Result: runner.Result{ExitCode: -1}}, "ended by a signal", false},
+		{"a check that cannot start", runnertest.Answer{Err: errNotFound}, errNotFound.Error(), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rig := newRig(t)
+			rig.yes = true
+			rig.hooks = []pipeline.Hook{checkFor()}
+			rig.runner.Script(tt.answer, succeeding(), succeeding())
+
+			sync := rig.step(syncStep, time.Second, pipeline.Success())
+			report := rig.run(t.Context(), sync)
+
+			failed := "==> hook backup (before the run) failed: " + tt.failed + "\n"
+
+			if tt.offers {
+				assert.Contains(t, rig.out.String(), failed+remedyAsk+runTheRemedy+" (--yes)\n"+remedyLine)
+				assert.Equal(t, append(ran(backupName), redoBackup, "run-backup"), rig.programs())
+				assert.Equal(t, pipeline.RunFinished, report.Result)
+
+				return
+			}
+
+			assert.Contains(t, rig.out.String(), failed+onlyFor+abortAsk+abortTheRun+" (--yes)\n")
+			assert.Equal(t, ran(backupName), rig.programs(), "the remedy is not for that failure")
+			assert.False(t, sync.ran)
+			assert.Equal(t, pipeline.RunFailed, report.Result)
+			assert.Equal(t, []pipeline.FailedHook{
+				{Name: backupName, Place: runPlace, Reason: tt.failed, WentOn: false},
+			}, report.FailedHooks)
+		})
+	}
+}
+
+func TestAFailureTheRemedyIsNotForAsksWhetherToGoOn(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		keys   []rune
+		answer string
+		result pipeline.Result
+	}{
+		{"Enter", []rune{ui.KeyEnter}, abortTheRun, pipeline.RunFailed},
+		{"go on", []rune{'g', ui.KeyEnter}, goOnWithout, pipeline.RunFinished},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rig := newRig(t, tt.keys...)
+			rig.hooks = []pipeline.Hook{checkFor()}
+			rig.runner.Script(runnertest.Answer{Result: runner.Result{ExitCode: 3}})
+
+			sync := rig.step(syncStep, time.Second, pipeline.Success())
+			report := rig.run(t.Context(), sync)
+
+			assert.Contains(t, rig.out.String(), onlyFor+abortAsk+tt.answer+"\n")
+			assert.Equal(t, ran(backupName), rig.programs())
+			assert.Equal(t, tt.result == pipeline.RunFinished, sync.ran)
+			assert.Equal(t, tt.result, report.Result)
+		})
+	}
+}
+
+func TestACheckThatFailsOtherwiseAfterItsRemedyAsksWhetherToGoOn(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t, 'y', ui.KeyEnter)
+	rig.hooks = []pipeline.Hook{checkFor()}
+	rig.runner.Script(failing(), succeeding(), runnertest.Answer{Result: runner.Result{ExitCode: 3}})
+
+	report := rig.run(t.Context(), rig.step(syncStep, time.Second, pipeline.Success()))
+
+	assert.Contains(t, rig.out.String(), remedyLine+backupLine+
+		"==> hook backup (before the run) failed: exit status 3\n"+onlyFor+abortAsk+abortTheRun+"\n")
+	assert.Equal(t, append(ran(backupName), redoBackup, "run-backup"), rig.programs())
+	assert.Equal(t, pipeline.RunFailed, report.Result)
+}
+
+func TestACheckWithoutStatusesOffersItsRemedyForAnyFailure(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+	rig.hooks = []pipeline.Hook{check(true)}
+	rig.runner.Script(runnertest.Answer{Err: errNotFound}, succeeding(), succeeding())
+
+	report := rig.run(t.Context(), rig.step(syncStep, time.Second, pipeline.Success()))
+
+	assert.Contains(t, rig.out.String(), remedyAsk+runTheRemedy+" (--yes)\n"+remedyLine)
+	assert.Equal(t, pipeline.RunFinished, report.Result)
+}
+
+func TestPretendShowsForWhichStatusesACheckOffersItsRemedy(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.keys.silent = true
+
+	one, three := checkFor(), checkFor()
+	one.Name, one.RemedyStatus = "one", []int{4}
+	three.Name, three.RemedyStatus = "three", []int{1, 2, 3}
+	rig.hooks = []pipeline.Hook{checkFor(), one, three}
+
+	pipeline.Pretend(t.Context(), rig.env(), nil)
+
+	assert.Equal(t, "    hook backup (before the run): run-backup; if it fails with exit status 1 or 2, offers to run as "+
+		"root: redo-backup run; otherwise asks whether to go on\n"+
+		"    hook one (before the run): run-backup; if it fails with exit status 4, offers to run as root: "+
+		"redo-backup run; otherwise asks whether to go on\n"+
+		"    hook three (before the run): run-backup; if it fails with exit status 1, 2 or 3, offers to run as "+
+		"root: redo-backup run; otherwise asks whether to go on\n", rig.out.String())
+}

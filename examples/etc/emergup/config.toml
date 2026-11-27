@@ -129,6 +129,11 @@
 #               --yes abort the run;
 #   remedy-elevated
 #               true runs the remedy as root;
+#   remedy-status
+#               the exit statuses of the check that its remedy fixes, from 1
+#               to 255; any other failure offers no remedy, and Enter and
+#               --yes abort the run. Empty, the default, any failure offers
+#               it;
 #   enabled     true by default; a drop-in turns off a hook another file adds
 #               with enabled = false.
 #
@@ -141,11 +146,24 @@
 # run's directory and log), and after a step EMERGUP_STEP_STATUS (succeeded,
 # skipped or failed), after the run EMERGUP_RESULT (finished or failed); a
 # hook or a remedy run as root does not get them, as the elevation resets
-# the environment. For example:
+# the environment. For example, a snapshot before the update:
 #
 # [hooks.snapshot]
 # at = "before-update"
 # command = ["/usr/local/sbin/snapshot", "before-update"]
+#
+# and a check before the run that the last backup is no older than 20 days,
+# which exits with 1 when it is older and with 2 when the backup disk is not
+# mounted: the backup, run as root, fixes the first, and would write onto
+# the root filesystem in the second.
+#
+# [hooks.backup]
+# at = "before-run"
+# command = ["/usr/local/bin/backup-check", "--max-age", "20d"]
+# on-failure = "ask"
+# remedy = ["/usr/local/sbin/backup"]
+# remedy-elevated = true
+# remedy-status = [1]
 
 [colors]
 # How emergup's own lines look on a terminal; emerge keeps its own colours.

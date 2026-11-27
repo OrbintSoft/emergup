@@ -53,6 +53,10 @@ type Hook struct {
 	Asks       bool
 	Remedy     []string
 	RemedyRoot bool
+	// RemedyStatus lists the exit statuses for which the check offers
+	// Remedy; any other failure only asks whether to go on. Empty, any
+	// failure offers it.
+	RemedyStatus []int
 }
 
 // RunDirEnv returns the variables, for Env.HookEnv, that give every hook
@@ -120,7 +124,8 @@ func runHook(ctx context.Context, env Env, hook Hook, extra []string, report *Re
 		return runCheck(ctx, env, hook, extra, report)
 	}
 
-	reason, stopped := runHookCommand(ctx, env, hook, extra)
+	end, stopped := runHookCommand(ctx, env, hook, extra)
+	reason := end.reason
 
 	switch {
 	case stopped:
@@ -144,18 +149,26 @@ func runHook(ctx context.Context, env Env, hook Hook, extra []string, report *Re
 	return RunFailed
 }
 
+// hookEnd is how the command of a hook ended: why it failed, "" when it did
+// not, and its exit status, 0 when it succeeded or ended without one, as a
+// command that cannot start or that a signal ends.
+type hookEnd struct {
+	reason string
+	status int
+}
+
 // runHookCommand writes the line of hook and runs its command, and returns
-// why it failed, "" when it did not, or whether ctx ended while it ran.
-func runHookCommand(ctx context.Context, env Env, hook Hook, extra []string) (string, bool) {
+// how it ended, or whether ctx ended while it ran.
+func runHookCommand(ctx context.Context, env Env, hook Hook, extra []string) (hookEnd, bool) {
 	env.Printer.Info(hookLine(hook))
 
 	return runAsHook(ctx, env, hook, hook.Command, hook.Root, extra)
 }
 
 // runAsHook runs args, as root when root is set, with the variables of env,
-// those of hook and extra, and returns why it failed, "" when it did not,
-// or whether ctx ended while it ran.
-func runAsHook(ctx context.Context, env Env, hook Hook, args []string, root bool, extra []string) (string, bool) {
+// those of hook and extra, and returns how it ended, or whether ctx ended
+// while it ran.
+func runAsHook(ctx context.Context, env Env, hook Hook, args []string, root bool, extra []string) (hookEnd, bool) {
 	variables := slices.Concat(env.HookEnv, []string{
 		envHook + "=" + hook.Name,
 		envWhen + "=" + hook.When,
@@ -167,16 +180,16 @@ func runAsHook(ctx context.Context, env Env, hook Hook, args []string, root bool
 
 	switch {
 	case ctx.Err() != nil:
-		return "", true
+		return hookEnd{reason: "", status: 0}, true
 	case err != nil:
-		return err.Error(), false
+		return hookEnd{reason: err.Error(), status: 0}, false
 	case result.ExitCode == 0:
-		return "", false
+		return hookEnd{reason: "", status: 0}, false
 	case result.ExitCode < 0:
-		return "ended by a signal", false
+		return hookEnd{reason: "ended by a signal", status: 0}, false
 	}
 
-	return fmt.Sprintf("exit status %d", result.ExitCode), false
+	return hookEnd{reason: fmt.Sprintf("exit status %d", result.ExitCode), status: result.ExitCode}, false
 }
 
 // hookLine says which hook runs, where and what: "hook snapshot (before
@@ -218,11 +231,17 @@ func pretendHooks(env Env, when, step string) {
 
 		line := hookLine(hook)
 
+		remedy := asRootWord(hook.RemedyRoot) + ": " + strings.Join(hook.Remedy, " ")
+
 		switch {
-		case hook.Asks && len(hook.Remedy) > 0:
-			line += "; if it fails, offers to run" + asRootWord(hook.RemedyRoot) + ": " + strings.Join(hook.Remedy, " ")
-		case hook.Asks:
+		case !hook.Asks:
+		case len(hook.Remedy) == 0:
 			line += "; if it fails, asks whether to go on"
+		case len(hook.RemedyStatus) == 0:
+			line += "; if it fails, offers to run" + remedy
+		default:
+			line += "; if it fails with exit status " + statusList(hook.RemedyStatus) + ", offers to run" + remedy +
+				"; otherwise asks whether to go on"
 		}
 
 		env.Printer.Row(ui.KindPlain, line)

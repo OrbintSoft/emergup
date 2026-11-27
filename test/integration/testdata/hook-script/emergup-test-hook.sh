@@ -7,6 +7,9 @@
 #
 #   touch:PATH  creates PATH
 #   need:PATH   exits with status 1 unless PATH exists
+#   mounted:PATH
+#               exits with status 2 unless PATH exists, as a check whose
+#               backup disk is missing
 #   exit:N      exits with status N
 #
 # A variable every hook gets that is missing makes it fail.
@@ -22,6 +25,7 @@ for operation in "$@"; do
 	case "$operation" in
 	touch:*) touch "${operation#touch:}" ;;
 	need:*) test -e "${operation#need:}" || exit 1 ;;
+	mounted:*) test -e "${operation#mounted:}" || exit 2 ;;
 	exit:*) exit "${operation#exit:}" ;;
 	*)
 		echo "unknown operation: $operation" >&2

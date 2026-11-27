@@ -64,7 +64,8 @@ const (
 	aList     = "a list"
 	aTable    = "a table"
 
-	aListOfStrings = "a list of strings"
+	aListOfStrings  = "a list of strings"
+	aListOfIntegers = "a list of integers"
 )
 
 // message is an error that is only a description of a problem.
@@ -142,6 +143,7 @@ func describeGoType(name string) string {
 		"int":                    anInteger,
 		"string":                 "a string",
 		"[]string":               aListOfStrings,
+		"[]int":                  aListOfIntegers,
 		"config.Entries":         aListOfStrings,
 		"config.Duration":        (*Duration)(nil).expected(),
 		"config.ElevationMethod": (*ElevationMethod)(nil).expected(),

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The check also needs the backup disk, a file here: without it, it exits
+# with status 2, which its remedy is not for; without the backup, with
+# status 1, which its remedy fixes.
+
+[hooks.backup]
+command = [
+  "/usr/local/bin/emergup-test-hook",
+  "mounted:/var/tmp/emergup-test-disk",
+  "need:/var/tmp/emergup-test-backup",
+]
+remedy-status = [1]

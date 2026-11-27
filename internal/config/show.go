@@ -160,6 +160,8 @@ func valueLine(name, key string, value any, origins Origins) (string, error) {
 		return name + " = " + tomlString(typed) + "  # " + origin, nil
 	case []string:
 		return name + " = " + tomlList(typed) + "  # " + origin, nil
+	case []int:
+		return name + " = " + tomlIntegers(typed) + "  # " + origin, nil
 	}
 
 	return "", fmt.Errorf("writing %s: %w %T", key, errUnsupportedType, value)
@@ -204,6 +206,16 @@ func tomlList(values []string) string {
 	}
 
 	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
+// tomlIntegers writes a list of integers on one line.
+func tomlIntegers(values []int) string {
+	written := make([]string, len(values))
+	for i, value := range values {
+		written[i] = strconv.Itoa(value)
+	}
+
+	return "[" + strings.Join(written, ", ") + "]"
 }
 
 // tomlString writes s as a TOML basic string.

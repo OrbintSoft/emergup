@@ -172,6 +172,10 @@ type Hook struct {
 	// before it runs again; RemedyElevated runs it as root.
 	Remedy         []string `toml:"remedy"`
 	RemedyElevated bool     `toml:"remedy-elevated"`
+	// RemedyStatus lists the exit statuses of the hook for which it offers
+	// its remedy; any other failure only asks whether to go on. Empty, any
+	// failure offers it.
+	RemedyStatus []int `toml:"remedy-status"`
 }
 
 // HookPlace is where a hook runs, written "before-<step>" or
@@ -202,7 +206,7 @@ const (
 func NewHook() Hook {
 	return Hook{
 		Enabled: true, At: "", Command: []string{}, Elevated: false,
-		OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false,
+		OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false, RemedyStatus: []int{},
 	}
 }
 

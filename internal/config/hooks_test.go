@@ -16,6 +16,13 @@ const snapshotHook = "[hooks.snapshot]\nat = \"before-update\"\ncommand = [\"sna
 // keyHookAt is the place of the hook h of the validation cases.
 const keyHookAt = "hooks.h.at"
 
+// askingHook is a check h with a remedy, whose last line is the fifth, to
+// which the validation cases add one.
+const askingHook = "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\nremedy = [\"fix\"]\n"
+
+// keyRemedyStatus is the key of the remedy statuses of askingHook.
+const keyRemedyStatus = "hooks.h.remedy-status"
+
 // placeBeforeUpdate is the place of snapshotHook.
 const placeBeforeUpdate = HookPlace("before-update")
 
@@ -40,7 +47,7 @@ func TestLoadAddsAHookWithItsDefaults(t *testing.T) {
 	assert.Equal(t, Hooks{
 		"snapshot": {
 			Enabled: true, At: placeBeforeUpdate, Command: []string{"snap", "pre"}, Elevated: false,
-			OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false,
+			OnFailure: HookStop, Remedy: []string{}, RemedyElevated: false, RemedyStatus: []int{},
 		},
 	}, cfg.Hooks)
 }
@@ -67,13 +74,40 @@ func TestLoadReadsACheckWithItsRemedy(t *testing.T) {
 
 	cfg, err := Load(t.Context(), fstest.MapFS{
 		MainFile: file("[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\", \"20\"]\nelevated = true\n" +
-			"on-failure = \"ask\"\nremedy = [\"redo-backup\", \"run\"]\nremedy-elevated = true\n"),
+			"on-failure = \"ask\"\nremedy = [\"redo-backup\", \"run\"]\nremedy-elevated = true\n" +
+			"remedy-status = [1, 3]\n"),
 	})
 	require.NoError(t, err)
 
 	assert.Equal(t, hookWith("before-run", []string{"fresh", "20"}, func(h *Hook) {
 		h.Elevated, h.OnFailure, h.Remedy, h.RemedyElevated = true, HookAsk, []string{"redo-backup", "run"}, true
+		h.RemedyStatus = []int{1, 3}
 	}), cfg.Hooks["backup"])
+}
+
+func TestLoadReplacesTheRemedyStatusesOfAHook(t *testing.T) {
+	t.Parallel()
+
+	const check = "[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\non-failure = \"ask\"\n" +
+		"remedy = [\"redo-backup\"]\nremedy-status = [1, 2]\n"
+
+	tests := []struct {
+		name   string
+		dropIn string
+		want   []int
+	}{
+		{"another list", "[hooks.backup]\nremedy-status = [3]\n", []int{3}},
+		{"the default back", "[hooks.backup]\nremedy-status = []\n", []int{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := Load(t.Context(), fstest.MapFS{MainFile: file(check), dropIn("10.toml"): file(tt.dropIn)})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Hooks["backup"].RemedyStatus)
+		})
+	}
 }
 
 func TestLoadAcceptsATurnedOffHookAnotherFileDoesNotAdd(t *testing.T) {
@@ -148,6 +182,26 @@ func TestLoadReportsWhereEachHookProblemIs(t *testing.T) {
 			5, 1, "hooks.h.remedy", emptyProgram,
 		},
 		{
+			"status 0", askingHook + "remedy-status = [1, 0]\n",
+			6, 1, keyRemedyStatus, "exit status 0 is a check that passes: list the statuses from 1 to 255",
+		},
+		{
+			"status above 255", askingHook + "remedy-status = [256]\n",
+			6, 1, keyRemedyStatus, "exit status 256: an exit status is from 1 to 255",
+		},
+		{
+			"negative status", askingHook + "remedy-status = [-1]\n",
+			6, 1, keyRemedyStatus, "exit status -1: an exit status is from 1 to 255",
+		},
+		{
+			"string for a status", askingHook + "remedy-status = [\"1\"]\n",
+			6, 18, keyRemedyStatus, "expected an integer, found a string",
+		},
+		{
+			"integer for the statuses", askingHook + "remedy-status = 1\n",
+			6, 17, keyRemedyStatus, "expected a list of integers, found an integer",
+		},
+		{
 			"unknown key", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\nwhen = \"now\"\n",
 			4, 1, "hooks.h.when", unknownKey,
 		},
@@ -211,7 +265,8 @@ func TestLoadReportsAValueThatDoesNotGoWithTheOthersOfAHook(t *testing.T) {
 		MainFile: file("[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\non-failure = \"ask\"\n" +
 			"remedy = [\"redo-backup\"]\n"),
 		dropIn("10-stop.toml"): file("[hooks.backup]\non-failure = \"stop\"\n\n" +
-			"[hooks.lone]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\nremedy-elevated = true\n"),
+			"[hooks.lone]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ask\"\nremedy-elevated = true\n" +
+			"remedy-status = [1]\n"),
 	})
 
 	got := make([]string, 0, len(problems(t, err)))
@@ -224,6 +279,7 @@ func TestLoadReportsAValueThatDoesNotGoWithTheOthersOfAHook(t *testing.T) {
 	assert.Equal(t, []string{
 		stopping + `: hooks.backup.remedy: only a hook that asks has a remedy: set on-failure = "ask"`,
 		stopping + ": hooks.lone.remedy-elevated: there is no remedy to elevate",
+		stopping + ": hooks.lone.remedy-status: there is no remedy to offer for these statuses",
 	}, got)
 }
 
@@ -251,7 +307,7 @@ func TestWriteTOMLWritesTheHooksInTheOrderOfTheirNames(t *testing.T) {
 	require.NoError(t, err)
 
 	const defaults = "elevated = false  # default\non-failure = \"stop\"  # default\nremedy = []  # default\n" +
-		"remedy-elevated = false  # default\n"
+		"remedy-elevated = false  # default\nremedy-status = []  # default\n"
 
 	out := shown(t, cfg, origins)
 	assert.Contains(t, out, "[steps.depclean]\n")
@@ -267,7 +323,7 @@ func TestWriteTOMLReadsBackTheHooks(t *testing.T) {
 	cfg, origins, err := Inspect(t.Context(), fstest.MapFS{
 		MainFile: file(snapshotHook + "\n[hooks.notify]\nat = \"after-run\"\ncommand = [\"n\"]\n" +
 			"\n[hooks.backup]\nat = \"before-run\"\ncommand = [\"fresh\"]\nelevated = true\non-failure = \"ask\"\n" +
-			"remedy = [\"redo\"]\nremedy-elevated = true\n"),
+			"remedy = [\"redo\"]\nremedy-elevated = true\nremedy-status = [1, 2]\n"),
 		dropIn("10.toml"): file("[hooks.snapshot]\nenabled = false\n\n[hooks.off]\nenabled = false\n"),
 	})
 	require.NoError(t, err)
