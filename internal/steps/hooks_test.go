@@ -35,18 +35,29 @@ func TestHooksAreTheEnabledOnesInTheOrderOfTheirNames(t *testing.T) {
 func TestHooksKeepWhatAHookRunsAsRootAndAsks(t *testing.T) {
 	t.Parallel()
 
+	attended := config.NewHook()
+	attended.At, attended.Command, attended.InteractiveOnly = "after-run", []string{"notify"}, true
+
 	hooks := steps.Hooks(config.Hooks{
+		"attended": attended,
 		"backup": {
-			Enabled: true, At: "before-run", Command: []string{"fresh"}, Elevated: true,
+			Enabled: true, At: "before-run", Command: []string{"fresh"}, Elevated: true, InteractiveOnly: false,
 			OnFailure: config.HookAsk, Remedy: []string{"redo-backup", "run"}, RemedyElevated: true,
-			RemedyStatus: []int{1, 3},
+			RemedyInteractiveOnly: true, RemedyStatus: []int{1, 3},
 		},
 	})
 
-	assert.Equal(t, []pipeline.Hook{{
-		Name: "backup", When: pipeline.Before, Step: pipeline.RunStep, Command: []string{"fresh"}, Root: true,
-		GoesOn: false, Asks: true, Remedy: []string{"redo-backup", "run"}, RemedyRoot: true, RemedyStatus: []int{1, 3},
-	}}, hooks)
+	assert.Equal(t, []pipeline.Hook{
+		{
+			Name: "attended", When: pipeline.After, Step: pipeline.RunStep, Command: []string{"notify"},
+			InteractiveOnly: true, Remedy: []string{}, RemedyStatus: []int{},
+		},
+		{
+			Name: "backup", When: pipeline.Before, Step: pipeline.RunStep, Command: []string{"fresh"}, Root: true,
+			GoesOn: false, Asks: true, Remedy: []string{"redo-backup", "run"}, RemedyRoot: true,
+			RemedyStatus: []int{1, 3}, RemedyInteractiveOnly: true,
+		},
+	}, hooks)
 }
 
 func TestHooksWithoutAny(t *testing.T) {

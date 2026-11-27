@@ -44,6 +44,9 @@ type Hook struct {
 	// it runs as the invoking user otherwise.
 	Command []string
 	Root    bool
+	// InteractiveOnly runs the hook only when someone answers the
+	// questions: under --yes it is skipped, with a notice.
+	InteractiveOnly bool
 	// GoesOn makes a failure of the hook a notice, after which the run goes
 	// on.
 	GoesOn bool
@@ -57,6 +60,9 @@ type Hook struct {
 	// Remedy; any other failure only asks whether to go on. Empty, any
 	// failure offers it.
 	RemedyStatus []int
+	// RemedyInteractiveOnly offers Remedy only when someone answers the
+	// questions: under --yes a failure of the check aborts the run.
+	RemedyInteractiveOnly bool
 }
 
 // RunDirEnv returns the variables, for Env.HookEnv, that give every hook
@@ -119,7 +125,15 @@ func runHooks(ctx context.Context, env Env, when, step string, extra []string, r
 
 // runHook runs hook with the variables of env, its own and extra, records
 // in report how it failed, if it did, and returns whether the run goes on.
+// Under --yes a hook that runs only when someone answers the questions is
+// skipped, with a notice, as if it had passed.
 func runHook(ctx context.Context, env Env, hook Hook, extra []string, report *Report) Result {
+	if hook.InteractiveOnly && env.Menu.Yes {
+		env.Printer.Notice(fmt.Sprintf("hook %s (%s) skipped: it runs %s", hook.Name, hook.place(), whenAttended))
+
+		return RunFinished
+	}
+
 	if hook.Asks {
 		return runCheck(ctx, env, hook, extra, report)
 	}
@@ -148,6 +162,9 @@ func runHook(ctx context.Context, env Env, hook Hook, extra []string, report *Re
 
 	return RunFailed
 }
+
+// whenAttended is when a hook, or a remedy, that --yes skips runs.
+const whenAttended = "only when someone answers the questions"
 
 // hookEnd is how the command of a hook ended: why it failed, "" when it did
 // not, and its exit status, 0 when it succeeded or ended without one, as a
@@ -242,6 +259,13 @@ func pretendHooks(env Env, when, step string) {
 		default:
 			line += "; if it fails with exit status " + statusList(hook.RemedyStatus) + ", offers to run" + remedy +
 				"; otherwise asks whether to go on"
+		}
+
+		switch {
+		case hook.InteractiveOnly:
+			line += "; skipped under --yes"
+		case hook.RemedyInteractiveOnly:
+			line += "; under --yes, offers no remedy and aborts"
 		}
 
 		env.Printer.Row(ui.KindPlain, line)

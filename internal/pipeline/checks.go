@@ -33,8 +33,8 @@ const (
 // runCheck runs the check hook, and while it fails asks whether to run its
 // remedy and check again, to go on, or to abort the run, recording in
 // report how it failed, unless it passed in the end, and returns whether
-// the run goes on. A failure the remedy is not for, see offersRemedy, only
-// asks whether to go on or abort. With --yes the remedy runs once: a check that fails
+// the run goes on. A failure for which the remedy is withheld, see
+// remedyWithheld, only asks whether to go on or abort. With --yes the remedy runs once: a check that fails
 // again fails the run. Aborting fails the run; the end of ctx, or of the
 // input, stops it.
 func runCheck(ctx context.Context, env Env, hook Hook, extra []string, report *Report) Result {
@@ -58,10 +58,11 @@ func runCheck(ctx context.Context, env Env, hook Hook, extra []string, report *R
 
 		env.Printer.Failure(hookFailure(hook, reason))
 
-		offers := hook.offersRemedy(end.status)
-		if len(hook.Remedy) > 0 && !offers {
-			env.Printer.Notice(fmt.Sprintf("the remedy of hook %s is only for exit status %s",
-				hook.Name, statusList(hook.RemedyStatus)))
+		offers := len(hook.Remedy) > 0
+		if why := remedyWithheld(env, hook, end.status); offers && why != "" {
+			env.Printer.Notice(fmt.Sprintf("the remedy of hook %s %s", hook.Name, why))
+
+			offers = false
 		}
 
 		if result, done := askAboutCheck(ctx, env, hook, reason, offers, report); done {
@@ -126,15 +127,20 @@ func askCheck(ctx context.Context, env Env, offers bool) (rune, Result) {
 	return action.Key, RunFinished
 }
 
-// offersRemedy reports whether the check offers its remedy when its command
-// ends with status, 0 for a failure without an exit status: for any failure
-// unless the check lists the statuses its remedy is for.
-func (h Hook) offersRemedy(status int) bool {
-	if len(h.Remedy) == 0 {
-		return false
+// remedyWithheld says why the check hook does not offer its remedy when its
+// command fails with status, 0 for a failure without an exit status, or ""
+// when it offers it: the check lists the statuses its remedy is for, and
+// this is not one of them, or its remedy runs only when someone answers the
+// questions, and the run answers them by itself.
+func remedyWithheld(env Env, hook Hook, status int) string {
+	switch {
+	case len(hook.RemedyStatus) > 0 && !slices.Contains(hook.RemedyStatus, status):
+		return "is only for exit status " + statusList(hook.RemedyStatus)
+	case hook.RemedyInteractiveOnly && env.Menu.Yes:
+		return "runs " + whenAttended
 	}
 
-	return len(h.RemedyStatus) == 0 || slices.Contains(h.RemedyStatus, status)
+	return ""
 }
 
 // statusList writes exit statuses as a phrase: "1", "1 or 2", "1, 2 or 3".

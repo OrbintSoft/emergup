@@ -74,7 +74,7 @@ var exampleHook = regexp.MustCompile(`(?m)^# (\[hooks\.[a-z0-9-]+\]\n)((?:# .+\n
 // TestExampleMainFileShowsValidHooks keeps the example hooks of the main
 // file valid: uncommented, they are hooks that run, a snapshot before the
 // update and a backup check before the run, whose remedy is for one exit
-// status only.
+// status only and runs only when someone answers.
 func TestExampleMainFileShowsValidHooks(t *testing.T) {
 	t.Parallel()
 
@@ -102,6 +102,7 @@ func TestExampleMainFileShowsValidHooks(t *testing.T) {
 	assert.Equal(t, HookAsk, backup.OnFailure)
 	assert.NotEmpty(t, backup.Remedy)
 	assert.True(t, backup.RemedyElevated)
+	assert.True(t, backup.RemedyInteractiveOnly)
 	assert.Equal(t, []int{1}, backup.RemedyStatus)
 }
 

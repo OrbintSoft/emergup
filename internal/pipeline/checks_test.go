@@ -399,3 +399,133 @@ func TestPretendShowsForWhichStatusesACheckOffersItsRemedy(t *testing.T) {
 		"    hook three (before the run): run-backup; if it fails with exit status 1, 2 or 3, offers to run as "+
 		"root: redo-backup run; otherwise asks whether to go on\n", rig.out.String())
 }
+
+// The notices of a hook that runs only when someone answers the questions,
+// and of a check whose remedy does, under --yes.
+const (
+	skippedUnderYes = "==> hook backup (before the run) skipped: it runs only when someone answers the questions\n"
+	remedyAttended  = "==> the remedy of hook backup runs only when someone answers the questions\n"
+)
+
+func TestAnInteractiveOnlyHookIsSkippedUnderYes(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+
+	attended := check(true)
+	attended.InteractiveOnly = true
+	rig.hooks = []pipeline.Hook{attended, hook("notify", pipeline.After, pipeline.RunStep)}
+
+	sync := rig.step(syncStep, time.Second, pipeline.Success())
+	report := rig.run(t.Context(), sync)
+
+	assert.True(t, strings.HasPrefix(rig.out.String(), skippedUnderYes+"==> [1/1] sync: do sync\n"), rig.out.String())
+	assert.Equal(t, ran("notify"), rig.programs(), "the check does not run")
+	assert.True(t, sync.ran, "the run goes on")
+	assert.Equal(t, pipeline.RunFinished, report.Result)
+	assert.Empty(t, report.FailedHooks, "a hook skipped so has not failed")
+}
+
+func TestAnInteractiveOnlyHookRunsWhenSomeoneAnswers(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t, ui.KeyEnter)
+
+	attended := hook("snapshot", pipeline.Before, syncStep)
+	attended.InteractiveOnly = true
+	rig.hooks = []pipeline.Hook{attended}
+
+	rig.run(t.Context(), rig.step(syncStep, time.Second, pipeline.Success()))
+
+	assert.Equal(t, ran("snapshot"), rig.programs())
+	assert.NotContains(t, rig.out.String(), "skipped: it runs only")
+}
+
+func TestARemedyThatRunsOnlyWhenSomeoneAnswersAbortsUnderYes(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+
+	backup := check(true)
+	backup.RemedyInteractiveOnly = true
+	rig.hooks = []pipeline.Hook{backup}
+	rig.runner.Script(failing())
+
+	sync := rig.step(syncStep, time.Second, pipeline.Success())
+	report := rig.run(t.Context(), sync)
+
+	assert.Contains(t, rig.out.String(), backupLine+backupFailed+remedyAttended+abortAsk+abortTheRun+" (--yes)\n")
+	assert.Equal(t, ran(backupName), rig.programs(), "the remedy does not run")
+	assert.False(t, sync.ran)
+	assert.Equal(t, pipeline.RunFailed, report.Result)
+	assert.Equal(t, []pipeline.FailedHook{
+		{Name: backupName, Place: runPlace, Reason: backupFailure, WentOn: false},
+	}, report.FailedHooks)
+}
+
+func TestARemedyThatRunsOnlyWhenSomeoneAnswersIsOfferedThen(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t, 'y', ui.KeyEnter)
+
+	backup := check(true)
+	backup.RemedyInteractiveOnly = true
+	rig.hooks = []pipeline.Hook{backup}
+	rig.runner.Script(failing(), succeeding(), succeeding())
+
+	report := rig.run(t.Context(), rig.step(syncStep, time.Second, pipeline.Success()))
+
+	assert.Contains(t, rig.out.String(), backupFailed+remedyAsk+runTheRemedy+"\n"+remedyLine)
+	assert.NotContains(t, rig.out.String(), remedyAttended)
+	assert.Equal(t, pipeline.RunFinished, report.Result)
+}
+
+func TestAFailureTheRemedyIsNotForSaysOnlyThatUnderYes(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+
+	backup := checkFor()
+	backup.RemedyInteractiveOnly = true
+	rig.hooks = []pipeline.Hook{backup}
+	rig.runner.Script(runnertest.Answer{Result: runner.Result{ExitCode: 3}})
+
+	rig.run(t.Context(), rig.step(syncStep, time.Second, pipeline.Success()))
+
+	assert.Contains(t, rig.out.String(), onlyFor+abortAsk)
+	assert.NotContains(t, rig.out.String(), remedyAttended)
+}
+
+func TestPretendShowsWhatAHookWouldDoUnderYes(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.keys.silent = true
+
+	attended := hook("snapshot", pipeline.Before, pipeline.RunStep)
+	attended.InteractiveOnly = true
+
+	backup := check(true)
+	backup.RemedyInteractiveOnly = true
+
+	statuses := checkFor()
+	statuses.Name, statuses.RemedyInteractiveOnly = "statuses", true
+
+	both := check(true)
+	both.Name, both.InteractiveOnly, both.RemedyInteractiveOnly = "both", true, true
+
+	rig.hooks = []pipeline.Hook{attended, backup, statuses, both}
+
+	pipeline.Pretend(t.Context(), rig.env(), nil)
+
+	assert.Equal(t, "    hook snapshot (before the run): run-snapshot; skipped under --yes\n"+
+		"    hook backup (before the run): run-backup; if it fails, offers to run as root: redo-backup run; "+
+		"under --yes, offers no remedy and aborts\n"+
+		"    hook statuses (before the run): run-backup; if it fails with exit status 1 or 2, offers to run as "+
+		"root: redo-backup run; otherwise asks whether to go on; under --yes, offers no remedy and aborts\n"+
+		"    hook both (before the run): run-backup; if it fails, offers to run as root: redo-backup run; "+
+		"skipped under --yes\n", rig.out.String())
+}

@@ -120,6 +120,10 @@
 #               custom step;
 #   command     the program and its arguments;
 #   elevated    true runs the command as root, through the elevation method;
+#   interactive-only
+#               true runs the hook only when someone answers the questions:
+#               a run that answers them by itself, as under --yes, skips
+#               it, with a notice, and goes on;
 #   on-failure  "stop", the default, fails the run when the hook fails, as a
 #               failed step does; "continue" only shows a notice; "ask" makes
 #               the hook a check: its failure asks whether to run its remedy
@@ -129,6 +133,10 @@
 #               --yes abort the run;
 #   remedy-elevated
 #               true runs the remedy as root;
+#   remedy-interactive-only
+#               true offers the remedy only when someone answers the
+#               questions: under --yes a failure aborts the run, as for a
+#               check without a remedy;
 #   remedy-status
 #               the exit statuses of the check that its remedy fixes, from 1
 #               to 255; any other failure offers no remedy, and Enter and
@@ -155,7 +163,8 @@
 # and a check before the run that the last backup is no older than 20 days,
 # which exits with 1 when it is older and with 2 when the backup disk is not
 # mounted: the backup, run as root, fixes the first, and would write onto
-# the root filesystem in the second.
+# the root filesystem in the second. A backup is long: a run under --yes
+# aborts rather than start one.
 #
 # [hooks.backup]
 # at = "before-run"
@@ -163,6 +172,7 @@
 # on-failure = "ask"
 # remedy = ["/usr/local/sbin/backup"]
 # remedy-elevated = true
+# remedy-interactive-only = true
 # remedy-status = [1]
 
 [colors]

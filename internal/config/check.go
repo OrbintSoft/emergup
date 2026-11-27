@@ -379,6 +379,10 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 			},
 			{"remedy-elevated", hook.RemedyElevated && len(hook.Remedy) == 0, "there is no remedy to elevate"},
 			{
+				"remedy-interactive-only", hook.RemedyInteractiveOnly && len(hook.Remedy) == 0,
+				"there is no remedy to run only when someone answers",
+			},
+			{
 				"remedy-status", len(hook.RemedyStatus) > 0 && len(hook.Remedy) == 0,
 				"there is no remedy to offer for these statuses",
 			},
