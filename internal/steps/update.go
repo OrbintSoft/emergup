@@ -91,7 +91,7 @@ func (u updateStep) excluded() ([]string, []string) {
 // heldBackCommand returns the command line that asks emerge which of atoms
 // it would update, each alone.
 func (u updateStep) heldBackCommand(atoms []string) []string {
-	return slices.Concat(u.config.Command[:1], []string{"--pretend", "--update", "--nodeps", "--color=n"}, atoms)
+	return slices.Concat(u.config.Command[:1], []string{pretendOption, "--update", "--nodeps", "--color=n"}, atoms)
 }
 
 // heldBack returns the notes that name the excluded packages with an
@@ -182,7 +182,7 @@ func (u updateStep) work() pretended {
 func (u updateStep) command(env pipeline.Env, pretend bool) []string {
 	command := slices.Concat(u.config.Command, u.config.Options)
 	if pretend {
-		command = append(command, "--pretend")
+		command = append(command, pretendOption)
 	}
 
 	command = append(command, colorOption(env))
@@ -193,6 +193,10 @@ func (u updateStep) command(env pipeline.Env, pretend bool) []string {
 
 	return append(command, u.config.Target)
 }
+
+// pretendOption asks emerge, or smart-live-rebuild, what it would do
+// without doing it.
+const pretendOption = "--pretend"
 
 // colorOption returns the option that makes emerge write in colour when
 // emergup does: its output reaches the terminal through a pipe, where it

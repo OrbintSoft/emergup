@@ -29,6 +29,10 @@ const (
 	nothingToRebuild = "nothing to rebuild"
 )
 
+// excludeLiveBinaries keeps emerge from installing a live package from a
+// binary package, an old build of it, instead of building it.
+const excludeLiveBinaries = "--usepkg-exclude-live=y"
+
 // The marks of the package database: the property of a live package, and
 // the prefix of a package being merged.
 const (
@@ -50,7 +54,14 @@ func (liveStep) Title() string { return "rebuild the live packages" }
 // Enabled implements pipeline.Step.
 func (l liveStep) Enabled() bool { return l.config.Enabled }
 
-// Pretend implements pipeline.Step.
+// ConfirmsItself implements pipeline.SelfConfirming: the step lists the
+// packages it would rebuild, then asks, and skips without asking when there
+// are none.
+func (liveStep) ConfirmsItself() bool { return true }
+
+// Pretend implements pipeline.Step. In the smart mode, listing the packages
+// updates the clones of their repositories, as root, so it only says what
+// the step would do.
 func (l liveStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, error) {
 	mode, installed, note := l.resolve(env)
 
@@ -59,7 +70,10 @@ func (l liveStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, erro
 			return []string{l.smartProgram() + " is not installed, so the step would be skipped"}, nil
 		}
 
-		return []string{strings.Join(l.config.SmartCommand, " ")}, nil
+		return []string{
+			"would list the live packages to rebuild, as root, with: " + strings.Join(l.smartList(), " "),
+			"and if there are any run: " + strings.Join(l.command(env, nil), " ") + " followed by them",
+		}, nil
 	}
 
 	decisions, err := l.plan(ctx, env, mode)
@@ -85,7 +99,7 @@ func (l liveStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, erro
 		return append(lines, nothingToRebuild), nil
 	}
 
-	return append(lines, strings.Join(l.command(env, due), " ")), nil
+	return append(lines, strings.Join(l.command(env, versioned(due)), " ")), nil
 }
 
 // Run implements pipeline.Step.
@@ -103,15 +117,58 @@ func (l liveStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	return l.runList(ctx, env, mode)
 }
 
-// runSmart runs smart-live-rebuild, which finds the live packages whose
-// upstream changed and rebuilds them itself; one that is not installed
-// skips the step.
+// runSmart asks smart-live-rebuild which live packages to rebuild, as it
+// checks their upstreams, then rebuilds them with emerge, which does not
+// check the upstreams again; one that is not installed skips the step.
 func (l liveStep) runSmart(ctx context.Context, env pipeline.Env, installed bool) pipeline.Outcome {
 	if !installed {
 		return pipeline.Skip(l.smartProgram() + " is not installed")
 	}
 
-	return runElevated(ctx, env, l.config.SmartCommand, l.smartProgram())
+	command := runner.Command{Args: l.smartList(), Mode: runner.Capture, Root: true, Env: nil}
+
+	result, err := env.Runner.Run(ctx, command)
+
+	switch {
+	case err != nil:
+		return pipeline.Fail(err.Error())
+	case result.ExitCode != 0:
+		return pipeline.Fail(fmt.Sprintf("%s exited with status %d", l.smartProgram(), result.ExitCode))
+	}
+
+	packages := strings.Fields(string(result.Output))
+	if len(packages) == 0 {
+		return pipeline.Skip(l.smartProgram() + " found nothing to rebuild")
+	}
+
+	for _, atom := range packages {
+		env.Printer.Row(ui.KindPlain, atom)
+	}
+
+	return l.confirmRebuild(ctx, env, packages)
+}
+
+// smartList is the command line with which smart-live-rebuild lists the
+// live packages to rebuild, without rebuilding them: smart-command with
+// --pretend after its program.
+func (l liveStep) smartList() []string {
+	return slices.Concat(l.config.SmartCommand[:1], []string{pretendOption}, l.config.SmartCommand[1:])
+}
+
+// confirmRebuild asks whether to rebuild the packages atoms name, and
+// rebuilds them, as root, if so.
+func (l liveStep) confirmRebuild(ctx context.Context, env pipeline.Env, atoms []string) pipeline.Outcome {
+	rebuild := ui.Action{Key: 'y', Name: "rebuild them"}
+	skip := ui.Action{Key: 's', Name: "skip the rebuild"}
+
+	outcome, goOn := confirm(ctx, env, "Rebuild them?", rebuild, skip, notRebuilt)
+	if !goOn {
+		return outcome
+	}
+
+	command := l.command(env, atoms)
+
+	return runElevated(ctx, env, command, command[0])
 }
 
 // runList rebuilds the live packages that mode says are due.
@@ -134,9 +191,7 @@ func (l liveStep) runList(ctx context.Context, env pipeline.Env, mode config.Liv
 		return pipeline.Skip("every live package was built less than " + l.interval() + " ago")
 	}
 
-	command := l.command(env, due)
-
-	return runElevated(ctx, env, command, command[0])
+	return l.confirmRebuild(ctx, env, versioned(due))
 }
 
 // runElevated runs command as root, its output shown, and returns how it
@@ -199,16 +254,21 @@ func (l liveStep) interval() string {
 	return string(text)
 }
 
-// command returns the command line that rebuilds the packages due, each at
-// its installed version, so that no other version is picked.
-func (l liveStep) command(env pipeline.Env, due []string) []string {
-	command := append(slices.Clone(l.config.Command), colorOption(env))
+// command returns the command line that rebuilds the packages atoms name,
+// each from its sources.
+func (l liveStep) command(env pipeline.Env, atoms []string) []string {
+	return slices.Concat(l.config.Command, []string{colorOption(env), excludeLiveBinaries}, atoms)
+}
 
-	for _, atom := range due {
-		command = append(command, "="+atom)
+// versioned returns the atoms of the installed packages due, each at its
+// installed version, so that no other version is picked.
+func versioned(due []string) []string {
+	atoms := make([]string, 0, len(due))
+	for _, installed := range due {
+		atoms = append(atoms, "="+installed)
 	}
 
-	return command
+	return atoms
 }
 
 // plan decides what to do with each live package installed: by interval,

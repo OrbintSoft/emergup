@@ -102,8 +102,8 @@ const (
 	// LiveRebuildAuto is LiveRebuildSmart when smart-live-rebuild is
 	// installed, LiveRebuildInterval otherwise.
 	LiveRebuildAuto LiveRebuildMode = iota
-	// LiveRebuildSmart runs smart-live-rebuild, which rebuilds the live
-	// packages whose upstream has changed.
+	// LiveRebuildSmart rebuilds the live packages whose upstream has
+	// changed, as smart-live-rebuild lists them.
 	LiveRebuildSmart
 	// LiveRebuildInterval rebuilds each live package built longer ago than
 	// the interval.
@@ -113,14 +113,17 @@ const (
 )
 
 // LiveRebuild rebuilds the live packages. Command, followed by the packages
-// or by the @live-rebuild set, serves the interval and always modes;
-// SmartCommand serves the smart mode.
+// to rebuild, rebuilds them in every mode; SmartCommand lists them in the
+// smart mode.
 type LiveRebuild struct {
 	Step
 
 	Mode     LiveRebuildMode `toml:"mode"`
 	Interval Duration        `toml:"interval"`
 
+	// SmartCommand lists, in the smart mode, the live packages whose
+	// upstream has changed: emergup adds --pretend after its program, and
+	// the step's Command rebuilds the packages it lists.
 	SmartCommand []string `toml:"smart-command"`
 }
 

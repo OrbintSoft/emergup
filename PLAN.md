@@ -457,7 +457,7 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 
 From here on, every feature lands with its integration test.
 
-## Phase 6 — Hooks and custom steps  `[~]`  (HOOK-*, PRIV-3, PRIV-5, UPD-16)
+## Phase 6 — Hooks and custom steps  `[x]`  (HOOK-*, PRIV-3, PRIV-5, UPD-16)
 
 This phase also brings what the old script still does and phase 4 left out:
 `haskell-updater` after the preserved-library rebuild (6.3), the user's
@@ -591,11 +591,33 @@ check before the run (6.2, 6.4).
       - The `EMERGUP_*` variables of a hook or a remedy run as root (HOOK-4)
         are kept the same way, always: HOOK-4 promises them, and a sudo
         rule for a hook's command alone needs `SETENV` for them.
-- [ ] **6.7** The live packages listed before their rebuild in the smart mode
+- [x] **6.7** The live packages listed before their rebuild in the smart mode
       (UPD-16): `smart-live-rebuild --pretend` first, then the question,
-      then the rebuild. How the rebuild avoids checking the upstreams a
-      second time (rebuilding the listed packages with `emerge --oneshot`,
-      say) is decided when the item comes.
+      then the rebuild.
+      - `smart-live-rebuild --pretend` runs as root, as smart-live-rebuild
+        itself did: it updates the clones of the live packages'
+        repositories. Its progress is shown; its standard output, one
+        package per line (`app-misc/foo:0`), is the list.
+      - The packages listed are rebuilt with the step's `command`
+        (`emerge --oneshot`), as root, so that the upstreams are not checked
+        a second time, as smart-live-rebuild would do. `smart-command` now
+        only lists: emergup adds `--pretend` after its program. What it
+        gives after `--` still reaches smart-live-rebuild, which reads a
+        package name there as a filter; emerge's own options belong in
+        `command`.
+      - Every mode lists first, then asks, as the preserved-library rebuild
+        does: a row per package, then "Rebuild them?" (rebuild, skip,
+        abort); with nothing to rebuild, or smart-live-rebuild not
+        installed, the step is skipped without a question. The pipeline's
+        own question goes, in the interval and always modes too.
+      - A live package is never installed from a binary package, which
+        would be an old build: the rebuild gets `--usepkg-exclude-live=y`
+        in every mode. smart-live-rebuild passes `--getbinpkg=n
+        --usepkg-exclude` with the packages instead, but emerge refuses
+        the versioned atoms of the interval and always modes there.
+      - `emergup run --pretend` runs nothing: it says that the step would
+        run `smart-live-rebuild --pretend`, then emerge with the packages
+        it lists.
 
 ## Phase 7 — News  `[ ]`  (NEWS-*)
 

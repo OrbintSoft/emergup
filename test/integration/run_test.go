@@ -135,7 +135,7 @@ func TestUPD3_TheCommandOfEachStepCanBeChanged(t *testing.T) {
 		"    emerge --sync --quiet --color=n emergup-test\n",
 		"    emerge --quiet-build --update --newuse --pretend --color=n @emergup-test\n",
 		"    then, once confirmed: emerge --quiet-build --update --newuse --color=n @emergup-test\n",
-		"    emerge --oneshot --quiet-build --color=n =emergup-test/live-9999\n",
+		"    emerge --oneshot --quiet-build --color=n --usepkg-exclude-live=y =emergup-test/live-9999\n",
 		" run: emerge --quiet-build @preserved-rebuild --color=n\n",
 		" then run: etc-update --automode -5\n",
 		"    emerge --depclean --with-bdeps=y --pretend --color=n\n",
@@ -150,7 +150,7 @@ func TestUPD3_TheCommandOfEachStepCanBeChanged(t *testing.T) {
 		"sudo emerge --sync --quiet --color=n emergup-test",
 		"emerge --quiet-build --update --newuse --pretend --color=n @emergup-test",
 		"sudo emerge --quiet-build --update --newuse --color=n @emergup-test",
-		"sudo emerge --oneshot --quiet-build --color=n =emergup-test/live-9999",
+		"sudo emerge --oneshot --quiet-build --color=n --usepkg-exclude-live=y =emergup-test/live-9999",
 		"emerge --depclean --with-bdeps=y --pretend --color=n",
 	} {
 		assert.Regexp(t, `\n==> \S+ `+regexp.QuoteMeta(command)+`\n`, log, "the command that ran")

@@ -55,17 +55,23 @@
 #exclude = []
 
 [steps.live-rebuild]
-# Rebuilds the live packages. mode is "smart" (smart-live-rebuild rebuilds
-# those whose upstream has changed), "interval" (each live package built
-# longer ago than the interval), "always" (every live package), or "auto":
-# smart when smart-live-rebuild is installed, interval otherwise.
+# Rebuilds the live packages. mode is "smart" (those whose upstream has
+# changed, as smart-live-rebuild finds them), "interval" (each live package
+# built longer ago than the interval), "always" (every live package), or
+# "auto": smart when smart-live-rebuild is installed, interval otherwise.
+# The step lists the packages it would rebuild, then asks; with none, it is
+# skipped without a question.
 #enabled = true
-# Runs the interval and always modes, followed by the packages to rebuild or
-# by the @live-rebuild set.
+# Rebuilds the packages, in every mode, followed by them; emergup adds
+# --usepkg-exclude-live=y, so that a live package is built from its
+# sources and never installed from a binary package. emerge's own options
+# go here.
 #command = ["emerge", "--oneshot"]
 #mode = "auto"
 #interval = "24h"
-# Runs the smart mode.
+# Lists, in the smart mode, the live packages whose upstream has changed:
+# emergup adds --pretend after the program, which checks the upstreams as
+# root and only lists the packages, and command rebuilds them.
 #smart-command = ["smart-live-rebuild"]
 
 [steps.preserved-rebuild]
