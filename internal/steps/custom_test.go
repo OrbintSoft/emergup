@@ -117,10 +117,10 @@ func TestAllPlacesTheCustomStepsAfterTheirBuiltInStep(t *testing.T) {
 	all := steps.All(cfg, steps.Options{ForceSync: false})
 
 	assert.Equal(t, []string{
-		syncName, "a-report", "b-report", updateName, offName, liveName, preservedName, configFilesName,
+		syncName, "a-report", "b-report", newsName, updateName, offName, liveName, preservedName, configFilesName,
 		depcleanName, "audit",
 	}, names(all))
-	assert.False(t, all[4].Enabled(), "a custom step turned off is in the run, as disabled")
+	assert.False(t, all[5].Enabled(), "a custom step turned off is in the run, as disabled")
 	assert.True(t, all[1].Enabled())
 }
 

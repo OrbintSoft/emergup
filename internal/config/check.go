@@ -82,6 +82,7 @@ type valueRule struct {
 func valueRules() []valueRule {
 	return []valueRule{
 		commandRule("steps.sync.command", func(cfg *Config) []string { return cfg.Steps.Sync.Command }),
+		commandRule("steps.news.command", func(cfg *Config) []string { return cfg.Steps.News.Command }),
 		commandRule("steps.update.command", func(cfg *Config) []string { return cfg.Steps.Update.Command }),
 		commandRule("steps.live-rebuild.command", func(cfg *Config) []string { return cfg.Steps.LiveRebuild.Command }),
 		commandRule("steps.live-rebuild.smart-command",

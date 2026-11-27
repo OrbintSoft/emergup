@@ -146,6 +146,10 @@ func TestLoadReportsWhereEachProblemIs(t *testing.T) {
 			2, 1, "steps.depclean.command", emptyProgram,
 		},
 		{
+			"empty news command", "[steps.news]\ncommand = []\n",
+			2, 1, "steps.news.command", emptyCommand,
+		},
+		{
 			"empty smart command", "[steps.live-rebuild]\nsmart-command = []\n",
 			2, 1, "steps.live-rebuild.smart-command", emptyCommand,
 		},

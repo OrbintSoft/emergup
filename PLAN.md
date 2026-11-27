@@ -90,7 +90,8 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   lint-docker`), run from its pinned image. The other files of that image
   have no linter: `visudo --check` checks the sudoers file when the image is
   built, and Portage reads the Portage files (make.conf, repos.conf, the set,
-  the test repository's layout.conf and ebuilds) in every integration test.
+  the test repository's layout.conf and ebuilds) in every integration test,
+  and its news item, a GLEP 42 text file, in the news tests.
   pkgcheck is not used on the synthetic ebuilds: it needs the Gentoo tree and
   judges ebuilds meant for a real repository. The two C sources of the test
   library and program have no linter either: a few lines each, compiled by
@@ -620,9 +621,40 @@ check before the run (6.2, 6.4).
         run `smart-live-rebuild --pretend`, then emerge with the packages
         it lists.
 
-## Phase 7 — News  `[ ]`  (NEWS-*)
+## Phase 7 — News  `[~]`  (NEWS-*)
 
-- [ ] **7.1** Show unread news after the sync and confirm before updating (NEWS-1).
+- [x] **7.1** Show unread news after the sync and confirm before updating (NEWS-1).
+      - A built-in step of its own, `news`, between the sync and the
+        update, as UPD-1 lists them: `[steps.news]` with `enabled` and
+        `command`, hooks before and after it, a row in the summary. It
+        runs whether or not the sync synced anything: the news Portage
+        found relevant at an earlier sync are still unread.
+      - Portage decides which items are relevant at every sync and lists
+        the unread ones in `/var/lib/gentoo/news/news-<repo>.unread`,
+        readable by everyone. emergup reads those lists for the
+        repositories `portageq repos_config` names, and the title and
+        date of each item from the repository's `metadata/news`, in the
+        language eselect would choose (`LC_ALL` or `LANG`, then `en`).
+        Reading the files rather than eselect's output gives the list as
+        data, unit-tested on an in-memory file system, without eselect's
+        format or its titles cut to the terminal's width.
+      - With no unread item the step is skipped without a question.
+        Otherwise a row names each one, and the step asks: read them (the
+        usual action), go on leaving them unread, or abort the run.
+      - Reading runs `command`, `eselect news read new` by default, which
+        shows the items, in the log too, and marks them read. Marking
+        writes `/var/lib/gentoo/news`, which root and the `portage` group
+        can write: the command runs as the invoking user when they can
+        write it, elevated otherwise.
+      - After reading, the step asks whether to go on with the run (go
+        on, abort): a news item often asks for actions before the update,
+        which the user takes at that question; in phase 9 the AI can take
+        them (AI-7).
+      - With `--yes` the rows are listed and the items left unread, with
+        a notice, and the run goes on: nobody would read them. Whether an
+        unattended run should rather stop on news belongs to phase 13.
+      - `--pretend` lists the unread items, which only reads files, and
+        says what it would run, and as whom.
 - [ ] **7.2** `emergup news` (NEWS-2).
 
 ## Phase 8 — Failure diagnostics  `[ ]`  (DIAG-*)
@@ -655,7 +687,9 @@ check before the run (6.2, 6.4).
         contributions, Claude Code being the reference one. The ebuild names
         `dev-util/claude-code` with `optfeature`.
       - Decision points: unread news (explained also against the installed
-        packages, if the user agrees to send them); the `@world` plan before
+        packages, if the user agrees to send them; at the question after
+        reading them, the AI takes the actions they ask for before the
+        update, each command confirmed, AI-7); the `@world` plan before
         the update (open question 4); a failed step (retry, skip, abort,
         explain, investigate, chat; no default action), where investigate is
         a read-only agent that ends with a diagnosis and a proposed fix; each
@@ -675,7 +709,7 @@ check before the run (6.2, 6.4).
       refusal to run as root (AI-1, AI-2, AI-6).
 - [ ] **9.2** Claude Code backend, with its detection and the setup command
       (9.0).
-- [ ] **9.3** Explain news (AI-3).
+- [ ] **9.3** Explain news, and take the actions they ask for (AI-3, AI-7).
 - [ ] **9.4** Analyse a failure and propose a fix (AI-4; open question 6).
 - [ ] **9.5** Anthropic API backend (official Go SDK).
 - [ ] **9.6** Generic command backend.

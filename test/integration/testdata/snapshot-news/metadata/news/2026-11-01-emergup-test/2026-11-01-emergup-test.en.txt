@@ -1,0 +1,8 @@
+Title: Synthetic news of the test repository
+Author: emergup tests <tests@example.org>
+Posted: 2026-11-01
+Revision: 1
+News-Item-Format: 2.0
+
+A news item of the test repository, which the news tests of emergup
+read.

@@ -120,7 +120,9 @@ func TestWriteTOMLWritesTheDefaults(t *testing.T) {
 
 	assert.Contains(t, out, "[elevation]\nmethod = \"auto\"  # default\nkeep-env = []  # default\n\n[steps.sync]\n")
 	assert.Contains(t, out, "[steps.sync]\nenabled = true  # default\ncommand = [\"emerge\", \"--sync\"]  # default\n"+
-		"min-interval = \"24h\"  # default\nalways-sync = []  # default\n")
+		"min-interval = \"24h\"  # default\nalways-sync = []  # default\n\n[steps.news]\n"+
+		"enabled = true  # default\ncommand = [\"eselect\", \"news\", \"read\", \"new\"]  # default\n\n"+
+		"[steps.update]\n")
 	assert.Contains(t, out, "[steps.live-rebuild]\nenabled = true  # default\n")
 	assert.Contains(t, out, "mode = \"auto\"  # default\ninterval = \"24h\"  # default\n"+
 		"smart-command = [\"smart-live-rebuild\"]  # default\n")

@@ -5,6 +5,7 @@ package elevation_test
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -57,6 +58,8 @@ func (f fakeSystem) Geteuid() int {
 func (fakeSystem) LookupEnv(name string) (string, bool) {
 	return environment(name)
 }
+
+func (fakeSystem) CanWrite(string) bool { return false }
 
 func TestResolve(t *testing.T) {
 	t.Parallel()
@@ -246,4 +249,12 @@ func TestOSLooksAtTheRealSystem(t *testing.T) {
 
 	_, err := system.LookPath("emergup-test-surely-not-installed")
 	require.ErrorIs(t, err, exec.ErrNotFound)
+
+	dir := t.TempDir()
+	assert.True(t, system.CanWrite(dir))
+	assert.False(t, system.CanWrite(filepath.Join(dir, "missing")))
+
+	readOnly := filepath.Join(dir, "read-only")
+	require.NoError(t, os.Mkdir(readOnly, 0o500))
+	assert.Equal(t, os.Geteuid() == 0, system.CanWrite(readOnly), "only root writes a read-only directory")
 }

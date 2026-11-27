@@ -43,6 +43,14 @@
 # Repositories synced on every run, whatever min-interval says.
 #always-sync = []
 
+[steps.news]
+# Lists the unread news items and asks whether to read them; the command
+# shows them and marks them read. It runs as the user who started emergup
+# when they can write /var/lib/gentoo/news, as the portage group can, and
+# as root otherwise.
+#enabled = true
+#command = ["eselect", "news", "read", "new"]
+
 [steps.update]
 # Updates the target set. The command is followed by the options, an
 # --exclude for each excluded package, and the target. emergup runs it with
@@ -96,9 +104,10 @@
 # its own, [custom-steps.<name>], named with lowercase letters, digits and
 # dashes, but not as a built-in step nor "run":
 #
-#   after       the built-in step it follows: sync, update, live-rebuild,
-#               preserved-rebuild, config-files, depclean; the custom steps
-#               after the same step run in the order of their names;
+#   after       the built-in step it follows: sync, news, update,
+#               live-rebuild, preserved-rebuild, config-files, depclean;
+#               the custom steps after the same step run in the order of
+#               their names;
 #   command     the program and its arguments;
 #   title       what it does, for its heading; by default the heading names
 #               the program;
@@ -128,7 +137,7 @@
 # letters, digits and dashes:
 #
 #   at          where it runs: "before-" or "after-" followed by run, for the
-#               whole run, or by a step: sync, update, live-rebuild,
+#               whole run, or by a step: sync, news, update, live-rebuild,
 #               preserved-rebuild, config-files, depclean, or the name of a
 #               custom step;
 #   command     the program and its arguments;

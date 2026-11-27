@@ -22,6 +22,7 @@ func BuiltIn(cfg config.Config, options Options) []pipeline.Step {
 
 	return []pipeline.Step{
 		syncStep{config: built.Sync, force: options.ForceSync},
+		newsStep{config: built.News},
 		updateStep{config: built.Update},
 		liveStep{config: built.LiveRebuild},
 		preservedStep{config: built.PreservedRebuild},

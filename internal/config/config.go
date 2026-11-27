@@ -55,6 +55,7 @@ type Entries []string
 // Steps holds the built-in steps, in the order a run performs them.
 type Steps struct {
 	Sync             Sync        `toml:"sync"`
+	News             Step        `toml:"news"`
 	Update           Update      `toml:"update"`
 	LiveRebuild      LiveRebuild `toml:"live-rebuild"`
 	PreservedRebuild Step        `toml:"preserved-rebuild"`
@@ -248,6 +249,7 @@ func Default() Config {
 				MinInterval: defaultInterval,
 				AlwaysSync:  Entries{},
 			},
+			News: Step{Enabled: true, Command: []string{"eselect", "news", "read", "new"}},
 			Update: Update{
 				Step:    Step{Enabled: true, Command: []string{emerge}},
 				Options: []string{"--verbose", "--update", "--deep", "--newuse", "--verbose-conflicts"},

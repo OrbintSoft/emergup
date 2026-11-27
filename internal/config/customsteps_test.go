@@ -106,8 +106,8 @@ func TestLoadReportsWhereEachCustomStepProblemIs(t *testing.T) {
 	}{
 		{
 			"unknown step", "[custom-steps.s]\nafter = \"upgrade\"\ncommand = [\"x\"]\n",
-			2, 1, "custom-steps.s.after", `unknown step "upgrade", expected a built-in step: sync, update, ` +
-				"live-rebuild, preserved-rebuild, config-files, depclean",
+			2, 1, "custom-steps.s.after", `unknown step "upgrade", expected a built-in step: sync, news, ` +
+				"update, live-rebuild, preserved-rebuild, config-files, depclean",
 		},
 		{
 			"integer for a step", "[custom-steps.s]\nafter = 1\ncommand = [\"x\"]\n",
@@ -210,7 +210,7 @@ func TestLoadReportsAHookAtAStepThatNoFileAdds(t *testing.T) {
 	assert.Equal(t, 1, list[0].Column, "column")
 	assert.Equal(t, keyHookAt, list[0].Key)
 	assert.EqualError(t, list[0].Err, `unknown hook place "before-haskel", expected "before-" or "after-" `+
-		"followed by run, a built-in step (sync, update, live-rebuild, preserved-rebuild, config-files, depclean) "+
+		"followed by run, a built-in step (sync, news, update, live-rebuild, preserved-rebuild, config-files, depclean) "+
 		"or a custom step (haskell)")
 }
 

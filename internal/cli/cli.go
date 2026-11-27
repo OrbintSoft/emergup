@@ -269,13 +269,15 @@ func newStepsEnv(env Env, printer ui.Printer, program string, keep []string, log
 		Runner: elevation.Runner{
 			Next: env.NewRunner(log), Program: program, Keep: keep, LookupEnv: env.System.LookupEnv,
 		},
-		Printer:  printer,
-		Menu:     ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
-		Now:      env.now(),
-		Root:     env.Root,
-		LookPath: env.System.LookPath,
-		Hooks:    nil,
-		HookEnv:  nil,
+		Printer:   printer,
+		Menu:      ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
+		Now:       env.now(),
+		Root:      env.Root,
+		LookPath:  env.System.LookPath,
+		LookupEnv: env.System.LookupEnv,
+		CanWrite:  env.System.CanWrite,
+		Hooks:     nil,
+		HookEnv:   nil,
 	}
 }
 

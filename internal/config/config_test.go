@@ -21,6 +21,7 @@ func TestDefault(t *testing.T) {
 				MinInterval: Duration(24 * time.Hour),
 				AlwaysSync:  Entries{},
 			},
+			News: Step{Enabled: true, Command: []string{"eselect", "news", "read", "new"}},
 			Update: Update{
 				Step:    Step{Enabled: true, Command: []string{emerge}},
 				Options: []string{"--verbose", "--update", "--deep", "--newuse", "--verbose-conflicts"},

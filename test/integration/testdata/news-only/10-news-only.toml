@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Every step but the news disabled, so that a run only shows the news; the
+# tests sync the repository with emerge before it.
+
+[steps.sync]
+enabled = false
+
+[steps.update]
+enabled = false
+
+[steps.live-rebuild]
+enabled = false
+
+[steps.preserved-rebuild]
+enabled = false
+
+[steps.config-files]
+enabled = false
+
+[steps.depclean]
+enabled = false
