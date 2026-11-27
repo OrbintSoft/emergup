@@ -45,7 +45,8 @@ git push --force-with-lease
 - Keep the repository language **English** (code, comments, docs, commit messages).
 - Keep changes small and focused; one logical change per pull request.
 - Prefer [Conventional Commits](https://www.conventionalcommits.org/)
-  (`feat(news): …`, `fix(config): …`) for commit messages.
+  (`feat(news): …`, `fix(config): …`) for commit messages: they choose the
+  version of the next release, which every change of the Go code gets.
 - Run the quality gate before opening the pull request (`make check`); see
   [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the requirements and the
   other targets.

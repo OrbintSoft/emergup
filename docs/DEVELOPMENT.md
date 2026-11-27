@@ -194,12 +194,19 @@ release behind the latest; the `toolchain` line follows the latest release.
 
 ## Releases
 
-A release is cut by hand, when the maintainer decides: each one also bumps
-the ebuild in the orbintsoft overlay. Pushing a tag `vX.Y.Z` from `master`
-runs the [release workflow](../.github/workflows/release.yml): the CI workflow
-first, then `make dist` and a GitHub release with the archives and notes from
-the commits; a `0.x` version is a pre-release. The vendored modules let a
-distribution package build offline. The
+Every change of the Go code that reaches `master` is released. The
+[release workflow](../.github/workflows/release.yml) runs on each push to
+`master` that changes a `.go` file, and on demand for a change without one
+that should ship, such as a dependency update. It runs the CI workflow and
+the integration suite first, then tags the next version, which the commit
+messages since the last tag give as conventional commits do: `feat` bumps
+the minor version, anything else the patch. No commit is marked as
+breaking (`!`, `BREAKING CHANGE`) before 1.0.0, which that would cut. Then
+`make dist` and a GitHub release with the archives and notes from the
+commits; a `0.x` version is a pre-release. When the publishing fails after
+the tag, re-running its failed job publishes that tag. The vendored modules
+let a distribution package build offline. The ebuild in the orbintsoft
+overlay is bumped by hand, for the releases worth packaging. The
 [coverage workflow](../.github/workflows/coverage.yml) publishes the coverage
 of `master` for the README's badge on the orphan `badges` branch.
 
@@ -215,7 +222,7 @@ of `master` for the README's badge on the orphan `badges` branch.
   [CONTRIBUTING.md](../CONTRIBUTING.md) explains.
 - Write [Conventional Commits](https://www.conventionalcommits.org/): `feat`,
   `fix`, `docs`, `test`, `refactor`, `build` (Makefile, tooling, Go modules),
-  `ci` (workflows, bots).
+  `ci` (workflows, bots). They choose the next version: see Releases.
 - Keep a pull request to one logical change.
 
 ## Troubleshooting
