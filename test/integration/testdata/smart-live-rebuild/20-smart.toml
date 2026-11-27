@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The live packages rebuilt in the smart mode, which the stand-in for
+# smart-live-rebuild lists.
+
+[steps.live-rebuild]
+mode = "smart"
+smart-command = ["/usr/local/bin/smart-live-rebuild"]

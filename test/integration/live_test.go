@@ -103,5 +103,79 @@ func TestUPD4_TheSmartModeWithoutItsToolIsSkipped(t *testing.T) {
 	assert.Equal(t, 0, pretend.code, "the exit status, with the output:\n%s%s", pretend.stdout, pretend.stderr)
 	assert.Contains(t, pretend.stdout, "\n    smart-live-rebuild is not installed, so the step would be skipped\n")
 
-	assert.Contains(t, ctr.emergupRun("", "--yes"), "==> live-rebuild skipped: smart-live-rebuild is not installed\n")
+	skipped := ctr.emergupRun("", "--yes")
+	assert.Contains(t, skipped, "==> live-rebuild skipped: smart-live-rebuild is not installed\n")
+	assert.NotContains(t, skipped, "? [Y/s/a/?]", "skipped without a question")
+}
+
+// The stand-in for smart-live-rebuild, and the file that makes it list the
+// live package of the test repository, as if its upstream had changed.
+const (
+	smartLiveRebuild = "/usr/local/bin/smart-live-rebuild"
+	upstreamChanged  = "/var/tmp/emergup-test-upstream"
+	smartRan         = "/var/tmp/emergup-test-smart-ran"
+)
+
+// installSmartLiveRebuild installs the stand-in for smart-live-rebuild.
+func (c *container) installSmartLiveRebuild() {
+	c.t.Helper()
+
+	c.install("testdata/smart-live-rebuild-script/smart-live-rebuild.sh", smartLiveRebuild)
+	c.root("chmod", "0755", smartLiveRebuild)
+}
+
+// UPD-16: in the smart mode, smart-live-rebuild lists, as root, the live
+// packages whose upstream has changed; emergup shows them, asks, and has
+// emerge rebuild them, never from a binary package. With none, the step is
+// skipped without a question.
+func TestUPD16_TheSmartModeListsThePackagesThenAsks(t *testing.T) {
+	t.Parallel()
+
+	ctr := start(t)
+	withLive(ctr)
+	ctr.installSmartLiveRebuild()
+	ctr.dropIns("smart-live-rebuild")
+	builtLongAgo(ctr)
+
+	pretend := ctr.emergup("run", "--pretend")
+	assert.Equal(t, 0, pretend.code, "the exit status, with the output:\n%s%s", pretend.stdout, pretend.stderr)
+	assert.Contains(t, pretend.stdout, "    would list the live packages to rebuild, as root, with: "+smartLiveRebuild+
+		" --pretend\n    and if there are any run: emerge --oneshot --color=n --usepkg-exclude-live=y followed by them\n")
+	assert.False(t, ctr.exists(smartRan), "--pretend does not run smart-live-rebuild, which updates the clones")
+
+	nothing := ctr.emergupRun("")
+	assert.Contains(t, nothing, "==> live-rebuild skipped: smart-live-rebuild found nothing to rebuild\n")
+	assert.NotContains(t, nothing, "Rebuild them?", "nothing to rebuild, nothing to ask")
+	assert.True(t, ctr.exists(smartRan), "a run has smart-live-rebuild list the packages")
+
+	ctr.root("touch", upstreamChanged)
+
+	skipped := ctr.emergupRun("s\n")
+	assert.Contains(t, skipped, "\n    emergup-test/live:0\n==> Rebuild them? [Y/s/a/?] skip the rebuild\n"+
+		"==> live-rebuild skipped: you chose not to rebuild them\n")
+	assert.Equal(t, longAgo, built(ctr), "the package is not rebuilt")
+
+	rebuilt := ctr.emergupRun("y\n")
+	assert.Contains(t, rebuilt, "==> Rebuild them? [Y/s/a/?] rebuild them\n")
+	assert.Contains(t, rebuilt, "==> live-rebuild succeeded")
+	assert.NotEqual(t, longAgo, built(ctr), "the package is rebuilt")
+	assert.Contains(t, ctr.runLog(tester, rebuilt),
+		" sudo emerge --oneshot --color=n --usepkg-exclude-live=y emergup-test/live:0\n",
+		"emerge rebuilds the package listed, without checking the upstreams again")
+}
+
+// UPD-16: the interval mode, as every mode, lists the live packages it
+// would rebuild before it asks.
+func TestUPD16_TheIntervalModeListsThePackagesThenAsks(t *testing.T) {
+	t.Parallel()
+
+	ctr := start(t)
+	withLive(ctr)
+	builtLongAgo(ctr)
+
+	skipped := ctr.emergupRun("s\n")
+	assert.Regexp(t,
+		`\n    emergup-test/live-9999  built \d+h\d+m ago\n==> Rebuild them\? \[Y/s/a/\?\] skip the rebuild\n`, skipped)
+	assert.NotContains(t, skipped, "Run this step?", "the step asks itself, once it has listed the packages")
+	assert.Equal(t, longAgo, built(ctr), "the package is not rebuilt")
 }

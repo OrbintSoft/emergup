@@ -83,7 +83,7 @@ func (r *depcleanRun) env() pipeline.Env {
 func depclean(pretend bool, color string) runner.Command {
 	if pretend {
 		return runner.Command{
-			Args: []string{emerge, "--depclean", "--pretend", "--color=" + color}, Mode: runner.StreamCapture, Root: false,
+			Args: []string{emerge, "--depclean", pretendFlag, "--color=" + color}, Mode: runner.StreamCapture, Root: false,
 		}
 	}
 

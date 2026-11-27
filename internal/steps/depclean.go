@@ -68,7 +68,7 @@ func (d depcleanStep) work() pretended {
 func (d depcleanStep) command(env pipeline.Env, pretend bool) []string {
 	command := slices.Clone(d.config.Command)
 	if pretend {
-		command = append(command, "--pretend")
+		command = append(command, pretendOption)
 	}
 
 	return append(command, colorOption(env))

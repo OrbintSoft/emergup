@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/lock"
@@ -342,13 +343,12 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 func TestRunAsksBeforeEachStep(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, 's')
+	sess := newSession(t, 's')
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Equal(t, 1, strings.Count(stdout, question+"run the step\n"),
-		"the steps with nothing to do ask nothing")
-	assert.Contains(t, stdout, question+"skip the step\n==> live-rebuild skipped: you chose to skip it\n")
+	assert.Equal(t, 1, strings.Count(stdout, question), "the steps with nothing to do ask nothing")
+	assert.Contains(t, stdout, firstHeading+question+"skip the step\n==> sync skipped: you chose to skip it\n")
 	assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 }
 
@@ -359,7 +359,7 @@ func TestRunExitsWith130WhenItIsStopped(t *testing.T) {
 		name string
 		keys []rune
 	}{
-		{"the abort key", []rune{ui.KeyEnter, 'a'}},
+		{"the abort key", []rune{'a'}},
 		{"Ctrl-C", []rune{ui.KeyInterrupt}},
 		{"the end of the input", nil},
 	}
@@ -670,11 +670,11 @@ func TestRunForceSyncSyncsEveryRepository(t *testing.T) {
 func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 	t.Parallel()
 
-	sess := newSession(t, ui.KeyEnter, ui.KeyEnter, 'a')
+	sess := newSession(t, ui.KeyEnter, ui.KeyEnter)
 	sess.runner.outputs[kindPretend] = "Total: 2 packages (2 upgrades)\n"
 
 	code, stdout, _ := sess.run(t, commandRun)
-	assert.Equal(t, 130, code, "stopped at the next step")
+	assert.Equal(t, 0, code)
 	assert.Contains(t, stdout, "==> [2/6] update: update @world\n"+
 		"==> Update these packages? [Y/s/a/?] update them\n"+
 		"==> update succeeded in <1s\n", "one question, after the pretend")
@@ -685,5 +685,7 @@ func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 		Mode: runner.Stream,
 		Root: true,
 	}
-	assert.Equal(t, []runner.Command{listRepositories, updatePretend, elevated}, sess.runner.Commands())
+	commands := sess.runner.Commands()
+	require.GreaterOrEqual(t, len(commands), 3)
+	assert.Equal(t, []runner.Command{listRepositories, updatePretend, elevated}, commands[:3])
 }

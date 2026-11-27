@@ -24,6 +24,7 @@ import (
 // The question of the update, as it is written, and the names the tests
 // use.
 const (
+	pretendFlag    = "--pretend"
 	updateQuestion = "==> Update these packages? [Y/s/a/?] "
 	updateName     = "update"
 	kernelSources  = "sys-kernel/gentoo-sources"
@@ -125,7 +126,7 @@ func update(pretend bool, extra ...string) runner.Command {
 	command := runner.Command{Args: nil, Mode: runner.Stream, Root: true}
 
 	if pretend {
-		args = append(args, "--pretend")
+		args = append(args, pretendFlag)
 		command.Mode, command.Root = runner.StreamCapture, false
 	}
 
@@ -303,7 +304,7 @@ func TestUpdatePretendShowsBothCommands(t *testing.T) {
 // checkHeldBack returns the command that checks the excluded atoms for an
 // update.
 func checkHeldBack(atoms ...string) runner.Command {
-	args := append([]string{emerge, "--pretend", "--update", "--nodeps", "--color=n"}, atoms...)
+	args := append([]string{emerge, pretendFlag, "--update", "--nodeps", "--color=n"}, atoms...)
 
 	return runner.Command{Args: args, Mode: runner.Capture, Root: false}
 }
