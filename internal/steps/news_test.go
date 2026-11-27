@@ -54,6 +54,12 @@ type newsRun struct {
 	out      bytes.Buffer
 	// checked are the paths whose writability the step asked about.
 	checked []string
+	// elevated runs the commands of `emergup news` as root; noElevation
+	// is why there is none, and elevations counts the times it was
+	// asked for.
+	elevated    runnertest.Fake
+	noElevation error
+	elevations  int
 }
 
 func newNewsRun(t *testing.T, keys ...rune) *newsRun {
@@ -129,10 +135,10 @@ func readNewsArgs(program string, options ...string) []string {
 	return append(append([]string{program, newsName, "read"}, options...), "new")
 }
 
-// readNews returns the command that shows the unread items and marks them
-// read, elevated when root is true.
-func readNews(root bool) runner.Command {
-	return runner.Command{Args: readNewsArgs(eselect), Mode: runner.Stream, Root: root}
+// readNewsAsRoot returns the command that shows the unread items and marks
+// them read, elevated.
+func readNewsAsRoot() runner.Command {
+	return runner.Command{Args: readNewsArgs(eselect), Mode: runner.Stream, Root: true}
 }
 
 func TestNewsListsAsksReadsThenAsksWhetherToGoOn(t *testing.T) {
@@ -143,7 +149,7 @@ func TestNewsListsAsksReadsThenAsksWhetherToGoOn(t *testing.T) {
 	outcome := run.step(t).Run(t.Context(), run.pipelineEnv())
 	assert.Equal(t, pipeline.Success(), outcome)
 	assert.Equal(t, twoNewsRows+newsRead+wentOn, run.out.String())
-	assert.Equal(t, []runner.Command{listRepositories, readNews(true)}, run.runner.Commands())
+	assert.Equal(t, []runner.Command{listRepositories, readNewsAsRoot()}, run.runner.Commands())
 	assert.Equal(t, []string{newsRecord}, run.checked)
 }
 
@@ -187,13 +193,13 @@ func TestNewsStopsTheRunAtEitherQuestion(t *testing.T) {
 			"abort after reading",
 			[]rune{ui.KeyEnter, 'a'},
 			newsRead + goOnQuestion + "abort the run\n",
-			[]runner.Command{listRepositories, readNews(true)},
+			[]runner.Command{listRepositories, readNewsAsRoot()},
 		},
 		{
 			"the end of the input after reading",
 			[]rune{ui.KeyEnter},
 			newsRead + goOnQuestion + "\n",
-			[]runner.Command{listRepositories, readNews(true)},
+			[]runner.Command{listRepositories, readNewsAsRoot()},
 		},
 	}
 

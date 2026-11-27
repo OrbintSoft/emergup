@@ -18,6 +18,8 @@ const (
 	gentooUnread  = "var/lib/gentoo/news/news-gentoo.unread"
 	overlayUnread = "var/lib/gentoo/news/news-overlay.unread"
 	overlayName   = "overlay"
+	gentooRead    = "var/lib/gentoo/news/news-gentoo.read"
+	fooPosted     = "2026-09-01"
 )
 
 // newsRepositories are the gentoo repository and an overlay.
@@ -43,19 +45,19 @@ func TestUnreadNewsListsTheUnreadItemsOfEveryRepositoryByName(t *testing.T) {
 	t.Parallel()
 
 	root := fstest.MapFS{
-		gentooUnread:                           lines("2026-10-02-bar\n2026-09-01-foo\n"),
-		overlayUnread:                          lines("2026-09-15-baz\n"),
-		"var/lib/gentoo/news/news-gentoo.read": lines("2026-01-01-old\n"),
+		gentooUnread:  lines("2026-10-02-bar\n2026-09-01-foo\n"),
+		overlayUnread: lines("2026-09-15-baz\n"),
+		gentooRead:    lines("2026-01-01-old\n"),
 		gentooNews + "2026-10-02-bar/2026-10-02-bar.en.txt":  newsFile("Bar changes", "2026-10-02"),
-		gentooNews + "2026-09-01-foo/2026-09-01-foo.en.txt":  newsFile("Foo moves", "2026-09-01"),
+		gentooNews + "2026-09-01-foo/2026-09-01-foo.en.txt":  newsFile("Foo moves", fooPosted),
 		gentooNews + "2026-01-01-old/2026-01-01-old.en.txt":  newsFile("Old news", "2026-01-01"),
 		overlayNews + "2026-09-15-baz/2026-09-15-baz.en.txt": newsFile("Baz: a new slot", "2026-09-16"),
 	}
 
-	items, err := unreadNews(root, newsRepositories(), []string{"en"})
+	items, err := newsItems(root, newsRepositories(), []string{"en"}, false)
 	require.NoError(t, err)
 	assert.Equal(t, []newsItem{
-		{repository: mainRepository, name: "2026-09-01-foo", posted: "2026-09-01", title: "Foo moves"},
+		{repository: mainRepository, name: "2026-09-01-foo", posted: fooPosted, title: "Foo moves"},
 		{repository: overlayName, name: "2026-09-15-baz", posted: "2026-09-16", title: "Baz: a new slot"},
 		{repository: mainRepository, name: "2026-10-02-bar", posted: "2026-10-02", title: "Bar changes"},
 	}, items)
@@ -77,12 +79,12 @@ func TestUnreadNewsReadsAnItemInTheFirstLanguageItHas(t *testing.T) {
 
 	root := fstest.MapFS{
 		gentooUnread: lines("2026-09-01-foo 2026-09-02-bar\n"),
-		gentooNews + "2026-09-01-foo/2026-09-01-foo.en.txt": newsFile("Foo moves", "2026-09-01"),
-		gentooNews + "2026-09-01-foo/2026-09-01-foo.it.txt": newsFile("Foo si sposta", "2026-09-01"),
+		gentooNews + "2026-09-01-foo/2026-09-01-foo.en.txt": newsFile("Foo moves", fooPosted),
+		gentooNews + "2026-09-01-foo/2026-09-01-foo.it.txt": newsFile("Foo si sposta", fooPosted),
 		gentooNews + "2026-09-02-bar/2026-09-02-bar.en.txt": newsFile("Bar changes", "2026-09-02"),
 	}
 
-	items, err := unreadNews(root, newsRepositories(), []string{"it_IT", "it", "en"})
+	items, err := newsItems(root, newsRepositories(), []string{"it_IT", "it", "en"}, false)
 	require.NoError(t, err)
 	require.Len(t, items, 2)
 	assert.Equal(t, "Foo si sposta", items[0].title)
@@ -95,9 +97,9 @@ func TestUnreadNewsFindsNoneWithoutUnreadItems(t *testing.T) {
 	for name, root := range map[string]fstest.MapFS{
 		"no news at all":  {},
 		"empty lists":     {gentooUnread: lines(""), overlayUnread: lines("\n")},
-		"only read items": {"var/lib/gentoo/news/news-gentoo.read": lines("2026-09-01-foo\n")},
+		"only read items": {gentooRead: lines("2026-09-01-foo\n")},
 	} {
-		items, err := unreadNews(root, newsRepositories(), []string{"en"})
+		items, err := newsItems(root, newsRepositories(), []string{"en"}, false)
 		require.NoError(t, err, name)
 		assert.Empty(t, items, name)
 	}
@@ -125,11 +127,11 @@ func TestUnreadNewsShowsTheItemsItCannotRead(t *testing.T) {
 		{name: overlayName, location: "relative/overlay", syncType: "", autoSync: true},
 	}
 
-	items, err := unreadNews(root, repositories, []string{"en"})
+	items, err := newsItems(root, repositories, []string{"en"}, false)
 	require.NoError(t, err)
 	assert.Equal(t, []newsItem{
 		{repository: mainRepository, name: "../secret", posted: "(no date)", title: "(../secret - removed?)"},
-		{repository: mainRepository, name: "2026-09-01-gone", posted: "2026-09-01", title: "(2026-09-01-gone - removed?)"},
+		{repository: mainRepository, name: "2026-09-01-gone", posted: fooPosted, title: "(2026-09-01-gone - removed?)"},
 		{
 			repository: mainRepository, name: "2026-09-02-untitled", posted: "2026-09-02",
 			title: "(2026-09-02-untitled - no title)",
@@ -153,7 +155,7 @@ func TestUnreadNewsFailsWhenAListCannotBeRead(t *testing.T) {
 
 	root := fstest.MapFS{gentooUnread + "/not-a-file": lines("")}
 
-	_, err := unreadNews(root, newsRepositories(), []string{"en"})
+	_, err := newsItems(root, newsRepositories(), []string{"en"}, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), gentooUnread)
 }
@@ -180,4 +182,37 @@ func TestNewsLanguages(t *testing.T) {
 	for _, test := range tests {
 		assert.Equal(t, test.want, newsLanguages(test.lcAll, test.lang), "LC_ALL=%q LANG=%q", test.lcAll, test.lang)
 	}
+}
+
+func TestNewsItemsListTheReadOnesTooWhenAsked(t *testing.T) {
+	t.Parallel()
+
+	root := fstest.MapFS{
+		gentooUnread:                            lines("2026-09-01-foo\n"),
+		gentooRead:                              lines("2026-08-01-old\n"),
+		"var/lib/gentoo/news/news-overlay.read": lines("2026-10-01-later\n"),
+		gentooNews + "2026-09-01-foo/2026-09-01-foo.en.txt":      newsFile("Foo moves", fooPosted),
+		gentooNews + "2026-08-01-old/2026-08-01-old.en.txt":      newsFile("Old news", "2026-08-01"),
+		overlayNews + "2026-10-01-later/2026-10-01-later.en.txt": newsFile("Later news", "2026-10-01"),
+	}
+
+	unread, err := newsItems(root, newsRepositories(), []string{"en"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, []newsItem{
+		{repository: mainRepository, name: "2026-09-01-foo", posted: fooPosted, title: "Foo moves", read: false},
+	}, unread, "only the unread ones")
+
+	all, err := newsItems(root, newsRepositories(), []string{"en"}, true)
+	require.NoError(t, err)
+
+	rows := make([]string, 0, len(all))
+	for _, item := range all {
+		rows = append(rows, item.row())
+	}
+
+	assert.Equal(t, []string{
+		"2026-08-01  Old news (read)",
+		"2026-09-01  Foo moves",
+		"2026-10-01  [overlay] Later news (read)",
+	}, rows, "every item by name, those read marked")
 }

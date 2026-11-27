@@ -58,7 +58,7 @@ func (newsStep) ConfirmsItself() bool { return true }
 // Pretend implements pipeline.Step. Listing the items only reads files,
 // so the pretend lists them, and says what reading them would run.
 func (n newsStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, error) {
-	items, err := n.unread(ctx, env)
+	items, err := listNews(ctx, env, false)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (n newsStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, erro
 	}
 
 	run := "run: "
-	if n.needsRoot(env) {
+	if newsNeedsRoot(env) {
 		run = "run as root: "
 	}
 
@@ -83,7 +83,7 @@ func (n newsStep) Pretend(ctx context.Context, env pipeline.Env) ([]string, erro
 // Run implements pipeline.Step. Nobody reads the items under --yes: they
 // are listed, so that the log has them, and left unread.
 func (n newsStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
-	items, err := n.unread(ctx, env)
+	items, err := listNews(ctx, env, false)
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}
@@ -92,9 +92,7 @@ func (n newsStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 		return pipeline.Skip(noUnreadNews)
 	}
 
-	for _, item := range items {
-		env.Printer.Row(ui.KindPlain, item.row())
-	}
+	showNews(env, items)
 
 	if env.Menu.Yes {
 		return pipeline.Skip(newsUnderYes)
@@ -107,23 +105,23 @@ func (n newsStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 		return outcome
 	}
 
-	command := runner.Command{Args: n.config.Command, Mode: runner.Stream, Root: n.needsRoot(env), Env: nil}
-	if outcome := runCommand(ctx, env, command, filepath.Base(n.config.Command[0])); outcome.Status != pipeline.Succeeded {
+	if outcome := readNews(ctx, env, n.config, newsNeedsRoot(env)); outcome.Status != pipeline.Succeeded {
 		return outcome
 	}
 
 	return goOnAfterReading(ctx, env)
 }
 
-// needsRoot reports whether reading the items needs root: marking them
+// newsNeedsRoot reports whether reading the items needs root: marking them
 // read writes Portage's record of them, which root and the portage group
 // can write.
-func (newsStep) needsRoot(env pipeline.Env) bool {
+func newsNeedsRoot(env pipeline.Env) bool {
 	return !env.CanWrite("/" + newsState)
 }
 
-// unread returns the unread items, in the language of the invoking user.
-func (newsStep) unread(ctx context.Context, env pipeline.Env) ([]newsItem, error) {
+// listNews returns the unread news items, and with withRead the read ones
+// too, in the language of the invoking user.
+func listNews(ctx context.Context, env pipeline.Env, withRead bool) ([]newsItem, error) {
 	repositories, err := listRepositories(ctx, env.Runner)
 	if err != nil {
 		return nil, err
@@ -132,7 +130,22 @@ func (newsStep) unread(ctx context.Context, env pipeline.Env) ([]newsItem, error
 	lcAll, _ := env.LookupEnv("LC_ALL")
 	lang, _ := env.LookupEnv("LANG")
 
-	return unreadNews(env.Root, repositories, newsLanguages(lcAll, lang))
+	return newsItems(env.Root, repositories, newsLanguages(lcAll, lang), withRead)
+}
+
+// showNews writes a row for each of items.
+func showNews(env pipeline.Env, items []newsItem) {
+	for _, item := range items {
+		env.Printer.Row(ui.KindPlain, item.row())
+	}
+}
+
+// readNews runs the command of step, which shows the unread items and
+// marks them read, as root when root is true, and returns how it ended.
+func readNews(ctx context.Context, env pipeline.Env, step config.Step, root bool) pipeline.Outcome {
+	command := runner.Command{Args: step.Command, Mode: runner.Stream, Root: root, Env: nil}
+
+	return runCommand(ctx, env, command, filepath.Base(step.Command[0]))
 }
 
 // goOnAfterReading asks whether to go on with the run, once the items are
@@ -154,7 +167,7 @@ func goOnAfterReading(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	return pipeline.Success()
 }
 
-// newsItem is an unread news item, as a row shows it.
+// newsItem is a news item, as a row shows it.
 type newsItem struct {
 	repository string
 	// name is the item's directory, which starts with the date it was
@@ -163,15 +176,21 @@ type newsItem struct {
 	// posted is the date the item gives, or what stands for it.
 	posted string
 	title  string
+	// read is whether Portage lists it as read.
+	read bool
 }
 
-// row returns the item's line in the list of unread news items, as eselect
-// writes it: the date, then the title, after the repository's name when
-// it is not gentoo.
+// row returns the item's line in a list of news items, as eselect writes
+// it: the date, then the title, after the repository's name when it is not
+// gentoo, and followed by (read) when the item is read.
 func (i newsItem) row() string {
 	title := i.title
 	if i.repository != mainRepository {
 		title = "[" + i.repository + "] " + title
+	}
+
+	if i.read {
+		title += " (read)"
 	}
 
 	return fmt.Sprintf("%-10s  %s", i.posted, title)
@@ -209,27 +228,37 @@ func isLocaleLetter(r rune) bool {
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_'
 }
 
-// unreadNews returns the unread news items of the repositories, read from
-// root: the names Portage lists for each, and the title and date of each
-// item in the first of languages it is written in. They are sorted by
-// name, so by the date it starts with, as eselect lists them, and items
-// of the same name in the order of the repositories. A repository without
-// a list has no unread item.
-func unreadNews(root fs.FS, repositories []repository, languages []string) ([]newsItem, error) {
+// newsItems returns the news items of the repositories, read from root:
+// those Portage lists as unread for each, and with withRead those it lists
+// as read too, with the title and date of each item in the first of
+// languages it is written in. They are sorted by name, so by the date it
+// starts with, as eselect lists them; items of the same name keep the
+// order of the lists, then of the repositories. A repository without a
+// list has no item in it.
+func newsItems(root fs.FS, repositories []repository, languages []string, withRead bool) ([]newsItem, error) {
+	lists := []string{"unread"}
+	if withRead {
+		lists = append(lists, "read")
+	}
+
 	var items []newsItem
 
-	for _, repo := range repositories {
-		data, err := fs.ReadFile(root, path.Join(newsState, "news-"+repo.name+".unread"))
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
+	for _, list := range lists {
+		for _, repo := range repositories {
+			data, err := fs.ReadFile(root, path.Join(newsState, "news-"+repo.name+"."+list))
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 
-		if err != nil {
-			return nil, fmt.Errorf("could not read the unread news items: %w", err)
-		}
+			if err != nil {
+				return nil, fmt.Errorf("could not read the news items: %w", err)
+			}
 
-		for name := range strings.FieldsSeq(string(data)) {
-			items = append(items, readNewsItem(root, repo, name, languages))
+			for name := range strings.FieldsSeq(string(data)) {
+				item := readNewsItem(root, repo, name, languages)
+				item.read = list == "read"
+				items = append(items, item)
+			}
 		}
 	}
 
@@ -243,7 +272,10 @@ func unreadNews(root fs.FS, repositories []repository, languages []string) ([]ne
 // item without a file is said to be removed, and one in a format other
 // than 1 or 2 is named with its format.
 func readNewsItem(root fs.FS, repo repository, name string, languages []string) newsItem {
-	item := newsItem{repository: repo.name, name: name, posted: postedFromName(name), title: "(" + name + " - removed?)"}
+	item := newsItem{
+		repository: repo.name, name: name, posted: postedFromName(name), title: "(" + name + " - removed?)",
+		read: false,
+	}
 
 	header, found := newsHeader(root, repo, name, languages)
 	if !found {
