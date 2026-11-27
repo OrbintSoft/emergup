@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -167,13 +168,16 @@ func pretend(ctx context.Context, env Env, cfg config.Config, printer ui.Printer
 		printer.Notice(runningAsRoot)
 	}
 
-	prefix, err := elevation.Resolve(cfg.Elevation.Method, env.System)
+	program, err := elevation.Resolve(cfg.Elevation.Method, env.System)
 	if err != nil {
 		printer.Notice(err.Error() + "; a run would stop before its first step")
 	}
 
-	stepsEnv := newStepsEnv(env, printer, prefix, nil, false)
+	// --pretend runs nothing as root, so there is nothing to keep.
+	stepsEnv := newStepsEnv(env, printer, program, nil, nil, false)
 	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
+
+	sayWhatDoasMustKeep(printer, program, cfg.Elevation.KeepEnv, stepsEnv.Hooks)
 
 	return exitStatus(pipeline.Pretend(ctx, stepsEnv, stepsOf(cfg, options)))
 }
@@ -216,18 +220,39 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 
 	// Without a way to run the commands that need root, a run stops before
 	// its first step rather than halfway through.
-	prefix, err := elevation.Resolve(cfg.Elevation.Method, env.System)
+	program, err := elevation.Resolve(cfg.Elevation.Method, env.System)
 	if err != nil {
 		printer.Failure(err.Error())
 
 		return exitProblem
 	}
 
-	stepsEnv := newStepsEnv(env, printer, prefix, run.Log, options.yes)
+	stepsEnv := newStepsEnv(env, printer, program, cfg.Elevation.KeepEnv, run.Log, options.yes)
 	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
 	stepsEnv.HookEnv = pipeline.RunDirEnv(run.Dir, run.LogPath)
 
+	sayWhatDoasMustKeep(printer, program, cfg.Elevation.KeepEnv, stepsEnv.Hooks)
+
 	return exitStatus(pipeline.Run(ctx, stepsEnv, stepsOf(cfg, options)).Result)
+}
+
+// sayWhatDoasMustKeep says, when program is doas, which variables doas.conf
+// must keep for the commands run as root: those of keep and, when one of
+// hooks runs as root, its own; doas has no option to keep them itself.
+func sayWhatDoasMustKeep(printer ui.Printer, program string, keep []string, hooks []pipeline.Hook) {
+	if program != config.ElevationDoas.String() {
+		return
+	}
+
+	names := slices.Clone(keep)
+	if slices.ContainsFunc(hooks, func(hook pipeline.Hook) bool { return hook.Root || hook.RemedyRoot }) {
+		names = append(names, pipeline.HookVariables()...)
+	}
+
+	if len(names) > 0 {
+		printer.Notice("doas keeps only the variables doas.conf keeps: give its rule setenv { " +
+			strings.Join(names, " ") + " } for the commands run as root to get them")
+	}
 }
 
 // stepsOf returns the steps of the run, the built-in ones and the custom
@@ -237,11 +262,13 @@ func stepsOf(cfg config.Config, options runOptions) []pipeline.Step {
 }
 
 // newStepsEnv returns what the steps work with: commands elevated with
-// prefix and copied to log, nil for none, and printer for the lines and the
-// questions; the caller adds the hooks.
-func newStepsEnv(env Env, printer ui.Printer, prefix []string, log io.Writer, yes bool) pipeline.Env {
+// program, keeping the variables keep, and copied to log, nil for none, and
+// printer for the lines and the questions; the caller adds the hooks.
+func newStepsEnv(env Env, printer ui.Printer, program string, keep []string, log io.Writer, yes bool) pipeline.Env {
 	return pipeline.Env{
-		Runner:   elevation.Runner{Next: env.NewRunner(log), Prefix: prefix},
+		Runner: elevation.Runner{
+			Next: env.NewRunner(log), Program: program, Keep: keep, LookupEnv: env.System.LookupEnv,
+		},
 		Printer:  printer,
 		Menu:     ui.Menu{Printer: printer, Keyboard: env.Keyboard, Yes: yes},
 		Now:      env.now(),

@@ -93,6 +93,7 @@ func valueRules() []valueRule {
 		{key: "steps.update.target", check: func(cfg *Config) error { return checkTarget(cfg.Steps.Update.Target) }},
 		{key: "steps.update.exclude", check: func(cfg *Config) error { return checkEntries(cfg.Steps.Update.Exclude) }},
 		{key: "steps.sync.always-sync", check: func(cfg *Config) error { return checkEntries(cfg.Steps.Sync.AlwaysSync) }},
+		{key: "elevation.keep-env", check: func(cfg *Config) error { return checkVariables(cfg.Elevation.KeepEnv) }},
 		{key: "runs.keep", check: func(cfg *Config) error { return checkKeep(cfg.Runs.Keep) }},
 	}
 }
@@ -442,6 +443,38 @@ func checkEntries(entries Entries) error {
 	}
 
 	return nil
+}
+
+// checkVariables rejects, besides what checkEntries rejects, an entry that
+// names no environment variable, removed or not: sudo takes the names as a
+// list separated by commas.
+func checkVariables(entries Entries) error {
+	if err := checkEntries(entries); err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		name := strings.TrimPrefix(entry, "-")
+		if entry != "-*" && !isVariableName(name) {
+			return message(fmt.Sprintf("entry %q is not a variable name: use letters, digits and underscores, "+
+				"not starting with a digit", entry))
+		}
+	}
+
+	return nil
+}
+
+// isVariableName reports whether name can name an environment variable as
+// a shell writes one: letters, digits and underscores, not starting with a
+// digit.
+func isVariableName(name string) bool {
+	if name == "" || (name[0] >= '0' && name[0] <= '9') {
+		return false
+	}
+
+	return !strings.ContainsFunc(name, func(char rune) bool {
+		return char != '_' && (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9')
+	})
 }
 
 // The tables of tables: those of the hooks and of the custom steps.

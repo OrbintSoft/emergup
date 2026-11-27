@@ -28,6 +28,9 @@ type Runs struct {
 // Elevation says how a command that needs root is run.
 type Elevation struct {
 	Method ElevationMethod `toml:"method"`
+	// KeepEnv names the variables of the invoking user's environment that
+	// the commands run as root keep, which the elevation would reset.
+	KeepEnv Entries `toml:"keep-env"`
 }
 
 // ElevationMethod names the program that runs a command as root; the
@@ -235,7 +238,7 @@ const defaultKeep = 10
 // that every terminal's theme sets, so they suit light and dark themes.
 func Default() Config {
 	return Config{
-		Elevation: Elevation{Method: ElevationAuto},
+		Elevation: Elevation{Method: ElevationAuto, KeepEnv: Entries{}},
 		Steps: Steps{
 			Sync: Sync{
 				Step:        Step{Enabled: true, Command: []string{emerge, "--sync"}},

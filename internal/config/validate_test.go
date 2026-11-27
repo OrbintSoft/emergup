@@ -18,6 +18,7 @@ const brokenFile = "/etc/emergup/config.d/10-broken.toml"
 // Values that several cases share.
 const (
 	keyExclude     = "steps.update.exclude"
+	keyKeepEnv     = "elevation.keep-env"
 	keyMinInterval = "steps.sync.min-interval"
 	keyMode        = "steps.live-rebuild.mode"
 	keyHeading     = "colors.heading"
@@ -171,6 +172,23 @@ func TestLoadReportsWhereEachProblemIs(t *testing.T) {
 		{
 			"lone minus", "[steps.sync]\nalways-sync = [\"-\"]\n",
 			2, 1, "steps.sync.always-sync", `"-" removes nothing`,
+		},
+		{
+			"two variables as one", "[elevation]\nkeep-env = [\"EDITOR,VISUAL\"]\n",
+			2, 1, keyKeepEnv, `entry "EDITOR,VISUAL" is not a variable name: use letters, digits and underscores, ` +
+				"not starting with a digit",
+		},
+		{
+			"variable starting with a digit", "[elevation]\nkeep-env = [\"1X\"]\n",
+			2, 1, keyKeepEnv, `entry "1X" is not a variable name`,
+		},
+		{
+			"removal of no variable", "[elevation]\nkeep-env = [\"-EDI-TOR\"]\n",
+			2, 1, keyKeepEnv, `entry "-EDI-TOR" is not a variable name`,
+		},
+		{
+			"variable with a space", "[elevation]\nkeep-env = [\"A B\"]\n",
+			2, 1, keyKeepEnv, "write each one as its own entry",
 		},
 	}
 	for _, tt := range tests {

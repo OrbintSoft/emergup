@@ -32,6 +32,7 @@ func TestExampleConfigurationIsValid(t *testing.T) {
 		Entries{"x11-drivers/nvidia-drivers", "sys-kernel/gentoo-sources", "sys-kernel/linux-headers"},
 		cfg.Steps.Update.Exclude)
 	assert.Equal(t, Entries{"orbintsoft"}, cfg.Steps.Sync.AlwaysSync)
+	assert.Equal(t, Entries{"EDITOR", "VISUAL"}, cfg.Elevation.KeepEnv)
 }
 
 // commentedSetting is a setting the example main file shows commented out:

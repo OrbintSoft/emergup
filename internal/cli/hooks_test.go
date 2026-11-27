@@ -76,7 +76,10 @@ func TestRunElevatesAHookConfiguredToBe(t *testing.T) {
 
 	commands := sess.runner.Commands()
 	require.NotEmpty(t, commands)
-	assert.Equal(t, []string{sudo, "/usr/local/bin/snapshot"}, commands[0].Args, "through the elevation method")
+	assert.Equal(t, []string{
+		sudo, "--preserve-env=EMERGUP_RUN_DIR,EMERGUP_LOG,EMERGUP_HOOK,EMERGUP_WHEN,EMERGUP_STEP",
+		"/usr/local/bin/snapshot",
+	}, commands[0].Args, "through the elevation method, keeping the variables of the hook")
 	assert.True(t, commands[0].Root)
 }
 

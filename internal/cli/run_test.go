@@ -102,10 +102,12 @@ var (
 	errPermission = errors.New("permission denied")
 )
 
-// system is a fake elevation.System with programs installed.
+// system is a fake elevation.System with programs installed and the
+// variables of env set.
 type system struct {
 	programs []string
 	euid     int
+	env      map[string]string
 }
 
 func (s system) LookPath(file string) (string, error) {
@@ -117,6 +119,12 @@ func (s system) LookPath(file string) (string, error) {
 }
 
 func (s system) Geteuid() int { return s.euid }
+
+func (s system) LookupEnv(name string) (string, bool) {
+	value, isSet := s.env[name]
+
+	return value, isSet
+}
 
 // keys answers the questions with its keys, then with the end of the input.
 // When silent, a question fails the test.
@@ -262,7 +270,7 @@ type session struct {
 func newSession(t *testing.T, keys ...rune) *session {
 	t.Helper()
 
-	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{sudo}, euid: userID}}
+	sess := &session{root: fstest.MapFS{}, system: system{programs: []string{sudo}, euid: userID, env: nil}}
 	sess.keys.t = t
 	sess.keys.keys = keys
 	sess.runner.outputs = map[string]string{

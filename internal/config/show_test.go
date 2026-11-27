@@ -118,7 +118,7 @@ func TestWriteTOMLWritesTheDefaults(t *testing.T) {
 
 	out := shown(t, Default(), Origins{})
 
-	assert.Contains(t, out, "[elevation]\nmethod = \"auto\"  # default\n\n[steps.sync]\n")
+	assert.Contains(t, out, "[elevation]\nmethod = \"auto\"  # default\nkeep-env = []  # default\n\n[steps.sync]\n")
 	assert.Contains(t, out, "[steps.sync]\nenabled = true  # default\ncommand = [\"emerge\", \"--sync\"]  # default\n"+
 		"min-interval = \"24h\"  # default\nalways-sync = []  # default\n")
 	assert.Contains(t, out, "[steps.live-rebuild]\nenabled = true  # default\n")

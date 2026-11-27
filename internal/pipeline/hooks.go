@@ -65,6 +65,12 @@ type Hook struct {
 	RemedyInteractiveOnly bool
 }
 
+// HookVariables returns the names of the variables a hook can get from the
+// run, those of HOOK-4.
+func HookVariables() []string {
+	return []string{envHook, envWhen, envStep, envRunDir, envLog, envStepStatus, envResult}
+}
+
 // RunDirEnv returns the variables, for Env.HookEnv, that give every hook
 // the run directory dir and the log of the run.
 func RunDirEnv(dir, log string) []string {

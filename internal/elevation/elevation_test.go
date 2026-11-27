@@ -54,6 +54,10 @@ func (f fakeSystem) Geteuid() int {
 	return f.euid
 }
 
+func (fakeSystem) LookupEnv(name string) (string, bool) {
+	return environment(name)
+}
+
 func TestResolve(t *testing.T) {
 	t.Parallel()
 
@@ -61,26 +65,26 @@ func TestResolve(t *testing.T) {
 		name      string
 		method    config.ElevationMethod
 		system    fakeSystem
-		want      []string
+		want      string
 		wantError string
 	}{
-		{"root needs nothing", config.ElevationAuto, fakeSystem{root, nil}, nil, ""},
-		{"root needs nothing, even with a method set", config.ElevationDoas, fakeSystem{root, nil}, nil, ""},
-		{"auto prefers sudo", config.ElevationAuto, fakeSystem{user, []string{run0, doas, sudo}}, []string{sudo}, ""},
-		{"auto then doas", config.ElevationAuto, fakeSystem{user, []string{run0, doas}}, []string{doas}, ""},
-		{"auto then run0", config.ElevationAuto, fakeSystem{user, []string{run0}}, []string{run0}, ""},
+		{"root needs nothing", config.ElevationAuto, fakeSystem{root, nil}, "", ""},
+		{"root needs nothing, even with a method set", config.ElevationDoas, fakeSystem{root, nil}, "", ""},
+		{"auto prefers sudo", config.ElevationAuto, fakeSystem{user, []string{run0, doas, sudo}}, sudo, ""},
+		{"auto then doas", config.ElevationAuto, fakeSystem{user, []string{run0, doas}}, doas, ""},
+		{"auto then run0", config.ElevationAuto, fakeSystem{user, []string{run0}}, run0, ""},
 		{
 			"auto with no tool", config.ElevationAuto,
 			fakeSystem{user, nil},
-			nil,
+			"",
 			"no elevation tool found: install sudo, doas or run0, or run emergup as root",
 		},
-		{"a method set", config.ElevationDoas, fakeSystem{user, []string{sudo, doas}}, []string{doas}, ""},
-		{"run0 set", config.ElevationRun0, fakeSystem{user, []string{run0}}, []string{run0}, ""},
+		{"a method set", config.ElevationDoas, fakeSystem{user, []string{sudo, doas}}, doas, ""},
+		{"run0 set", config.ElevationRun0, fakeSystem{user, []string{run0}}, run0, ""},
 		{
 			"a method set but missing", config.ElevationDoas,
 			fakeSystem{user, []string{sudo}},
-			nil,
+			"",
 			"doas is not installed",
 		},
 	}
@@ -88,7 +92,7 @@ func TestResolve(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			prefix, err := elevation.Resolve(tt.method, tt.system)
+			program, err := elevation.Resolve(tt.method, tt.system)
 			if tt.wantError != "" {
 				require.ErrorContains(t, err, tt.wantError)
 
@@ -96,7 +100,7 @@ func TestResolve(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, prefix)
+			assert.Equal(t, tt.want, program)
 		})
 	}
 }
@@ -112,7 +116,7 @@ func TestRunnerElevatesOnlyTheCommandsThatNeedRoot(t *testing.T) {
 
 	var fake runnertest.Fake
 
-	elevated := elevation.Runner{Next: &fake, Prefix: []string{sudo}}
+	elevated := elevation.Runner{Next: &fake, Program: sudo, Keep: nil, LookupEnv: nil}
 
 	update := runner.Command{Args: worldUpdate(), Mode: runner.Stream, Root: true}
 	query := runner.Command{Args: []string{"portageq", "envvar", "ARCH"}, Mode: runner.Capture}
@@ -138,12 +142,94 @@ func TestRunnerAsRootRunsEverythingDirectly(t *testing.T) {
 
 	var fake runnertest.Fake
 
-	direct := elevation.Runner{Next: &fake, Prefix: nil}
-	update := runner.Command{Args: worldUpdate(), Mode: runner.Stream, Root: true}
+	direct := elevation.Runner{Next: &fake, Program: "", Keep: []string{editor}, LookupEnv: environment}
+	update := runner.Command{Args: worldUpdate(), Mode: runner.Stream, Root: true, Env: []string{"EMERGUP_HOOK=h"}}
 
 	_, err := direct.Run(t.Context(), update)
 	require.NoError(t, err)
 	assert.Equal(t, []runner.Command{update}, fake.Commands())
+}
+
+// The variables of the tests.
+const (
+	editor = "EDITOR"
+	visual = "VISUAL"
+	pager  = "PAGER"
+	hookIs = "EMERGUP_HOOK=backup"
+	stepIs = "EMERGUP_STEP=run"
+)
+
+// environment looks a variable up in the environment of the tests, where
+// EDITOR is vim and PAGER is less.
+func environment(name string) (string, bool) {
+	value, isSet := map[string]string{editor: "vim", pager: "less"}[name]
+
+	return value, isSet
+}
+
+// elevatedWith runs, through a Runner with program that keeps keep, a
+// @world update as root with env on top of the environment, and returns
+// the command the next runner got.
+func elevatedWith(t *testing.T, program string, keep, env []string) runner.Command {
+	t.Helper()
+
+	var fake runnertest.Fake
+
+	elevated := elevation.Runner{Next: &fake, Program: program, Keep: keep, LookupEnv: environment}
+	_, err := elevated.Run(t.Context(), runner.Command{Args: worldUpdate(), Mode: runner.Stream, Root: true, Env: env})
+	require.NoError(t, err)
+
+	commands := fake.Commands()
+	require.Len(t, commands, 1)
+
+	return commands[0]
+}
+
+func TestSudoKeepsTheVariablesToKeepAndThoseOfTheCommand(t *testing.T) {
+	t.Parallel()
+
+	got := elevatedWith(t, sudo, []string{editor, visual}, []string{hookIs, stepIs, "EDITOR=nano"})
+
+	assert.Equal(t, append([]string{sudo, "--preserve-env=EDITOR,VISUAL,EMERGUP_HOOK,EMERGUP_STEP"}, worldUpdate()...),
+		got.Args)
+	assert.Equal(t, []string{hookIs, stepIs, "EDITOR=nano"}, got.Env, "sudo reads them from its own environment")
+}
+
+func TestSudoWithNothingToKeepHasNoOption(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, append([]string{sudo}, worldUpdate()...), elevatedWith(t, sudo, nil, nil).Args)
+}
+
+func TestRun0SetsTheVariablesToKeepThatAreSet(t *testing.T) {
+	t.Parallel()
+
+	got := elevatedWith(t, run0, []string{editor, visual, pager}, []string{hookIs, "PAGER=more", "PAGER=most"})
+
+	assert.Equal(t, append([]string{
+		run0, "--setenv=EDITOR=vim", "--setenv=PAGER=most", "--setenv=EMERGUP_HOOK=backup",
+	}, worldUpdate()...), got.Args, "VISUAL is not set; the last PAGER of the command wins, as it would")
+}
+
+func TestDoasKeepsNothingItself(t *testing.T) {
+	t.Parallel()
+
+	got := elevatedWith(t, doas, []string{editor}, []string{hookIs})
+
+	assert.Equal(t, append([]string{doas}, worldUpdate()...), got.Args)
+}
+
+func TestACommandAsTheUserKeepsItsEnvironmentAsItIs(t *testing.T) {
+	t.Parallel()
+
+	var fake runnertest.Fake
+
+	elevated := elevation.Runner{Next: &fake, Program: sudo, Keep: []string{editor}, LookupEnv: environment}
+	query := runner.Command{Args: []string{"portageq", "envvar", "ARCH"}, Mode: runner.Capture, Env: []string{hookIs}}
+
+	_, err := elevated.Run(t.Context(), query)
+	require.NoError(t, err)
+	assert.Equal(t, []runner.Command{query}, fake.Commands())
 }
 
 func TestOSLooksAtTheRealSystem(t *testing.T) {
@@ -152,6 +238,11 @@ func TestOSLooksAtTheRealSystem(t *testing.T) {
 	var system elevation.System = elevation.OS{}
 
 	assert.Equal(t, os.Geteuid(), system.Geteuid())
+
+	path, isSet := os.LookupEnv("PATH")
+	gotPath, gotSet := system.LookupEnv("PATH")
+	assert.Equal(t, isSet, gotSet)
+	assert.Equal(t, path, gotPath)
 
 	_, err := system.LookPath("emergup-test-surely-not-installed")
 	require.ErrorIs(t, err, exec.ErrNotFound)

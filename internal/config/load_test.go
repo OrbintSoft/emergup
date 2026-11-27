@@ -140,6 +140,24 @@ func TestLoadAddsUpEveryEntryList(t *testing.T) {
 	assert.Equal(t, Entries{"overlay-a", "overlay-b"}, cfg.Steps.Sync.AlwaysSync)
 }
 
+func TestLoadAddsUpTheVariablesToKeep(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := Load(t.Context(), fstest.MapFS{
+		MainFile:          file("[elevation]\nkeep-env = [\"EDITOR\", \"PAGER\"]\n"),
+		dropIn("10.toml"): file("[elevation]\nkeep-env = [\"-EDITOR\", \"VISUAL\", \"http_proxy\", \"_PRIVATE_2\"]\n"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, Entries{"PAGER", "VISUAL", "http_proxy", "_PRIVATE_2"}, cfg.Elevation.KeepEnv)
+
+	cleared, err := Load(t.Context(), fstest.MapFS{
+		MainFile:          file("[elevation]\nkeep-env = [\"EDITOR\"]\n"),
+		dropIn("10.toml"): file("[elevation]\nkeep-env = [\"-*\"]\n"),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, cleared.Elevation.KeepEnv)
+}
+
 // TestEntryListsCoversEveryEntriesField guards the list of fields that add up
 // across files: a new Entries field that entryLists misses would be replaced
 // by a later file instead.

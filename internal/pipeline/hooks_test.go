@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,6 +131,36 @@ func TestEachHookGetsTheContextOfTheRun(t *testing.T) {
 		assert.False(t, command.Root, "a hook runs as the invoking user")
 		assert.Equal(t, runner.Stream, command.Mode, "a hook's output is shown and logged")
 	}
+}
+
+// TestHookVariablesNamesEveryVariableOfAHook keeps the names that the
+// configuration of doas is told to keep in step with what a hook gets.
+func TestHookVariablesNamesEveryVariableOfAHook(t *testing.T) {
+	t.Parallel()
+
+	rig := newRig(t)
+	rig.yes = true
+	rig.hookEnv = pipeline.RunDirEnv("/runs/1", "/runs/1/emergup.log")
+	rig.hooks = []pipeline.Hook{
+		hook("first", pipeline.Before, pipeline.RunStep),
+		hook("cleanup", pipeline.After, updateStep),
+		hook("notify", pipeline.After, pipeline.RunStep),
+	}
+
+	rig.run(t.Context(), rig.step(updateStep, time.Minute, pipeline.Success()))
+
+	var names []string
+
+	for _, command := range rig.runner.Commands() {
+		for _, variable := range command.Env {
+			name, _, _ := strings.Cut(variable, "=")
+			if !slices.Contains(names, name) {
+				names = append(names, name)
+			}
+		}
+	}
+
+	assert.ElementsMatch(t, pipeline.HookVariables(), names)
 }
 
 func TestAStepsHooksRunAroundItsQuestion(t *testing.T) {
