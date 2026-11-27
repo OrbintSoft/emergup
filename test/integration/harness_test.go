@@ -152,6 +152,23 @@ func (c *container) emergupAs(user, input string, args ...string) result {
 	return c.exec(user, input, append([]string{program}, args...)...)
 }
 
+// emergupWith runs emergup with args as tester, with no input and the
+// variables of env, each NAME=value, added to its environment.
+func (c *container) emergupWith(env []string, args ...string) result {
+	c.t.Helper()
+
+	options := make([]string, 0, 1+2*len(env))
+	options = append(options, interactive)
+
+	for _, variable := range env {
+		options = append(options, "--env", variable)
+	}
+
+	args = append([]string{program}, args...)
+
+	return c.command(c.t.Context(), strings.NewReader(""), c.execArgs(tester, options, args)...)
+}
+
 // emergupRun runs `emergup run` with options as tester, with input on its
 // standard input, and fails the test unless it succeeds; it returns the
 // standard output.

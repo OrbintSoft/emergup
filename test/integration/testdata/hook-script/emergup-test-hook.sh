@@ -11,6 +11,7 @@
 #               exits with status 2 unless PATH exists, as a check whose
 #               backup disk is missing
 #   exit:N      exits with status N
+#   show:NAME   writes NAME=value, or that NAME is unset, on its output
 #
 # A variable every hook gets that is missing makes it fail.
 
@@ -27,6 +28,14 @@ for operation in "$@"; do
 	need:*) test -e "${operation#need:}" || exit 1 ;;
 	mounted:*) test -e "${operation#mounted:}" || exit 2 ;;
 	exit:*) exit "${operation#exit:}" ;;
+	show:*)
+		name="${operation#show:}"
+		if [[ -v "$name" ]]; then
+			printf '%s=%s\n' "$name" "${!name}"
+		else
+			printf '%s is unset\n' "$name"
+		fi
+		;;
 	*)
 		echo "unknown operation: $operation" >&2
 		exit 125

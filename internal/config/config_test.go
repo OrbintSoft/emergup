@@ -14,7 +14,7 @@ func TestDefault(t *testing.T) {
 	t.Parallel()
 
 	want := Config{
-		Elevation: Elevation{Method: ElevationAuto},
+		Elevation: Elevation{Method: ElevationAuto, KeepEnv: Entries{}},
 		Steps: Steps{
 			Sync: Sync{
 				Step:        Step{Enabled: true, Command: []string{emerge, "--sync"}},

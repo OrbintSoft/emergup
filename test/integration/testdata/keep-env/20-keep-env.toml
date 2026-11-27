@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The commands run as root keep EMERGUP_TEST_KEPT. A hook run as root, the
+# hook of the tests, shows it and EMERGUP_TEST_DROPPED, which they do not
+# keep, and records the context of the run, which it gets too.
+
+[elevation]
+keep-env = ["EMERGUP_TEST_KEPT"]
+
+[hooks.rooted]
+at = "before-run"
+command = [
+  "/usr/local/bin/emergup-test-hook",
+  "show:EMERGUP_TEST_KEPT",
+  "show:EMERGUP_TEST_DROPPED",
+]
+elevated = true

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Example drop-in: dispatch-conf, run as root, edits with your own editor.
+# The elevation resets the environment of the commands it runs; sudo keeps
+# these variables only when its rule allows it, as a rule for ALL does, and
+# with doas, doas.conf must keep them: setenv { EDITOR VISUAL }.
+
+[elevation]
+keep-env = ["EDITOR", "VISUAL"]

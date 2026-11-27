@@ -8,8 +8,9 @@
 # read after this file in lexical order; see the examples next to this file.
 #
 # A drop-in changes only the values it sets. The lists of entries (exclude,
-# always-sync) add up across files like USE in make.conf: a later file adds
-# its entries, "-entry" removes one added earlier and "-*" clears the list.
+# always-sync, keep-env) add up across files like USE in make.conf: a later
+# file adds its entries, "-entry" removes one added earlier and "-*" clears
+# the list.
 # Every other value, a command line included, is replaced by the later file.
 #
 # `emergup config check` validates the files and reports each problem with
@@ -24,6 +25,12 @@
 # How a command that needs root is run: "auto" uses the first of sudo, doas
 # and run0 that is installed; "sudo", "doas" or "run0" forces one.
 #method = "auto"
+# The variables of your environment that the commands run as root keep,
+# which the elevation would reset, such as EDITOR for dispatch-conf. sudo
+# keeps them with --preserve-env, which its rule must allow: a rule for ALL
+# does, a rule for some commands only needs SETENV. run0 keeps them with
+# --setenv; doas keeps only what doas.conf keeps, as setenv { EDITOR }.
+#keep-env = []
 
 [steps.sync]
 # Syncs the repositories; the names of the repositories due are appended to
@@ -153,8 +160,8 @@
 # run), EMERGUP_WHEN (before or after), EMERGUP_RUN_DIR and EMERGUP_LOG (the
 # run's directory and log), and after a step EMERGUP_STEP_STATUS (succeeded,
 # skipped or failed), after the run EMERGUP_RESULT (finished or failed); a
-# hook or a remedy run as root does not get them, as the elevation resets
-# the environment. For example, a snapshot before the update:
+# hook or a remedy run as root gets them through the elevation as it gets
+# the variables of keep-env. For example, a snapshot before the update:
 #
 # [hooks.snapshot]
 # at = "before-update"

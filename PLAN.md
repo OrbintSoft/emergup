@@ -572,14 +572,25 @@ check before the run (6.2, 6.4).
         the user's choice; by default a hook runs, and `--yes` runs a
         check's remedy once, as before.
       - `--pretend` says what each hook would do under `--yes`.
-- [ ] **6.6** The environment of the commands run as root (PRIV-5): an
+- [x] **6.6** The environment of the commands run as root (PRIV-5): an
       `[elevation]` list of variables to keep, such as `EDITOR`, so that
       `dispatch-conf` edits with the user's editor. sudo keeps them with
       `--preserve-env=…`, which the sudoers rule must allow (a rule for
       `ALL` does), run0 with `--setenv=…`; doas has no such option, and
       emergup says that `doas.conf` must keep them.
+      - `keep-env` is a list of entries, added up across files like `USE`
+        (CFG-5), and empty by default: a sudo rule for some commands only,
+        without `SETENV`, refuses `--preserve-env`, and every command run
+        as root would fail. The example configuration keeps `EDITOR` and
+        `VISUAL`. A name that is not a variable name is rejected, since a
+        comma would split sudo's list.
+      - run0 gets `--setenv=NAME=value` for each variable that is set; as
+        root, emergup needs nothing, the environment being its own.
+      - With doas, the notice comes once, at the start of the run, when
+        there are variables to keep.
       - The `EMERGUP_*` variables of a hook or a remedy run as root (HOOK-4)
-        are kept the same way.
+        are kept the same way, always: HOOK-4 promises them, and a sudo
+        rule for a hook's command alone needs `SETENV` for them.
 - [ ] **6.7** The live packages listed before their rebuild in the smart mode
       (UPD-16): `smart-live-rebuild --pretend` first, then the question,
       then the rebuild. How the rebuild avoids checking the upstreams a

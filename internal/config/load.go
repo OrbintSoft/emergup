@@ -258,6 +258,7 @@ func (c *Config) entryLists() []entryList {
 	return []entryList{
 		{key: "steps.sync.always-sync", entries: &c.Steps.Sync.AlwaysSync},
 		{key: "steps.update.exclude", entries: &c.Steps.Update.Exclude},
+		{key: "elevation.keep-env", entries: &c.Elevation.KeepEnv},
 	}
 }
 
