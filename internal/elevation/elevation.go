@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/OrbintSoft/emergup/internal/config"
 	"github.com/OrbintSoft/emergup/internal/runner"
 )
@@ -35,6 +37,10 @@ type System interface {
 	// LookupEnv looks a variable of emergup's environment up, as
 	// os.LookupEnv does.
 	LookupEnv(name string) (string, bool)
+	// CanWrite reports whether emergup can write the file or directory
+	// at the absolute path name, as access(2) tells: a command that
+	// writes only there needs no elevation then.
+	CanWrite(name string) bool
 }
 
 // OS is the System emergup runs on.
@@ -58,6 +64,11 @@ func (OS) Geteuid() int {
 // LookupEnv implements System.
 func (OS) LookupEnv(name string) (string, bool) {
 	return os.LookupEnv(name)
+}
+
+// CanWrite implements System.
+func (OS) CanWrite(name string) bool {
+	return unix.Access(name, unix.W_OK) == nil
 }
 
 // IsRoot reports whether emergup runs as root on system.

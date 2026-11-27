@@ -34,8 +34,8 @@ const (
 	portageq        = "portageq"
 	sudo            = "sudo"
 	nothingToUpdate = "Total: 0 packages, Size of downloads: 0 KiB\n"
-	firstHeading    = "==> [1/6] sync: sync the repositories\n"
-	lastHeading     = "==> [6/6] depclean: remove the packages no longer needed\n"
+	firstHeading    = "==> [1/7] sync: sync the repositories\n"
+	lastHeading     = "==> [7/7] depclean: remove the packages no longer needed\n"
 	finished        = "==> The run finished in <1s.\n"
 	stopped         = "==> The run was stopped after <1s.\n"
 	noTool          = "no elevation tool found: install sudo, doas or run0, or run emergup as root"
@@ -103,12 +103,13 @@ var (
 	errPermission = errors.New("permission denied")
 )
 
-// system is a fake elevation.System with programs installed and the
-// variables of env set.
+// system is a fake elevation.System with programs installed, the
+// variables of env set, and the paths of writable writable.
 type system struct {
 	programs []string
 	euid     int
 	env      map[string]string
+	writable []string
 }
 
 func (s system) LookPath(file string) (string, error) {
@@ -126,6 +127,8 @@ func (s system) LookupEnv(name string) (string, bool) {
 
 	return value, isSet
 }
+
+func (s system) CanWrite(name string) bool { return slices.Contains(s.writable, name) }
 
 // keys answers the questions with its keys, then with the end of the input.
 // When silent, a question fails the test.
@@ -330,12 +333,15 @@ func TestRunWithYesGoesThroughEveryStep(t *testing.T) {
 			assert.Contains(t, stdout, lastHeading)
 			assert.Contains(t, stdout, "==> Summary\n"+
 				"    sync               skipped       <1s  "+noRepository+"\n"+
+				"    news               skipped       <1s  no unread news items\n"+
 				"    update             skipped       <1s  nothing to update\n")
 			assert.True(t, strings.HasSuffix(stdout, finished+logLine), stdout)
 			assert.Equal(t, []runner.Command{
-				listRepositories, updatePretend, queryVDB, listPreserved, queryProtected, depcleanPretend,
+				listRepositories, listRepositories, updatePretend, queryVDB, listPreserved, queryProtected,
+				depcleanPretend,
 			}, sess.runner.Commands(),
-				"the queries and the pretends, unprivileged but for the preserved libraries; with nothing to do, nothing more")
+				"the queries, the sync's and the news', and the pretends, unprivileged but for the preserved libraries; "+
+					"with nothing to do, nothing more")
 		})
 	}
 }
@@ -393,7 +399,8 @@ func TestRunPretendShowsTheStepsAndRunsNothing(t *testing.T) {
 				"    emerge --depclean --pretend --color=n\n"+
 				"    then, once confirmed: emerge --depclean --color=n\n"), stdout)
 			assert.NotContains(t, stdout, "Summary")
-			assert.Equal(t, []runner.Command{listRepositories, queryVDB}, sess.runner.Commands(), "nothing elevated")
+			assert.Equal(t, []runner.Command{listRepositories, listRepositories, queryVDB}, sess.runner.Commands(),
+				"nothing elevated")
 		})
 	}
 }
@@ -461,8 +468,8 @@ func TestRunFollowsTheConfiguration(t *testing.T) {
 
 	code, stdout, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 0, code)
-	assert.True(t, strings.HasPrefix(stdout, "\x1b[4m==> [1/4] sync: sync the repositories\x1b[0m\n"), stdout)
-	assert.Contains(t, stdout, "\x1b[4m==> [4/4] config-files: update the configuration files\x1b[0m\n")
+	assert.True(t, strings.HasPrefix(stdout, "\x1b[4m==> [1/5] sync: sync the repositories\x1b[0m\n"), stdout)
+	assert.Contains(t, stdout, "\x1b[4m==> [5/5] config-files: update the configuration files\x1b[0m\n")
 	assert.Contains(t, stdout, "    \x1b[33mdepclean           disabled\x1b[0m\n")
 	assert.NotContains(t, stdout, "depclean: remove")
 }
@@ -675,7 +682,7 @@ func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 0, code)
-	assert.Contains(t, stdout, "==> [2/6] update: update @world\n"+
+	assert.Contains(t, stdout, "==> [3/7] update: update @world\n"+
 		"==> Update these packages? [Y/s/a/?] update them\n"+
 		"==> update succeeded in <1s\n", "one question, after the pretend")
 
@@ -687,5 +694,5 @@ func TestRunUpdatesOnceTheUserConfirms(t *testing.T) {
 	}
 	commands := sess.runner.Commands()
 	require.GreaterOrEqual(t, len(commands), 3)
-	assert.Equal(t, []runner.Command{listRepositories, updatePretend, elevated}, commands[:3])
+	assert.Equal(t, []runner.Command{listRepositories, listRepositories, updatePretend, elevated}, commands[:4])
 }

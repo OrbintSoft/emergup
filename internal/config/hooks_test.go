@@ -143,7 +143,8 @@ func TestStepNamesAreTheBuiltInStepsInOrder(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t,
-		[]string{"sync", "update", "live-rebuild", "preserved-rebuild", "config-files", "depclean"}, StepNames())
+		[]string{"sync", "news", "update", "live-rebuild", "preserved-rebuild", "config-files", "depclean"},
+		StepNames())
 }
 
 //nolint:funlen // one row per kind of problem, easier to read as one table
@@ -168,8 +169,8 @@ func TestLoadReportsWhereEachHookProblemIs(t *testing.T) {
 		},
 		{
 			"integer for a place", "[hooks.h]\nat = 1\ncommand = [\"x\"]\n",
-			2, 6, keyHookAt, `expected "before-" or "after-" followed by run, a built-in step (sync, update, ` +
-				"live-rebuild, preserved-rebuild, config-files, depclean) or a custom step, found an integer",
+			2, 6, keyHookAt, `expected "before-" or "after-" followed by run, a built-in step (sync, news, ` +
+				"update, live-rebuild, preserved-rebuild, config-files, depclean) or a custom step, found an integer",
 		},
 		{
 			"unknown failure", "[hooks.h]\nat = \"after-run\"\ncommand = [\"x\"]\non-failure = \"ignore\"\n",

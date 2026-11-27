@@ -33,7 +33,10 @@ RUN chmod 0440 /etc/sudoers.d/tester \
 COPY etc/ /etc/
 
 # The test repository: its upstream, then the synced copy Portage uses,
-# with the package installed that the update tests upgrade.
+# with the package installed that the update tests upgrade. Last, the news
+# items emerge marked unread, those of the Gentoo tree, are read, so that a
+# run finds none unread: a test publishes the news it needs.
 COPY repo/ /srv/emergup-test/
 RUN emerge --sync emergup-test \
-    && emerge --quiet emergup-test/upgrade
+    && emerge --quiet emergup-test/upgrade \
+    && eselect news read --quiet all

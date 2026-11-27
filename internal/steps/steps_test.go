@@ -52,6 +52,7 @@ func TestBuiltInTakesWhetherEachStepRunsFromTheConfiguration(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Default()
+	cfg.Steps.News.Enabled = false
 	cfg.Steps.LiveRebuild.Enabled = false
 	cfg.Steps.Depclean.Enabled = false
 
@@ -61,7 +62,7 @@ func TestBuiltInTakesWhetherEachStepRunsFromTheConfiguration(t *testing.T) {
 	}
 
 	assert.Equal(t, map[string]bool{
-		"sync": true, updateName: true, "live-rebuild": false,
+		"sync": true, newsName: false, updateName: true, "live-rebuild": false,
 		"preserved-rebuild": true, "config-files": true, "depclean": false,
 	}, enabled)
 }
@@ -79,6 +80,7 @@ func TestBuiltInTitles(t *testing.T) {
 
 	assert.Equal(t, map[string]string{
 		"sync":              "sync the repositories",
+		newsName:            "read the unread news items",
 		updateName:          "update @system",
 		"live-rebuild":      "rebuild the live packages",
 		"preserved-rebuild": "rebuild the packages that use preserved libraries",

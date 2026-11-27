@@ -6,6 +6,9 @@
 [steps.sync]
 enabled = false
 
+[steps.news]
+enabled = false
+
 [steps.live-rebuild]
 enabled = false
 

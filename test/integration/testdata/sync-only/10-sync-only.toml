@@ -2,6 +2,9 @@
 #
 # Every step but the sync disabled, so that a run only syncs.
 
+[steps.news]
+enabled = false
+
 [steps.update]
 enabled = false
 

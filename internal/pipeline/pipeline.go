@@ -106,6 +106,13 @@ type Env struct {
 	// LookPath finds a program on PATH, as exec.LookPath does, for the
 	// steps whose tool may not be installed.
 	LookPath func(file string) (string, error)
+	// LookupEnv looks a variable of the invoking user's environment up,
+	// as os.LookupEnv does, such as the locale to read the news in.
+	LookupEnv func(name string) (string, bool)
+	// CanWrite reports whether the invoking user can write the file or
+	// directory at the absolute path name, so that a command that writes
+	// only there runs elevated only when it must.
+	CanWrite func(name string) bool
 	// Hooks are the hooks of the run, in the order they run at each place.
 	Hooks []Hook
 	// HookEnv holds the variables, NAME=value, that every hook gets, such as

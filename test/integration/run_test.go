@@ -15,23 +15,23 @@ import (
 // configuration, in order.
 func stepHeadings() []string {
 	return []string{
-		"==> [1/6] sync: sync the repositories\n",
-		"==> [2/6] update: update @emergup-test\n",
-		"==> [3/6] live-rebuild: rebuild the live packages\n",
-		"==> [4/6] preserved-rebuild: rebuild the packages that use preserved libraries\n",
-		"==> [5/6] config-files: update the configuration files\n",
-		"==> [6/6] depclean: remove the packages no longer needed\n",
+		"==> [1/7] sync: sync the repositories\n",
+		"==> [2/7] news: read the unread news items\n",
+		"==> [3/7] update: update @emergup-test\n",
+		"==> [4/7] live-rebuild: rebuild the live packages\n",
+		"==> [5/7] preserved-rebuild: rebuild the packages that use preserved libraries\n",
+		"==> [6/7] config-files: update the configuration files\n",
+		"==> [7/7] depclean: remove the packages no longer needed\n",
 	}
 }
 
 // stepNames returns the names of the steps, as the configuration and the
 // summary give them.
 func stepNames() []string {
-	return []string{"sync", "update", "live-rebuild", "preserved-rebuild", "config-files", "depclean"}
+	return []string{"sync", "news", "update", "live-rebuild", "preserved-rebuild", "config-files", "depclean"}
 }
 
-// UPD-1: one command runs the whole update, step after step. The news get
-// a step of their own with the news features.
+// UPD-1: one command runs the whole update, step after step.
 func TestUPD1_OneCommandRunsTheWholeUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -49,6 +49,7 @@ func TestUPD1_OneCommandRunsTheWholeUpdate(t *testing.T) {
 
 	for _, row := range []string{
 		`sync +succeeded +` + took,
+		`news +skipped +` + took + `  no unread news items`,
 		`update +succeeded +` + took,
 		`live-rebuild +skipped +` + took + `  no live package installed`,
 		`preserved-rebuild +skipped +` + took + `  no preserved libraries`,
@@ -123,6 +124,8 @@ func TestUPD3_TheCommandOfEachStepCanBeChanged(t *testing.T) {
 	// A live package, rebuilt on every run, so that the live-package
 	// rebuild has a command to run.
 	ctr.publishTree("snapshot-live")
+	// An unread news item, so that the news step has a command to run.
+	ctr.publishTree("snapshot-news")
 	ctr.syncRepository()
 	ctr.root("emerge", "--quiet", "emergup-test/live")
 	ctr.dropIns("live-always")
@@ -133,6 +136,7 @@ func TestUPD3_TheCommandOfEachStepCanBeChanged(t *testing.T) {
 
 	for _, line := range []string{
 		"    emerge --sync --quiet --color=n emergup-test\n",
+		" then run as root: eselect news read --raw new\n",
 		"    emerge --quiet-build --update --newuse --pretend --color=n @emergup-test\n",
 		"    then, once confirmed: emerge --quiet-build --update --newuse --color=n @emergup-test\n",
 		"    emerge --oneshot --quiet-build --color=n --usepkg-exclude-live=y =emergup-test/live-9999\n",

@@ -46,9 +46,9 @@ func TestRunRunsTheCustomStepsOfTheConfiguration(t *testing.T) {
 
 	code, stdout, _ := sess.run(t, commandRun, optionYes)
 	assert.Equal(t, 0, code)
-	assert.Contains(t, stdout, "==> [2/8] missing: run not-installed\n"+
-		"==> missing skipped: not-installed is not installed\n==> [3/8] update: ")
-	assert.Contains(t, stdout, "==> [8/8] audit: run /usr/local/bin/audit\n")
+	assert.Contains(t, stdout, "==> [2/9] missing: run not-installed\n"+
+		"==> missing skipped: not-installed is not installed\n==> [3/9] news: ")
+	assert.Contains(t, stdout, "==> [9/9] audit: run /usr/local/bin/audit\n")
 	assert.Contains(t, stdout, "    off                disabled\n")
 	assert.Equal(t, [][]string{{sudo, "/usr/local/bin/audit", "--all"}}, customCommands(sess.runner.Commands()),
 		"the elevated step runs through the elevation method, and only it")
@@ -64,7 +64,7 @@ func TestRunPretendShowsTheCustomStepsAndRunsNone(t *testing.T) {
 	code, stdout, _ := sess.run(t, commandRun, optionPretend)
 	assert.Equal(t, 0, code)
 	assert.Contains(t, stdout, "    not-installed is not installed, so the step would be skipped\n")
-	assert.Contains(t, stdout, "==> [8/8] audit: run /usr/local/bin/audit\n"+
+	assert.Contains(t, stdout, "==> [9/9] audit: run /usr/local/bin/audit\n"+
 		"    would run as root: /usr/local/bin/audit --all\n")
 	assert.Contains(t, stdout, "off is disabled in the configuration\n")
 	assert.Empty(t, customCommands(sess.runner.Commands()))

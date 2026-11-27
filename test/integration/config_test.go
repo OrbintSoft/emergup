@@ -62,7 +62,7 @@ func TestCFG2_WithoutConfigurationTheDefaultsApply(t *testing.T) {
 
 	pretend := ctr.emergup("run", "--pretend")
 	assert.Equal(t, 0, pretend.code, "the exit status, with the output:\n%s%s", pretend.stdout, pretend.stderr)
-	assert.Contains(t, pretend.stdout, "==> [2/6] update: update @world\n")
+	assert.Contains(t, pretend.stdout, "==> [3/7] update: update @world\n")
 }
 
 // CFG-3: `emergup config check` reports each problem with its file and
@@ -164,7 +164,7 @@ func TestCFG5_ListsAddUpAcrossTheFiles(t *testing.T) {
 func TestCFG6_TheHeadingsTakeTheirConfiguredStyle(t *testing.T) {
 	t.Parallel()
 
-	const heading = "==> [1/6] sync: sync the repositories"
+	const heading = "==> [1/7] sync: sync the repositories"
 
 	for _, style := range []struct{ name, dropIns, want string }{
 		{name: "default", dropIns: "", want: "\x1b[1;34m" + heading + "\x1b[0m\r\n"},

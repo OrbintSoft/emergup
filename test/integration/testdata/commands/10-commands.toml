@@ -6,6 +6,9 @@
 [steps.sync]
 command = ["emerge", "--sync", "--quiet"]
 
+[steps.news]
+command = ["eselect", "news", "read", "--raw", "new"]
+
 [steps.update]
 command = ["emerge", "--quiet-build"]
 options = ["--update", "--newuse"]

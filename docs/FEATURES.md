@@ -11,7 +11,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | partial |
+| UPD-1 | One command runs the whole update: sync, news, `@world` update, live-package rebuild, preserved-library rebuild, config-file updates, depclean. | done |
 | UPD-2 | Each step is announced, and emergup asks for confirmation before moving to the next; `--yes` runs without pausing, taking the usual action at every question and saying so. | done |
 | UPD-3 | Every step can be enabled or disabled in the configuration, and the command and options it runs can be changed. | partial |
 | UPD-4 | Optional steps whose tool is not installed (e.g. `smart-live-rebuild`, `haskell-updater`) are skipped with a notice instead of failing. | done |
@@ -78,7 +78,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| NEWS-1 | After the sync, unread Gentoo news items are shown, and emergup asks for confirmation before updating. | planned |
+| NEWS-1 | After the sync, whether or not it synced anything, a step of its own lists the unread news items Portage found relevant to the system: a row for each with its date and title, and its repository when it is not `gentoo`; with none, the step is skipped without a question. emergup asks whether to read them, to go on leaving them unread, or to abort the run. Reading runs the configured command, `eselect news read new` by default, which shows them and marks them read: as the invoking user when they can write Portage's record of the news read (a member of the `portage` group can), as root otherwise. Then emergup asks whether to go on with the run, so that the actions a news item asks for can be taken before the update. With `--yes` the items are listed and left unread, and the run goes on; `--pretend` lists them and says what would run. | done |
 | NEWS-2 | `emergup news` lists news items and lets the user read them and mark them as read. | planned |
 
 ## Failure diagnostics (DIAG)
@@ -106,6 +106,7 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 | AI-4 | After a failure, the AI can analyse the failure report and propose a fix; a proposed change is shown and applied only after the user confirms it. | planned |
 | AI-5 | For a pending config-file update, the AI can explain the differences or propose a merged file, shown as a diff for approval. | planned |
 | AI-6 | AI backends are never run with root privileges. | planned |
+| AI-7 | When emergup asks whether to go on after the news (NEWS-1), the AI can take the actions the news items ask for before the update: each command is shown and runs only after the user confirms it. | planned |
 
 ## Command line (CLI)
 

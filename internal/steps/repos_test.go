@@ -11,6 +11,9 @@ import (
 // gitSync is the sync type of a git repository.
 const gitSync = "git"
 
+// gentooLocation is where the gentoo repository usually is.
+const gentooLocation = "/var/db/repos/gentoo"
+
 func TestParseReposConfig(t *testing.T) {
 	t.Parallel()
 
@@ -24,7 +27,7 @@ func TestParseReposConfig(t *testing.T) {
 			"[DEFAULT]\nmain-repo = gentoo\n\n[gentoo]\nlocation = /var/db/repos/gentoo\nsync-type = rsync\n" +
 				"[local]\nlocation = /var/db/repos/local\n",
 			[]repository{
-				{name: "gentoo", location: "/var/db/repos/gentoo", syncType: "rsync", autoSync: true},
+				{name: mainRepository, location: gentooLocation, syncType: "rsync", autoSync: true},
 				{name: "local", location: "/var/db/repos/local", syncType: "", autoSync: true},
 			},
 		},
@@ -40,7 +43,7 @@ func TestParseReposConfig(t *testing.T) {
 			"spaces, comments, values with an equals sign and on more lines",
 			"# a comment\n; another\n[gentoo]\nlocation=/var/db/repos/gentoo  \n" +
 				"sync-uri = https://example.org/?a=b\nsync-git-env = A=1\n\tB=2\nsync-type = git\n",
-			[]repository{{name: "gentoo", location: "/var/db/repos/gentoo", syncType: gitSync, autoSync: true}},
+			[]repository{{name: mainRepository, location: gentooLocation, syncType: gitSync, autoSync: true}},
 		},
 		{
 			"nothing", "", []repository{},

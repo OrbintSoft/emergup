@@ -3,6 +3,9 @@
 # Every step but the sync and the update disabled: a run that asks the
 # pipeline's question, then a step's own.
 
+[steps.news]
+enabled = false
+
 [steps.live-rebuild]
 enabled = false
 
