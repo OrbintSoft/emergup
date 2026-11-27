@@ -120,6 +120,7 @@ func hookProblems(file string, keys map[string]keyPlace, set *Config) []*Error {
 			{key: prefix + ".at", err: checkHookPlace(hook.At)},
 			{key: prefix + ".command", err: checkTableCommand(hook.Command)},
 			{key: prefix + ".remedy", err: checkTableCommand(hook.Remedy)},
+			{key: prefix + ".remedy-status", err: checkRemedyStatus(hook.RemedyStatus)},
 		})...)
 	}
 
@@ -227,6 +228,25 @@ func checkTableCommand(command []string) error {
 	}
 
 	return checkCommand(command)
+}
+
+// maxExitStatus is the highest exit status a program can end with.
+const maxExitStatus = 255
+
+// checkRemedyStatus rejects, among the statuses for which a check offers its
+// remedy, 0, the status of a check that passes, and a number that is no exit
+// status.
+func checkRemedyStatus(statuses []int) error {
+	for _, status := range statuses {
+		switch {
+		case status == 0:
+			return message("exit status 0 is a check that passes: list the statuses from 1 to 255 that the remedy fixes")
+		case status < 0 || status > maxExitStatus:
+			return message(fmt.Sprintf("exit status %d: an exit status is from 1 to 255", status))
+		}
+	}
+
+	return nil
 }
 
 // isTableName reports whether name can name a hook or a custom step:
@@ -358,6 +378,10 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 				`only a hook that asks has a remedy: set on-failure = "ask"`,
 			},
 			{"remedy-elevated", hook.RemedyElevated && len(hook.Remedy) == 0, "there is no remedy to elevate"},
+			{
+				"remedy-status", len(hook.RemedyStatus) > 0 && len(hook.Remedy) == 0,
+				"there is no remedy to offer for these statuses",
+			},
 		})...)
 	}
 

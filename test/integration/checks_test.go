@@ -129,6 +129,46 @@ func TestHOOK2_ACheckWithoutARemedyAbortsWithYes(t *testing.T) {
 	assert.Regexp(t, summaryRow(`sync +not run`), failed.stdout)
 }
 
+// HOOK-2: a check that lists the exit statuses its remedy is for offers it
+// only for those: failing with another, as when the backup disk is
+// missing, it says so, and --yes aborts without running the remedy.
+func TestHOOK2_ACheckOffersItsRemedyOnlyForItsStatuses(t *testing.T) {
+	t.Parallel()
+
+	const (
+		disk  = "/var/tmp/emergup-test-disk"
+		check = "hook backup (before the run): /usr/local/bin/emergup-test-hook mounted:" + disk +
+			" need:" + backupFile
+	)
+
+	ctr := start(t)
+	ctr.installHook()
+	ctr.dropIns("sync-only")
+	ctr.dropIns("check")
+	ctr.dropIns("check-remedy-status")
+	ctr.publish("new")
+
+	pretend := ctr.emergup("run", "--pretend")
+	assert.Equal(t, 0, pretend.code, "the exit status, with the output:\n%s%s", pretend.stdout, pretend.stderr)
+	assert.Contains(t, pretend.stdout, "    "+check+"; if it fails with exit status 1, offers to run as root: touch "+
+		backupFile+"; otherwise asks whether to go on\n")
+
+	failed := ctr.emergup("run", "--yes")
+	assert.Equal(t, 1, failed.code, "the exit status, with the output:\n%s%s", failed.stdout, failed.stderr)
+	assert.Contains(t, failed.stdout, "==> "+check+"\n==> hook backup (before the run) failed: exit status 2\n"+
+		"==> the remedy of hook backup is only for exit status 1\n==> Abort the run? [A/g/?] abort the run (--yes)\n")
+	assert.False(t, ctr.exists(backupFile), "the remedy does not run")
+	assert.False(t, ctr.exists(repository+"/new"), "the repository is not synced")
+
+	ctr.root("touch", disk)
+
+	remedied := ctr.emergupRun("", "--yes")
+	assertInOrder(t, remedied, "==> "+check+"\n"+checkFailed+remedyAsk+"run the remedy and check again (--yes)\n"+
+		remedyRunLine+"==> "+check+"\n", "==> [1/1] sync: sync the repositories\n")
+	assert.True(t, ctr.exists(backupFile), "the remedy runs")
+	assert.True(t, ctr.exists(repository+"/new"), "the repository is synced")
+}
+
 // PRIV-3: a hook runs as the invoking user, unless it is configured to be
 // elevated.
 func TestPRIV3_AHookRunsAsRootOnlyWhenConfiguredTo(t *testing.T) {

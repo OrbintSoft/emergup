@@ -67,32 +67,42 @@ func TestExampleMainFileDocumentsEveryDefault(t *testing.T) {
 	}
 }
 
-// exampleHook matches the hook the example main file shows: the lines of
-// a commented "# [hooks.<name>]" table, each starting with "# ".
+// exampleHook matches a hook the example main file shows: the lines of a
+// commented "# [hooks.<name>]" table, each starting with "# ".
 var exampleHook = regexp.MustCompile(`(?m)^# (\[hooks\.[a-z0-9-]+\]\n)((?:# .+\n)+)`)
 
-// TestExampleMainFileShowsAValidHook keeps the example hook of the main file
-// valid: uncommented, it is a hook that runs.
-func TestExampleMainFileShowsAValidHook(t *testing.T) {
+// TestExampleMainFileShowsValidHooks keeps the example hooks of the main
+// file valid: uncommented, they are hooks that run, a snapshot before the
+// update and a backup check before the run, whose remedy is for one exit
+// status only.
+func TestExampleMainFileShowsValidHooks(t *testing.T) {
 	t.Parallel()
 
 	data, err := fs.ReadFile(examples(), MainFile)
 	require.NoError(t, err)
 
-	match := exampleHook.FindSubmatch(data)
-	require.NotNil(t, match, "the example main file shows no hook")
+	var hooks strings.Builder
 
-	hook := string(match[1]) + strings.ReplaceAll(string(match[2]), "# ", "")
-
-	cfg, err := Load(t.Context(), fstest.MapFS{MainFile: &fstest.MapFile{Data: []byte(hook)}})
-	require.NoError(t, err)
-	require.Len(t, cfg.Hooks, 1)
-
-	for _, each := range cfg.Hooks {
-		assert.True(t, each.Enabled)
-		assert.Equal(t, HookPlace("before-update"), each.At)
-		assert.NotEmpty(t, each.Command)
+	for _, match := range exampleHook.FindAllSubmatch(data, -1) {
+		hooks.WriteString(string(match[1]) + strings.ReplaceAll(string(match[2]), "# ", "") + "\n")
 	}
+
+	cfg, err := Load(t.Context(), fstest.MapFS{MainFile: &fstest.MapFile{Data: []byte(hooks.String())}})
+	require.NoError(t, err)
+	require.Len(t, cfg.Hooks, 2)
+
+	snapshot := cfg.Hooks["snapshot"]
+	assert.True(t, snapshot.Enabled)
+	assert.Equal(t, HookPlace("before-update"), snapshot.At)
+	assert.NotEmpty(t, snapshot.Command)
+
+	backup := cfg.Hooks["backup"]
+	assert.True(t, backup.Enabled)
+	assert.Equal(t, HookPlace("before-run"), backup.At)
+	assert.Equal(t, HookAsk, backup.OnFailure)
+	assert.NotEmpty(t, backup.Remedy)
+	assert.True(t, backup.RemedyElevated)
+	assert.Equal(t, []int{1}, backup.RemedyStatus)
 }
 
 // exampleCustomStep matches the custom step the example main file shows:

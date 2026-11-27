@@ -461,8 +461,8 @@ From here on, every feature lands with its integration test.
 
 This phase also brings what the old script still does and phase 4 left out:
 `haskell-updater` after the preserved-library rebuild (6.3), the user's
-editor in `dispatch-conf`, which the script kept with `sudo -E` (6.5), and the
-live packages to rebuild shown before they are (6.6); and, new, a backup
+editor in `dispatch-conf`, which the script kept with `sudo -E` (6.6), and the
+live packages to rebuild shown before they are (6.7); and, new, a backup
 check before the run (6.2, 6.4).
 
 - [x] **6.1** Hooks before/after the run and each step, with context in the
@@ -527,17 +527,44 @@ check before the run (6.2, 6.4).
         elevated (PRIV-3), as `haskell-updater` must be. The example runs
         `haskell-updater --quiet -- --verbose`: emergup asks before the step,
         so the options of emerge have no `--ask`.
-- [ ] **6.4** Example hook: backup freshness check (generic: age of a file or of
-      a command's output), with a remedy that starts the configured backup tool.
-      - The check, a Bash script among the examples, passes when the newest
-        file matching a pattern in a directory is younger than a number of
-        days, such as a backup descriptor of redo-backup (`*.redo`) no older
-        than 20 days. It fails when the directory is not a mount point, so
-        that the remedy never writes a backup onto the root filesystem while
-        the backup disk is missing.
-      - The example configuration runs it before the run, with
-        `redo-backup run <profile>` as its remedy, elevated.
-- [ ] **6.5** The environment of the commands run as root (PRIV-5): an
+- [x] **6.4** The exit statuses for which a check offers its remedy (HOOK-2).
+      - `remedy-status` lists them, from 1 to 255; without it any failure
+        offers the remedy, as before. A check that fails otherwise, with
+        another status, without starting or killed by a signal, says that
+        its remedy is not for that failure and asks only whether to go on
+        or abort; Enter and `--yes` abort, as for a check without a remedy.
+        After the remedy the check runs again under the same rule. A backup
+        check thus tells "the backup is too old", which the backup fixes,
+        from "the backup disk is missing", which the backup would make
+        worse by writing onto the root filesystem. The check alone cannot
+        prevent that: its failure is what offers the remedy.
+      - The list belongs to a check with a remedy. Empty, the default, any
+        failure offers the remedy: `config show` writes the empty list and
+        reads it back, and a drop-in sets it to bring the default back. A
+        later file that sets it replaces it, as it does `command` and
+        `remedy`: it is a value of the hook, not a list of entries added up
+        like `USE`.
+      - `--pretend` names the statuses: "if it fails with exit status 1,
+        offers to run …; otherwise asks whether to go on".
+      - What a check checks is the business of its command: emergup knows
+        no backup format nor where a backup is, and the maximum age of a
+        backup is an argument of the check. No `[backup]` section either:
+        without a check of its own, it would be a check hook under another
+        name. A backup tool can have the check itself (redo-backup is to get
+        `redo-backup check`, with an exit status for "too old" and another
+        for "destination missing"); otherwise the user writes a script.
+      - The example configuration shows a backup check before the run, with
+        the backup tool as its remedy, elevated, and `remedy-status`;
+        emergup ships no script for it.
+- [ ] **6.5** Hooks that run only when someone answers the questions:
+      `interactive-only = true` skips the hook, with a notice, when the run
+      answers them by itself, under `--yes` and in the unattended runs of
+      phase 13; `--pretend` says so.
+      - A backup is long, and an unattended run may rather skip its check
+        than start one. For a check, the user chooses: skipped then, the run
+        going on without it, or failing and aborting the run, as a check
+        without a remedy does under `--yes`.
+- [ ] **6.6** The environment of the commands run as root (PRIV-5): an
       `[elevation]` list of variables to keep, such as `EDITOR`, so that
       `dispatch-conf` edits with the user's editor. sudo keeps them with
       `--preserve-env=…`, which the sudoers rule must allow (a rule for
@@ -545,7 +572,7 @@ check before the run (6.2, 6.4).
       emergup says that `doas.conf` must keep them.
       - The `EMERGUP_*` variables of a hook or a remedy run as root (HOOK-4)
         are kept the same way.
-- [ ] **6.6** The live packages listed before their rebuild in the smart mode
+- [ ] **6.7** The live packages listed before their rebuild in the smart mode
       (UPD-16): `smart-live-rebuild --pretend` first, then the question,
       then the rebuild. How the rebuild avoids checking the upstreams a
       second time (rebuilding the listed packages with `emerge --oneshot`,
