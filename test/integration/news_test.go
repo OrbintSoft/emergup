@@ -163,3 +163,93 @@ func TestNEWS1_PretendListsTheNewsAndReadsNone(t *testing.T) {
 		"    would ask whether to read them, then run as root: eselect news read new\n")
 	assert.Equal(t, newsItem, ctr.newsList("unread"), "the item stays unread")
 }
+
+// The question of `emergup news`, and the row of the item once read.
+const (
+	commandQuestion = "==> Read them? [R/q/?] "
+	readNewsRow     = "    2026-11-01  [emergup-test] " + newsTitle + " (read)\n"
+)
+
+// withNewsForTheCommand brings the news item of the test repository, which
+// the sync marks unread, with every step of a run disabled: the command
+// does not depend on the news step of runs.
+func withNewsForTheCommand(ctr *container) {
+	ctr.t.Helper()
+
+	ctr.dropIns("all-disabled")
+	ctr.publishTree("snapshot-news")
+	ctr.syncRepository()
+}
+
+// NEWS-2: `emergup news` lists the unread news items and reads them, as
+// root for a user outside the portage group, marking them read; `--all`
+// lists every item, those read marked, and asks nothing.
+func TestNEWS2_TheCommandListsTheUnreadNewsAndReadsThem(t *testing.T) {
+	t.Parallel()
+
+	ctr := start(t)
+	withNewsForTheCommand(ctr)
+
+	before := ctr.emergup("news", "--all")
+	assert.Equal(t, 0, before.code, "--all asks nothing, with the output:\n%s%s", before.stdout, before.stderr)
+	assert.Contains(t, before.stdout, newsRow, "unread, not marked")
+	assert.NotContains(t, before.stdout, commandQuestion)
+
+	read := ctr.emergupInput("r\n", "news")
+	assert.Equal(t, 0, read.code, "the exit status, with the output:\n%s%s", read.stdout, read.stderr)
+	assertInOrder(t, read.stdout, newsRow, commandQuestion+"read them\n", newsTitle,
+		"A news item of the test repository, which the news tests of emergup")
+	assert.NotContains(t, read.stdout, goOnQuestion, "no run to go on with")
+	assert.Equal(t, newsItem, ctr.newsList("read"), "the item is marked read, which needs root for tester")
+	assert.Empty(t, ctr.newsList("unread"))
+
+	again := ctr.emergup("news")
+	assert.Equal(t, 0, again.code)
+	assert.Equal(t, "==> no unread news items\n", again.stdout)
+
+	after := ctr.emergup("news", "--all")
+	assert.Equal(t, 0, after.code)
+	assert.Contains(t, after.stdout, readNewsRow)
+}
+
+// NEWS-2: `emergup news` can leave the items unread, and exits with 130
+// at the end of the input.
+func TestNEWS2_TheCommandLeavesThemUnreadOrStops(t *testing.T) {
+	t.Parallel()
+
+	ctr := start(t)
+	withNewsForTheCommand(ctr)
+
+	left := ctr.emergupInput("q\n", "news")
+	assert.Equal(t, 0, left.code, "the exit status, with the output:\n%s%s", left.stdout, left.stderr)
+	assert.Contains(t, left.stdout, commandQuestion+"quit, leaving them unread\n==> you chose to leave them unread\n")
+	assert.Equal(t, newsItem, ctr.newsList("unread"), "the item stays unread")
+
+	stopped := ctr.emergup("news")
+	assert.Equal(t, stoppedRun, stopped.code, "the exit status, with the output:\n%s%s", stopped.stdout, stopped.stderr)
+	assert.Equal(t, newsItem, ctr.newsList("unread"), "the item stays unread")
+}
+
+// NEWS-2: a member of the portage group reads the items without an
+// elevation tool; a user who needs one and has none is told so, and is
+// not asked.
+func TestNEWS2_TheCommandElevatesOnlyWhenItMust(t *testing.T) {
+	t.Parallel()
+
+	ctr := start(t)
+	withNewsForTheCommand(ctr)
+	withoutSudo(ctr)
+
+	refused := ctr.emergupInput("r\n", "news")
+	assert.Equal(t, 1, refused.code, "the exit status, with the output:\n%s%s", refused.stdout, refused.stderr)
+	assertInOrder(t, refused.stdout, newsRow, "==> marking them read needs root: no elevation tool found: "+
+		"install sudo, doas or run0, or run emergup as root\n")
+	assert.NotContains(t, refused.stdout, commandQuestion)
+	assert.Equal(t, newsItem, ctr.newsList("unread"), "the item stays unread")
+
+	ctr.root("usermod", "--append", "--groups", "portage", tester)
+
+	read := ctr.emergupInput("r\n", "news")
+	assert.Equal(t, 0, read.code, "the exit status, with the output:\n%s%s", read.stdout, read.stderr)
+	assert.Equal(t, newsItem, ctr.newsList("read"), "the item is marked read, without sudo")
+}

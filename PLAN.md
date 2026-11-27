@@ -621,7 +621,7 @@ check before the run (6.2, 6.4).
         run `smart-live-rebuild --pretend`, then emerge with the packages
         it lists.
 
-## Phase 7 — News  `[~]`  (NEWS-*)
+## Phase 7 — News  `[x]`  (NEWS-*)
 
 - [x] **7.1** Show unread news after the sync and confirm before updating (NEWS-1).
       - A built-in step of its own, `news`, between the sync and the
@@ -655,7 +655,31 @@ check before the run (6.2, 6.4).
         unattended run should rather stop on news belongs to phase 13.
       - `--pretend` lists the unread items, which only reads files, and
         says what it would run, and as whom.
-- [ ] **7.2** `emergup news` (NEWS-2).
+- [x] **7.2** `emergup news` (NEWS-2).
+      - The news step on its own, for the news a run left unread, under
+        `--yes` above all: the same rows, then "Read them?" with two
+        answers, read them (the usual action) or quit leaving them
+        unread. There is no run to go on with, so no second question.
+        With nothing unread it says so and exits.
+      - Reading runs `[steps.news] command`, even when the step is
+        disabled for runs, and as the step does: as the invoking user
+        when they can write `/var/lib/gentoo/news`, elevated otherwise.
+        The elevation method is resolved only then, so that a member of
+        the `portage` group without sudo can read them; a user who would
+        need one and has none is told so after the rows, without the
+        question. Started as root, it says so once, as a run does
+        (PRIV-4).
+      - `--all` lists every item, those already read marked `(read)`
+        after their title, and asks nothing: the history of the news
+        without root. Reading an old item again stays with `eselect news
+        read`, and so does marking items read without reading them.
+      - It reads the configuration as a run does (the elevation method,
+        the variables to keep, the colours, the news command), and keeps
+        no run directory, no log and no lock, as `config check`: it
+        changes only Portage's record of the news read.
+      - Exit status 0; 1 when the configuration has a problem or the
+        items cannot be listed or read; 130 for Ctrl-C or the end of the
+        input at the question (CLI-3).
 
 ## Phase 8 — Failure diagnostics  `[ ]`  (DIAG-*)
 

@@ -52,6 +52,8 @@ commands:
     -y, --yes      take the usual answer to every question
     -p, --pretend  show the steps and what they would run, and run nothing
     --force-sync   sync every repository, however recently it was synced
+  news           list the unread news items and offer to read them
+    --all          list every news item, those read too, and ask nothing
   config check   validate the configuration files and report each problem
   config show    print the configuration in effect and where each value comes from
   version        print the emergup version (also --version)
@@ -115,6 +117,8 @@ func Main(ctx context.Context, env Env, invokedAs string, args []string) int {
 		return exitOK
 	case "run":
 		return runCommand(ctx, env, prog, rest)
+	case "news":
+		return newsCommand(ctx, env, prog, rest)
 	case "config":
 		return configCommand(ctx, env, prog, rest)
 	default:
@@ -329,6 +333,93 @@ func (env Env) now() func() time.Time {
 	}
 
 	return time.Now
+}
+
+// newsCommand runs `news`: the unread news items, read if the user says
+// so, or with --all every item. It keeps no log and takes no lock: it
+// changes only Portage's record of the news read.
+func newsCommand(ctx context.Context, env Env, prog string, args []string) int {
+	all, valid := parseNewsOptions(env.Stderr, prog, args)
+	if !valid {
+		return exitUsage
+	}
+
+	cfg, err := config.Load(ctx, env.Root)
+	if err != nil {
+		return reportProblems(env.Stderr, err)
+	}
+
+	printer := ui.Printer{Out: env.Stdout, Colors: cfg.Colors, Color: env.Color, Log: nil}
+
+	if elevation.IsRoot(env.System) {
+		printer.Notice(runningAsRoot)
+	}
+
+	// Only the read can need root, and it runs through the elevated runner:
+	// the commands of this environment run as they are.
+	stepsEnv := newStepsEnv(env, printer, "", nil, nil, false)
+
+	outcome := steps.News(ctx, stepsEnv, steps.NewsOptions{
+		Config: cfg.Steps.News,
+		All:    all,
+		Elevated: func() (runner.Runner, error) {
+			return newsElevation(env, printer, cfg.Elevation)
+		},
+	})
+
+	switch outcome.Status {
+	case pipeline.Skipped:
+		printer.Skip(outcome.Reason)
+	case pipeline.Failed:
+		printer.Failure(outcome.Reason)
+
+		return exitProblem
+	case pipeline.Stopped:
+		return exitStopped
+	case pipeline.NotRun, pipeline.Succeeded, pipeline.Disabled:
+	}
+
+	return exitOK
+}
+
+// newsElevation returns the runner of the read of the news as root, through
+// the method of settings, or why there is none. `news` asks for it only
+// when the read needs root, so that a user who needs none can read without
+// an elevation tool.
+func newsElevation(env Env, printer ui.Printer, settings config.Elevation) (elevation.Runner, error) {
+	program, err := elevation.Resolve(settings.Method, env.System)
+	if err != nil {
+		return elevation.Runner{}, fmt.Errorf("marking them read needs root: %w", err)
+	}
+
+	sayWhatDoasMustKeep(printer, program, settings.KeepEnv, nil)
+
+	return elevation.Runner{
+		Next: env.NewRunner(nil), Program: program, Keep: settings.KeepEnv, LookupEnv: env.System.LookupEnv,
+	}, nil
+}
+
+// parseNewsOptions reads the options of `news` and reports whether --all is
+// given; on a mistake it writes it with the usage and returns false.
+func parseNewsOptions(stderr io.Writer, prog string, args []string) (bool, bool) {
+	all := false
+
+	for _, arg := range args {
+		switch {
+		case arg == "--all":
+			all = true
+		case strings.HasPrefix(arg, "-"):
+			unknownOption(stderr, prog, "news", arg)
+
+			return all, false
+		default:
+			unexpectedArgument(stderr, prog, "news", arg)
+
+			return all, false
+		}
+	}
+
+	return all, true
 }
 
 // configCommand runs `config check` or `config show`.
