@@ -145,3 +145,122 @@ func TestThereIsNoAIWithoutABackendAsRootOrUnderYes(t *testing.T) {
 		}
 	}
 }
+
+// The Claude Code backend of the tests, and the state directory it runs in.
+const (
+	withClaude = "\n[ai]\nbackend = \"claude-code\"\n"
+	claudeCode = "claude"
+	stateDir   = "/state/emergup"
+)
+
+// claudeAnswers makes Claude Code answer every request of sess with text,
+// as its events give it.
+func claudeAnswers(sess *session, text string) {
+	sess.runner.outputs["claude --safe-mode"] = `{"type":"system","subtype":"init","session_id":"s"}` + "\n" +
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"` +
+		text + `"}},"session_id":"s"}` + "\n" +
+		`{"type":"result","subtype":"success","is_error":false,"result":"` + text + `","session_id":"s"}` + "\n"
+}
+
+// claudeRuns returns the commands sess ran Claude Code with.
+func claudeRuns(sess *session) []runner.Command {
+	var runs []runner.Command
+
+	for _, command := range sess.runner.Commands() {
+		if command.Args[0] == claudeCode {
+			runs = append(runs, command)
+		}
+	}
+
+	return runs
+}
+
+// sessionOf returns the session the Claude Code command line args names,
+// with --session-id or --resume, and which.
+func sessionOf(t *testing.T, args []string) (string, string) {
+	t.Helper()
+
+	require.GreaterOrEqual(t, len(args), 2)
+
+	option, session := args[len(args)-2], args[len(args)-1]
+	require.Contains(t, []string{"--session-id", "--resume"}, option, "the session ends the command line")
+
+	return option, session
+}
+
+func TestClaudeCodeExplainsAndChatsInOneSession(t *testing.T) {
+	t.Parallel()
+
+	const claudePrompt = "==> Run this step again? [r/s/a/e/c/?] "
+
+	sess := failingBuild(t, withClaude, 'y', 'e', 'y', 'c', 'a')
+	claudeAnswers(sess, "The sources do not compile.")
+
+	code, stdout, _ := sess.run(t, commandRun)
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stdout, claudePrompt+"explain the failure\n==> To send to claude:\n")
+	assert.Contains(t, stdout, "==> The answer of claude:\nThe sources do not compile.\n"+
+		claudePrompt+"chat about the failure\n"+claudePrompt+"end the run\n", "no screen before the chat")
+
+	runs := claudeRuns(sess)
+	require.Len(t, runs, 2)
+
+	assert.Equal(t, []string{claudeCode, "--safe-mode", "-p"}, runs[0].Args[:3], "the configured command, then -p")
+	assert.Equal(t, runner.Save, runs[0].Mode)
+
+	started, session := sessionOf(t, runs[0].Args)
+	assert.Equal(t, "--session-id", started)
+	assert.Equal(t, []string{claudeCode, "--safe-mode", "--resume", session}, runs[1].Args, "the chat goes on with it")
+	assert.Equal(t, runner.Terminal, runs[1].Mode)
+
+	for _, run := range runs {
+		assert.Equal(t, stateDir, run.Dir, "in emergup's state directory")
+		assert.False(t, run.Root)
+	}
+
+	assert.NotContains(t, strings.Join(runs[0].Args, " "), "Step:", "the material is never on the command line")
+}
+
+func TestAChatFirstSendsTheMaterial(t *testing.T) {
+	t.Parallel()
+
+	sess := failingBuild(t, withClaude, 'y', 'c', 'y', 'a')
+	claudeAnswers(sess, "The sources do not compile.")
+
+	code, stdout, _ := sess.run(t, commandRun)
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stdout, "chat about the failure\n==> To send to claude:\n")
+
+	runs := claudeRuns(sess)
+	require.Len(t, runs, 2, "the request, then the chat")
+	assert.Contains(t, runs[0].Args, "-p")
+	assert.Equal(t, runner.Terminal, runs[1].Mode)
+}
+
+func TestEachFailureHasASessionOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	sess := failingBuild(t, withClaude, 'y', 'e', 'y', 'r', 'e', 'y', 'a')
+	claudeAnswers(sess, "Again.")
+
+	code, _, _ := sess.run(t, commandRun)
+	assert.Equal(t, 1, code)
+
+	runs := claudeRuns(sess)
+	require.Len(t, runs, 2)
+
+	firstOption, first := sessionOf(t, runs[0].Args)
+	secondOption, second := sessionOf(t, runs[1].Args)
+	assert.Equal(t, "--session-id", firstOption)
+	assert.Equal(t, "--session-id", secondOption, "the question after the second failure starts a new one")
+	assert.NotEqual(t, first, second)
+}
+
+func TestTheCommandBackendHasNoChat(t *testing.T) {
+	t.Parallel()
+
+	sess := failingBuild(t, withAI, 'y', 'a')
+
+	_, stdout, _ := sess.run(t, commandRun)
+	assert.Contains(t, stdout, "==> Run this step again? [r/s/a/e/?] end the run\n")
+}

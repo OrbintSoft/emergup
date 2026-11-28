@@ -100,7 +100,7 @@ func (m *ElevationMethod) UnmarshalText(text []byte) error {
 // aiBackendNames are the names of the AI backends, in the order of their
 // constants.
 func aiBackendNames() []string {
-	return []string{"none", "command"}
+	return []string{"none", "command", "claude-code"}
 }
 
 // String returns the name the configuration uses for the backend.

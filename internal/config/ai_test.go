@@ -10,14 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The keys of the AI backend.
+// The keys of the AI backend, and Claude Code's program.
 const (
+	claude       = "claude"
+	safeMode     = "--safe-mode"
 	keyBackend   = "ai.backend"
 	keyAICommand = "ai.command.command"
 )
 
 // backendNames is how a problem with the backend says what it can be.
-const backendNames = "expected one of none, command"
+const backendNames = "expected one of none, command, claude-code"
 
 // noCommand is what config check says of a command backend without one.
 const noCommand = "the command backend has no command: give the program that answers in [ai.command] command"
@@ -25,7 +27,23 @@ const noCommand = "the command backend has no command: give the program that ans
 func TestTheDefaultHasNoAIBackend(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, AI{Backend: BackendNone, Command: CommandBackend{Command: []string{}}}, Default().AI)
+	assert.Equal(t, AI{
+		Backend:    BackendNone,
+		ClaudeCode: ClaudeCodeBackend{Command: []string{claude, safeMode}},
+		Command:    CommandBackend{Command: []string{}},
+	}, Default().AI)
+}
+
+func TestLoadReadsTheClaudeCodeBackend(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := Load(t.Context(), fstest.MapFS{
+		MainFile: file("[ai]\nbackend = \"claude-code\"\n\n" +
+			"[ai.claude-code]\ncommand = [\"claude\", \"--model\", \"sonnet\"]\n"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, BackendClaudeCode, cfg.AI.Backend)
+	assert.Equal(t, []string{claude, "--model", "sonnet"}, cfg.AI.ClaudeCode.Command)
 }
 
 func TestLoadReadsTheCommandBackend(t *testing.T) {
@@ -79,6 +97,7 @@ func TestLoadRejectsWrongAIValues(t *testing.T) {
 		{"an integer for the backend", "[ai]\nbackend = 1\n", 2, keyBackend, backendNames + ", found an integer"},
 		{"a list for the backend", "[ai]\nbackend = [\"none\"]\n", 2, keyBackend, backendNames + ", found a list"},
 		{"an empty program", "[ai.command]\ncommand = [\"\"]\n", 2, keyAICommand, emptyProgram},
+		{"no Claude Code command", "[ai.claude-code]\ncommand = []\n", 2, "ai.claude-code.command", emptyCommand},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

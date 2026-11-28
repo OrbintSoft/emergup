@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Claude Code as the AI backend, with its default command, which the
+# Claude Code of the integration tests answers.
+
+[ai]
+backend = "claude-code"

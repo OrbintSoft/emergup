@@ -229,10 +229,22 @@
 # without an answer, nor under --yes, nor when it runs as root. backend is
 # the one that answers:
 #
-#   none        no AI assistance;
-#   command     the program of [ai.command].
+#   none          no AI assistance;
+#   claude-code   Claude Code, as [ai.claude-code] runs it;
+#   command       the program of [ai.command].
 #
 #backend = "none"
+
+[ai.claude-code]
+# Claude Code's program and its first arguments, such as a model, run as
+# the user who started emergup, in emergup's state directory, where it
+# keeps the conversations of emergup. --safe-mode starts it without the
+# user's own CLAUDE.md, skills, plugins, MCP servers and hooks, which would
+# make every request much larger; without it, for example
+#
+# command = ["claude", "--model", "sonnet"]
+#
+#command = ["claude", "--safe-mode"]
 
 [ai.command]
 # A program that reads the request on its standard input and writes the

@@ -49,7 +49,11 @@ func TestDefault(t *testing.T) {
 			Notice:  parseStyle(t, "magenta"),
 		},
 		Runs: Runs{Keep: 10},
-		AI:   AI{Backend: BackendNone, Command: CommandBackend{Command: []string{}}},
+		AI: AI{
+			Backend:    BackendNone,
+			ClaudeCode: ClaudeCodeBackend{Command: []string{claude, safeMode}},
+			Command:    CommandBackend{Command: []string{}},
+		},
 	}
 
 	assert.Equal(t, want, Default())

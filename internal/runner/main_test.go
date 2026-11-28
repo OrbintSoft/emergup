@@ -49,6 +49,7 @@ func TestMain(m *testing.M) {
 //	env:NAME     writes the value of the variable NAME, or "unset", and a
 //	             newline to standard output
 //	echo-stdin   copies standard input to standard output
+//	cwd          writes its working directory and a newline to standard output
 //	wait-term    writes "ready", waits for SIGTERM, writes "terminated", exits 3;
 //	             without SIGTERM within childWait, exits 124
 //	ignore-term  ignores SIGTERM, writes "ready" and waits for childWait
@@ -120,6 +121,10 @@ func childWrites() map[string]func(text string) {
 		"green": func(text string) { _, _ = fmt.Fprintln(os.Stdout, greenEscape+text+resetEscape) },
 		"bold":  func(text string) { _, _ = fmt.Fprintln(os.Stderr, boldEscape+text+resetEscape) },
 		"part":  func(text string) { _, _ = fmt.Fprint(os.Stdout, text) },
+		"cwd": func(string) {
+			dir, _ := os.Getwd()
+			_, _ = fmt.Fprintln(os.Stdout, dir)
+		},
 		"long": func(count string) {
 			times, _ := strconv.Atoi(count)
 			_, _ = fmt.Fprint(os.Stdout, strings.Repeat("x", times))

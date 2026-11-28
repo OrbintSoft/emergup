@@ -831,9 +831,37 @@ check before the run (6.2, 6.4).
         written; the installed packages through `steps.InstalledPackages`.
         AI-1, AI-4 and AI-8 are partial until the other backends and
         actions; AI-2 and AI-6 hold for every request.
-- [ ] **9.3** Claude Code backend: the explanation streamed, the shared
-      session, the chat; `emergup config ai` and its mention in
-      `config check` (AI-9, AI-10, AI-11).
+- [x] **9.3** Claude Code backend (AI-1, AI-8, AI-9, AI-10), decided with the
+      maintainer on 2026-11-28:
+      - `[ai] backend = "claude-code"`, `[ai.claude-code] command`, by
+        default `["claude", "--safe-mode"]`: a model or other options go
+        among its arguments. Measured on a minimal request: Claude Code's
+        system prompt with a user's customizations cached 66,860 tokens
+        ($0.53); with `--safe-mode`, 1,649 ($0.013). The maintainer chose
+        `--safe-mode` by default; `--resume` gets it too.
+      - `e` runs `claude -p --output-format stream-json
+        --include-partial-messages --verbose --tools ""`, the request on
+        its standard input: one request without tools; each piece of text
+        of the answer is shown and logged as it arrives, and the last event
+        says whether it failed.
+      - One session per question: the first request has `--session-id`, a
+        new UUID, the next ones `--resume` it. Claude Code runs in
+        emergup's state directory, since it keeps sessions per directory:
+        a stable one, trusted once, with the run directories beneath.
+      - `c` opens `claude --resume <session>` on the terminal; with nothing
+        sent yet, it first sends the material as a turn of the session,
+        after the screen of AI-2, and shows that explanation. The material
+        never goes on a command line.
+      - Built: `ai.ClaudeCode`, whose decoder shows the text of the
+        `stream_event` deltas and reads the `result` event, the whole
+        `assistant` message left aside; `ai.Conversation`, one for each
+        failure; `Env.ChatAboutFailure` offers `c` with a backend that can
+        chat. In the tests, a fake `claude` answers with the events of
+        Claude Code. AI-9 and AI-10 are done; AI-1 and AI-8 stay partial
+        until the API backend and the investigation.
+- [ ] **9.3b** `emergup config ai`, which detects Claude Code for the
+      invoking user, shows the drop-in it would write and writes it through
+      elevation, and its mention in `config check` (AI-11).
 - [ ] **9.4** The news: explain them, and take the actions they ask for
       (AI-3, AI-7).
 - [ ] **9.5** A failed step: explain and investigate it, and apply the fix

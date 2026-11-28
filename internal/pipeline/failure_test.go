@@ -269,3 +269,56 @@ func TestWithoutAnExplainerTheFailureHasNoExplanation(t *testing.T) {
 	assert.Contains(t, rig.out.String(), failedPrompt+"\n"+notAnAnswer+failedPrompt+"end the run\n",
 		"e is not an answer")
 }
+
+// chatted records the failures a rig's chat is asked about, and answers
+// each with err.
+func chatted(rig *testRig, err error) *[]string {
+	asked := &[]string{}
+
+	rig.chat = func(_ context.Context, step pipeline.Step, report pipeline.StepReport) error {
+		*asked = append(*asked, fmt.Sprintf("%s: %s, %s", step.Name(), report.Status, report.Reason))
+
+		return err
+	}
+
+	return asked
+}
+
+func TestAFailedStepCanBeChattedAbout(t *testing.T) {
+	t.Parallel()
+
+	const chatPrompt = "==> Run this step again? [r/s/a/e/c/?] "
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'c', 'e', 'a')
+	chats := chatted(rig, nil)
+	explanations := explained(rig, nil)
+
+	report := runSteps(t, rig, steps)
+
+	assert.Contains(t, rig.out.String(), failedUpdate+chatPrompt+"chat about the failure\n"+
+		chatPrompt+"explain the failure\n"+chatPrompt+"end the run\n", "the same question after each")
+	assert.Equal(t, []string{"update: failed, " + emergeFailed}, *chats)
+	assert.Equal(t, []string{"update: failed, " + emergeFailed}, *explanations)
+	assert.Equal(t, pipeline.RunFailed, report.Result)
+}
+
+func TestAChatThatFailsIsSaid(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'c', 'a')
+	chatted(rig, errNoAnswer)
+
+	runSteps(t, rig, steps)
+
+	assert.Contains(t, rig.out.String(), "==> Run this step again? [r/s/a/c/?] chat about the failure\n"+
+		"==> "+errNoAnswer.Error()+"\n", "without an explainer, no e; the failure of the chat is a notice")
+}
+
+func TestAnAbortedChatStopsTheRun(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'c', 'a')
+	chatted(rig, fmt.Errorf("asking whether to send it: %w", ui.ErrAborted))
+
+	assert.Equal(t, pipeline.RunStopped, runSteps(t, rig, steps).Result)
+}

@@ -91,7 +91,7 @@ func (c customStep) Pretend(_ context.Context, env pipeline.Env) ([]string, erro
 func (c customStep) Run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	command := runner.Command{
 		Args: slices.Clone(c.config.Command), Mode: runner.Stream, Root: c.config.Elevated, Env: nil,
-		Watch: nil, Into: nil, Stdin: nil,
+		Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	}
 
 	return runCommand(ctx, env, command, c.program())

@@ -47,7 +47,7 @@ func Packages(installed []string) Part {
 // output.
 func query(ctx context.Context, run runner.Runner, args ...string) (string, error) {
 	result, err := run.Run(ctx, runner.Command{
-		Args: args, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: args, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	})
 
 	switch {

@@ -31,10 +31,10 @@ func (c Command) Name() string {
 
 // Explain implements Backend: the program's output is shown and logged as
 // it comes.
-func (c Command) Explain(ctx context.Context, request Request) error {
+func (c Command) Explain(ctx context.Context, _ *Conversation, request Request) error {
 	result, err := c.Runner.Run(ctx, runner.Command{
 		Args: c.Args, Mode: runner.Stream, Root: false, Env: nil, Watch: nil, Into: nil,
-		Stdin: strings.NewReader(request.Text()),
+		Stdin: strings.NewReader(request.Text()), Dir: "",
 	})
 
 	switch {

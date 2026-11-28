@@ -139,7 +139,7 @@ their path in the repository.
 | `internal/pipeline` | Running the steps of an update in order: each announced and confirmed, how it ended and how long it took, and the summary of the run. |
 | `internal/steps` | The built-in steps, in the order of the `[steps]` section, as the configuration sets them up. |
 | `internal/report` | The failure report of a step that fails: the packages emerge names as failed, their build logs and the queries about them, and the summary. |
-| `internal/ai` | The requests to an AI backend: what each holds, shown and confirmed before it is sent, the instructions to the AI, and the command backend. |
+| `internal/ai` | The requests to an AI backend: what each holds, shown and confirmed before it is sent, the instructions to the AI, and the backends: a command, and Claude Code. |
 | `internal/version` | The version `emergup version` reports. |
 | `test/integration` | The integration tests and the image they run in. |
 | `examples/etc/emergup` | The example configuration; `make test` checks that it loads and that the main file shows the generic defaults. |
