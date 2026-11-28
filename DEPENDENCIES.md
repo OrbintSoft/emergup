@@ -78,8 +78,11 @@ own: emergup does not pin or update them.
 
 | Command | Purpose | Package |
 | --- | --- | --- |
-| `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. | `sys-apps/portage` |
+| `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. For the failure report, `emerge --info` and `emerge -pqv` for each package that failed, unprivileged. | `sys-apps/portage` |
 | `portageq` | Asking Portage about the system, read-only: unprivileged for the repositories (`repos_config`), the package database (`vdb_path`) and the protected configuration paths (`envvar`); elevated for the preserved libraries (`list_preserved_libs`), since only root and the portage group can read their registry. | `sys-apps/portage` |
+| `smart-live-rebuild` | Listing the live packages whose upstream changed (`--pretend`), elevated, in the smart mode of the live-package rebuild; optional: without it the rebuild goes by the time of the last build. | `app-portage/smart-live-rebuild` |
 | `dispatch-conf` | Merging the pending configuration-file updates, the default tool of the config-files step; `etc-update` can be configured instead. | `sys-apps/portage` |
 | `find` | Looking for the pending configuration-file updates, elevated since some protected directories can be read by root alone; read-only. | `sys-apps/findutils` |
+| `eselect` | Showing the unread news items and marking them read (`eselect news read new`), the default command of the news step and of `emergup news`: as the invoking user when they can write Portage's record of the news read, elevated otherwise. | `app-admin/eselect` |
+| `cat` | Copying the build log of a package that failed into the failure report, elevated and read-only, since only Portage's own user can read it. | `sys-apps/coreutils` |
 | `sudo`, `doas` or `run0` | Running the commands that need root, when emergup is not root; the first one installed, or the one the configuration names. | `app-admin/sudo`, `app-admin/doas`, `sys-apps/systemd` |

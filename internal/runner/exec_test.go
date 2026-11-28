@@ -300,3 +300,122 @@ func TestACommandThatDoesNotStopIsKilled(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a signal ended the command")
 	assert.Less(t, result.Duration, 10*time.Second)
 }
+
+// lockedBuffer is a buffer that a test reads while a command writes to it.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(data []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// A bytes.Buffer grows as it must, and never fails.
+	_, _ = b.buf.Write(data)
+
+	return len(data), nil
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
+}
+
+// watched runs cmd with a watch and returns what the watch got, a line
+// each.
+func watched(t *testing.T, cmd runner.Command) []string {
+	t.Helper()
+
+	exec, _ := newExec("")
+
+	var watch lockedBuffer
+
+	cmd.Watch = &watch
+
+	_, err := exec.Run(t.Context(), cmd)
+	require.NoError(t, err)
+
+	text := watch.String()
+	if text == "" {
+		return nil
+	}
+
+	require.True(t, strings.HasSuffix(text, "\n"), "every line ends with a newline: %q", text)
+
+	// The text ends with a newline, after which SplitAfter gives "".
+	lines := strings.SplitAfter(text, "\n")
+
+	return lines[:len(lines)-1]
+}
+
+func TestWatchGetsWhatTheLogGetsLineByLine(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []runner.Mode{runner.Stream, runner.Capture, runner.StreamCapture} {
+		lines := watched(t, childCommand(mode, "green:done", "bold:warning", "part:no newline"))
+		require.NotEmpty(t, lines, mode)
+		assert.ElementsMatch(t, []string{"done\n", "warning\n", "no newline\n"}, lines, mode)
+		assert.Equal(t, "no newline\n", lines[len(lines)-1], "the last line gets a newline, once the command ends")
+	}
+}
+
+func TestWatchGetsTheLinesOfEachStreamWhole(t *testing.T) {
+	t.Parallel()
+
+	lines := watched(t, childCommand(runner.Stream, "part:first ", "err:other", "out:half"))
+	assert.ElementsMatch(t, []string{"first half\n", "other\n"}, lines,
+		"a line of standard error does not cut one of standard output")
+}
+
+func TestWatchCutsAVeryLongLine(t *testing.T) {
+	t.Parallel()
+
+	lines := watched(t, childCommand(runner.Stream, "long:70000"))
+	require.Len(t, lines, 2)
+	assert.Len(t, lines[0], 64*1024+1, "64 KiB, then a newline")
+	assert.Equal(t, strings.Repeat("x", 70000-64*1024)+"\n", lines[1])
+}
+
+func TestWatchGetsNothingOfATerminalCommand(t *testing.T) {
+	t.Parallel()
+
+	assert.Empty(t, watched(t, childCommand(runner.Terminal, "out:hello")))
+}
+
+func TestSaveWritesTheStandardOutputOnlyToInto(t *testing.T) {
+	t.Parallel()
+
+	exec, out := newExec("")
+
+	var into bytes.Buffer
+
+	cmd := childCommand(runner.Save, "green:content", "out:more", "err:warning")
+	cmd.Into = &into
+
+	result, err := exec.Run(t.Context(), cmd)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.ExitCode)
+	assert.Empty(t, result.Output)
+
+	assert.Equal(t, greenEscape+"content"+resetEscape+"\nmore\n", into.String(), "as it is")
+	assert.Empty(t, out.stdout.String(), "not shown")
+	assert.Equal(t, "warning\n", out.stderr.String())
+
+	log := out.log.String()
+	assert.Contains(t, log, "\nwarning\n")
+	assert.NotContains(t, log, "\ncontent\n", "not logged")
+	assert.NotContains(t, log, "\nmore\n", "not logged")
+	assert.Contains(t, log, "==> exit status 0 after ")
+}
+
+func TestSaveNeedsSomewhereToWrite(t *testing.T) {
+	t.Parallel()
+
+	exec, _ := newExec("")
+
+	_, err := exec.Run(t.Context(), childCommand(runner.Save, "out:content"))
+	require.Error(t, err)
+}

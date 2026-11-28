@@ -119,6 +119,8 @@ type testRig struct {
 	// hooks and hookEnv are those of the run.
 	hooks   []pipeline.Hook
 	hookEnv []string
+	// observer is told how the steps go, when it is set.
+	observer pipeline.StepObserver
 }
 
 func newRig(t *testing.T, keys ...rune) *testRig {
@@ -139,12 +141,13 @@ func (rig *testRig) env() pipeline.Env {
 	printer := ui.Printer{Out: &rig.out, Colors: config.Default().Colors, Color: rig.color}
 
 	return pipeline.Env{
-		Runner:  &rig.runner,
-		Printer: printer,
-		Menu:    ui.Menu{Printer: printer, Keyboard: &rig.keys, Yes: rig.yes},
-		Now:     rig.clock.Now,
-		Hooks:   rig.hooks,
-		HookEnv: rig.hookEnv,
+		Runner:   &rig.runner,
+		Printer:  printer,
+		Menu:     ui.Menu{Printer: printer, Keyboard: &rig.keys, Yes: rig.yes},
+		Now:      rig.clock.Now,
+		Hooks:    rig.hooks,
+		HookEnv:  rig.hookEnv,
+		Observer: rig.observer,
 	}
 }
 

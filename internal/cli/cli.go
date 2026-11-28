@@ -21,6 +21,7 @@ import (
 	"github.com/OrbintSoft/emergup/internal/elevation"
 	"github.com/OrbintSoft/emergup/internal/lock"
 	"github.com/OrbintSoft/emergup/internal/pipeline"
+	"github.com/OrbintSoft/emergup/internal/report"
 	"github.com/OrbintSoft/emergup/internal/rundir"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/steps"
@@ -84,7 +85,20 @@ type Env struct {
 	Color bool
 	// Now gives the time; nil means time.Now.
 	Now func() time.Time
+	// OpenReport makes the directory of a failure report at path, which
+	// must not exist yet, and opens it; nil means report.OpenDir.
+	OpenReport func(path string) (ReportDir, error)
 }
+
+// ReportDir is the directory of a failure report, open to write its files.
+type ReportDir interface {
+	report.Files
+	Close() error
+}
+
+// reportDirName is the directory of a run's failure report, in the run
+// directory.
+const reportDirName = "failure"
 
 // Main runs one invocation and returns the process exit status.
 func Main(ctx context.Context, env Env, invokedAs string, args []string) int {
@@ -235,9 +249,81 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 	stepsEnv.Hooks = steps.Hooks(cfg.Hooks)
 	stepsEnv.HookEnv = pipeline.RunDirEnv(run.Dir, run.LogPath)
 
+	failures := newFailureReport(env, stepsEnv.Runner, run, printer)
+	stepsEnv.Runner = failures.recorder
+	stepsEnv.Observer = failures
+
 	sayWhatDoasMustKeep(printer, program, cfg.Elevation.KeepEnv, stepsEnv.Hooks)
 
-	return exitStatus(pipeline.Run(ctx, stepsEnv, stepsOf(cfg, options)).Result)
+	result := pipeline.Run(ctx, stepsEnv, stepsOf(cfg, options)).Result
+
+	if failures.written {
+		printer.Info("The failure report is in " + failures.dir)
+	}
+
+	return exitStatus(result)
+}
+
+// newFailureReport returns the failure report of run, whose steps run
+// their commands with next. Every command goes through its recorder, so
+// that the report of a step that fails has its command and output; the
+// report's own queries run through it too, as the steps' commands do.
+func newFailureReport(env Env, next runner.Runner, run rundir.Run, printer ui.Printer) *failureReport {
+	return &failureReport{
+		recorder: &report.Recorder{Next: next},
+		open:     env.openReport(),
+		dir:      filepath.Join(run.Dir, reportDirName),
+		log:      run.LogPath,
+		printer:  printer,
+		written:  false,
+	}
+}
+
+// failureReport writes the failure report of the step of a run that
+// fails, in dir. It is the run's pipeline.StepObserver.
+type failureReport struct {
+	recorder *report.Recorder
+	open     func(path string) (ReportDir, error)
+	// dir is where the report goes, log the path of the run's log.
+	dir string
+	log string
+	// printer says what the report could not have.
+	printer ui.Printer
+	// written is whether a report was written.
+	written bool
+}
+
+// Started implements pipeline.StepObserver: what ran before the step, its
+// hooks before it included, is not the step's own.
+func (f *failureReport) Started(pipeline.Step) {
+	f.recorder.Forget()
+}
+
+// Failed implements pipeline.StepObserver: it writes the report of step,
+// whose last command, if it ran one, is the recorder's last.
+func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepReport pipeline.StepReport) {
+	dir, err := f.open(f.dir)
+	if err != nil {
+		f.printer.Notice("no failure report: " + err.Error())
+
+		return
+	}
+
+	ran, ranAny := f.recorder.Last()
+
+	problems := report.Write(ctx, dir, f.recorder, report.Failure{
+		Step: step.Name(), Title: step.Title(), Reason: stepReport.Reason, Ran: ran, RanAny: ranAny, Log: f.log,
+	})
+
+	if err := dir.Close(); err != nil {
+		problems = append(problems, err.Error())
+	}
+
+	for _, problem := range problems {
+		f.printer.Notice("not in the failure report: " + problem)
+	}
+
+	f.written = true
 }
 
 // sayWhatDoasMustKeep says, when program is doas, which variables doas.conf
@@ -282,6 +368,7 @@ func newStepsEnv(env Env, printer ui.Printer, program string, keep []string, log
 		CanWrite:  env.System.CanWrite,
 		Hooks:     nil,
 		HookEnv:   nil,
+		Observer:  nil,
 	}
 }
 
@@ -324,6 +411,15 @@ func exitStatus(result pipeline.Result) int {
 	}
 
 	return exitProblem
+}
+
+// openReport returns how env opens the directory of a failure report.
+func (env Env) openReport() func(path string) (ReportDir, error) {
+	if env.OpenReport != nil {
+		return env.OpenReport
+	}
+
+	return func(path string) (ReportDir, error) { return report.OpenDir(path) }
 }
 
 // now returns env's clock.

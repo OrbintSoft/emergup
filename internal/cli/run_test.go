@@ -224,10 +224,14 @@ const (
 )
 
 // portage is a runner.Runner for a system's Portage: it answers each
-// command with what outputs holds for its kind, and records every command.
+// command with what outputs holds for its kind, the standard output a Save
+// command writes to its Into, ending with the exit status codes holds for
+// it, showing to its watch what shown holds; and it records every command.
 type portage struct {
 	recorded runnertest.Fake
 	outputs  map[string]string
+	codes    map[string]int
+	shown    map[string]string
 }
 
 // commandKind says what cmd does, for portage: kindDepclean or
@@ -244,11 +248,28 @@ func commandKind(cmd runner.Command) string {
 }
 
 func (p *portage) Run(ctx context.Context, cmd runner.Command) (runner.Result, error) {
-	if _, err := p.recorded.Run(ctx, cmd); err != nil {
+	// The watch and the file of a command are where its output goes, not
+	// the command: the tests compare commands without them.
+	recorded := cmd
+	recorded.Watch, recorded.Into = nil, nil
+
+	if _, err := p.recorded.Run(ctx, recorded); err != nil {
 		return runner.Result{}, err //nolint:wrapcheck // The fake's own error.
 	}
 
-	return runner.Result{ExitCode: 0, Output: []byte(p.outputs[commandKind(cmd)]), Duration: 0}, nil
+	kind := commandKind(cmd)
+
+	if cmd.Watch != nil {
+		_, _ = io.WriteString(cmd.Watch, p.shown[kind])
+	}
+
+	if cmd.Mode == runner.Save && cmd.Into != nil {
+		_, _ = io.WriteString(cmd.Into, p.outputs[kind])
+
+		return runner.Result{ExitCode: p.codes[kind], Output: nil, Duration: 0}, nil
+	}
+
+	return runner.Result{ExitCode: p.codes[kind], Output: []byte(p.outputs[kind]), Duration: 0}, nil
 }
 
 // Commands returns the commands run so far, in order.
@@ -266,6 +287,7 @@ type session struct {
 	runs      store
 	lock      locker
 	color     bool
+	reports   reports
 }
 
 // newSession returns a system without configuration files, where an
@@ -304,11 +326,12 @@ func (s *session) run(t *testing.T, args ...string) (int, string, string) {
 
 			return &s.runner
 		},
-		Runs:   &s.runs,
-		System: s.system,
-		Lock:   &s.lock,
-		Color:  s.color,
-		Now:    func() time.Time { return time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC) },
+		Runs:       &s.runs,
+		System:     s.system,
+		Lock:       &s.lock,
+		Color:      s.color,
+		Now:        func() time.Time { return time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC) },
+		OpenReport: s.reports.open,
 	}
 	code := cli.Main(t.Context(), env, "emergup", args)
 
