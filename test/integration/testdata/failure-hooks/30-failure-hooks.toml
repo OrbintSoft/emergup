@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The hook of the tests before and after the update and after the run, so
+# that a test sees how often they run around an update that fails, and how
+# the update and the run ended for them.
+
+[hooks.snapshot]
+at = "before-update"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.cleanup]
+at = "after-update"
+command = ["/usr/local/bin/emergup-test-hook"]
+
+[hooks.last]
+at = "after-run"
+command = ["/usr/local/bin/emergup-test-hook"]

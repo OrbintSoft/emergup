@@ -64,6 +64,7 @@ func TestDIAG1_AFailedStepLeavesAFailureReport(t *testing.T) {
 	dir := found[1]
 	assert.Equal(t, path.Join(path.Dir(logPath(t, got.stdout)), "failure"), dir, "in the run directory")
 	assert.NotContains(t, got.stdout, "not in the failure report", "everything is collected")
+	assert.NotContains(t, got.stdout, "Run this step again", "--yes asks nothing after a failure (UPD-17)")
 
 	listed := ctr.exec(tester, "", "ls", "-1", dir)
 	require.Equal(t, 0, listed.code, listed.stderr)

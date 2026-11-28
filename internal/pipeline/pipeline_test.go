@@ -70,9 +70,11 @@ type step struct {
 	name     string
 	disabled bool
 	clock    *clock
-	// took is how long Run takes; outcome is what it returns.
+	// took is how long Run takes; outcome is what it returns, then the
+	// outcomes of the runs after the first, in order, the last repeating.
 	took    time.Duration
 	outcome pipeline.Outcome
+	then    []pipeline.Outcome
 	// interrupt, when set, is called by Run, as a Ctrl-C would end the
 	// context while the step runs.
 	interrupt  context.CancelFunc
@@ -83,6 +85,8 @@ type step struct {
 	// unavailable, when set, says why the step cannot run.
 	unavailable string
 	ran         bool
+	// runs counts the calls of Run.
+	runs int
 }
 
 func (s *step) Name() string         { return s.name }
@@ -98,10 +102,15 @@ func (s *step) Pretend(context.Context, pipeline.Env) ([]string, error) {
 
 func (s *step) Run(context.Context, pipeline.Env) pipeline.Outcome {
 	s.ran = true
+	s.runs++
 	s.clock.now = s.clock.now.Add(s.took)
 
 	if s.interrupt != nil {
 		s.interrupt()
+	}
+
+	if s.runs > 1 && len(s.then) > 0 {
+		return s.then[min(s.runs-1, len(s.then))-1]
 	}
 
 	return s.outcome

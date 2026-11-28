@@ -36,7 +36,8 @@ var (
 )
 
 // reports is where a session's failure reports go: in memory, each
-// directory opened once; err, when set, keeps any from opening.
+// directory opened once, as a directory that exists is not opened again;
+// err, when set, keeps any from opening.
 type reports struct {
 	opened []string
 	dirs   map[string]*memoryReport
@@ -47,6 +48,10 @@ type reports struct {
 func (r *reports) open(path string) (cli.ReportDir, error) {
 	if r.err != nil {
 		return nil, r.err
+	}
+
+	if _, exists := r.dirs[path]; exists {
+		return nil, fmt.Errorf("%w: %s", errExists, path)
 	}
 
 	r.opened = append(r.opened, path)
@@ -212,4 +217,37 @@ func TestPretendWritesNoFailureReport(t *testing.T) {
 	code, _, _ := sess.run(t, commandRun, optionPretend)
 	assert.Equal(t, 0, code)
 	assert.Empty(t, sess.reports.opened)
+}
+
+// onlyFailingBuild is a configuration whose run has one step, the custom
+// step build, which fails.
+const onlyFailingBuild = "[steps.sync]\nenabled = false\n[steps.news]\nenabled = false\n" +
+	"[steps.update]\nenabled = false\n[steps.live-rebuild]\nenabled = false\n" +
+	"[steps.preserved-rebuild]\nenabled = false\n[steps.config-files]\nenabled = false\n" +
+	"[steps.depclean]\nenabled = false\n\n" +
+	"[custom-steps.build]\nafter = \"sync\"\ncommand = [\"/usr/local/bin/build\"]\n"
+
+func TestRunWritesAFailureReportForEachFailure(t *testing.T) {
+	t.Parallel()
+
+	sess := newSession(t, 'y', 'r', 'a')
+	sess.root = fstest.MapFS{configFile: {Data: []byte(onlyFailingBuild)}}
+	sess.runner.codes = map[string]int{"/usr/local/bin/build": 1}
+
+	code, stdout, _ := sess.run(t, commandRun)
+	assert.Equal(t, 1, code, "ended at the question after the failure, the run failed")
+	assert.Contains(t, stdout, "==> Run this step again? [r/s/a/?] run it again\n")
+	assert.NotContains(t, stdout, "no failure report")
+
+	second := reportDir + "-2"
+	assert.Equal(t, []string{reportDir, second}, sess.reports.opened, "the second failure has a report of its own")
+	assert.Contains(t, stdout, "\n==> The run failed after <1s.\n"+
+		reportLine+
+		"==> The failure report is in "+second+"\n"+
+		logLine, "a line for each report, in order, before the log")
+
+	for _, dir := range []string{reportDir, second} {
+		assert.Contains(t, sess.reports.dirs[dir].files["summary.txt"].String(), "Step:     build (",
+			"%s has its summary", dir)
+	}
 }
