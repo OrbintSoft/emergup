@@ -19,6 +19,10 @@ import (
 // program of the system.
 const childMarker = "-emergup-test-child"
 
+// childWait is the longest the child waits for a signal: a child whose test
+// binary died before signalling it ends by itself.
+const childWait = time.Minute
+
 // The escape sequences the child writes.
 const (
 	greenEscape = "\x1b[32m"
@@ -45,8 +49,9 @@ func TestMain(m *testing.M) {
 //	env:NAME     writes the value of the variable NAME, or "unset", and a
 //	             newline to standard output
 //	echo-stdin   copies standard input to standard output
-//	wait-term    writes "ready", waits for SIGTERM, writes "terminated", exits 3
-//	ignore-term  ignores SIGTERM, writes "ready" and waits for a minute
+//	wait-term    writes "ready", waits for SIGTERM, writes "terminated", exits 3;
+//	             without SIGTERM within childWait, exits 124
+//	ignore-term  ignores SIGTERM, writes "ready" and waits for childWait
 //	exit:N       exits with status N
 func child(ops []string) int {
 	writes := childWrites()
@@ -64,22 +69,13 @@ func child(ops []string) int {
 		case "echo-stdin":
 			_, _ = io.Copy(os.Stdout, os.Stdin)
 		case "wait-term":
-			terms := make(chan os.Signal, 1)
-			signal.Notify(terms, syscall.SIGTERM)
-
-			_, _ = fmt.Fprintln(os.Stdout, "ready")
-
-			<-terms
-
-			_, _ = fmt.Fprintln(os.Stdout, "terminated")
-
-			return 3
+			return waitTerm()
 		case "ignore-term":
 			signal.Ignore(syscall.SIGTERM)
 
 			_, _ = fmt.Fprintln(os.Stdout, "ready")
 
-			time.Sleep(time.Minute)
+			time.Sleep(childWait)
 		case "exit":
 			code, err := strconv.Atoi(arg)
 			if err != nil {
@@ -95,6 +91,25 @@ func child(ops []string) int {
 	}
 
 	return 0
+}
+
+// waitTerm writes "ready" and waits for SIGTERM, then writes "terminated"
+// and returns 3; without SIGTERM within childWait, it returns 124.
+func waitTerm() int {
+	terms := make(chan os.Signal, 1)
+	signal.Notify(terms, syscall.SIGTERM)
+
+	_, _ = fmt.Fprintln(os.Stdout, "ready")
+
+	select {
+	case <-terms:
+	case <-time.After(childWait):
+		return 124
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, "terminated")
+
+	return 3
 }
 
 // childWrites returns the operations of child that write their argument.
