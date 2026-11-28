@@ -55,6 +55,10 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   Claude Code CLI (`claude`) first, then the Anthropic API (official Go SDK,
   default model `claude-opus-5-5`), then a generic "prompt on stdin" command for
   any other LLM tool. Never run as root; the user sees what is sent first.
+  The AI actions are keys of each question (explain, investigate, chat, and
+  for the news do what they ask); emergup applies a proposal only once the
+  user has confirmed the exact command or diff, and a chat hands over to
+  Claude Code (9.0).
 - **Tests:** unit tests with testify and fakes for every side effect;
   integration tests in Docker (`gentoo/stage3`), against a local test repository
   with synthetic ebuilds and news items so they are offline and deterministic.
@@ -109,9 +113,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
 4. ~~**emerge `--ask`**~~ — answered: `--pretend` first and emergup asks, see
    Decisions taken (UPD-10).
 5. ~~**Running as root**~~ — answered: allowed, see Decisions taken (PRIV-4).
-6. **Applying AI fixes:** emergup applies a proposed change after confirmation,
-   or hands off to an interactive Claude Code session? (Phase 9) Proposed in
-   9.0: both, one per action.
+6. ~~**Applying AI fixes**~~ — answered: both, one per action. emergup
+   applies a proposed command or diff after confirmation, and a chat hands
+   over to Claude Code, see 9.0 (AI-4, AI-10).
 7. ~~**`haskell-updater`**~~ — answered: no step for one ecosystem. It is
    run by a custom step (6.3), which can be optional: skipped with a notice
    when its program is not installed (UPD-4). The example configuration
@@ -688,55 +692,85 @@ check before the run (6.2, 6.4).
 
 ## Phase 9 — AI assistance  `[ ]`  (AI-*)
 
-- [ ] **9.0** Interaction design, written into docs/FEATURES.md (AI-*) before
-      9.1. Starting point, from the maintainer's ideas:
-      - Every decision point uses the action menu of 3.3: Enter does the usual
-        action, `e` explains (one request, the answer streamed, then the same
-        menu again), `c` chats (an interactive Claude Code session with the
-        context; the menu comes back on exit), `a` aborts, `?` lists the keys.
-      - An AI action is offered only when AI is enabled and the configured
-        backend supports it; otherwise the menu shows only the usual actions
-        and the flow is unchanged. Explain works with every backend,
-        investigate with Claude Code and the API, chat with Claude Code only.
-      - Setup: AI stays off until the user enables it (AI-1), but emergup
-        helps. A setup command (name to decide, e.g. `emergup config ai`)
-        detects Claude Code for the invoking user (`claude` on `PATH`, logged
-        in according to `claude auth status`), shows the drop-in it would
-        write in `/etc/emergup/config.d/` and writes it through elevation
-        after confirmation; `emergup config check` mentions the command when
-        Claude Code is found and AI is off. The configuration is system-wide
-        while Claude Code is per user, so a user without it simply gets no AI
-        actions. Any other AI tool is configured by hand with the generic
-        command backend; further backends behind the interface are welcome as
-        contributions, Claude Code being the reference one. The ebuild names
+- [x] **9.0** Interaction design, written into docs/FEATURES.md (UPD-17,
+      AI-1 to AI-12) and decided with the maintainer on 2026-11-28:
+      - The AI actions are keys of the question they belong to, the menu of
+        3.3 (AI-8): `e` explains, with one request and no tools, its answer
+        streamed, then the same question again; `i` investigates, with a
+        read-only agent that ends with a diagnosis and a proposed fix; `c`
+        chats, in an interactive Claude Code session started with the
+        question's material, after which the question comes back; `d` does
+        what the news items ask. Each is offered only where it applies and
+        when the backend supports it: explain with every backend,
+        investigate with Claude Code and the API, chat with Claude Code
+        only. With AI off, as root (PRIV-4) or under `--yes` the questions
+        are those of today.
+      - What is sent (AI-2): the question's own material and a short system
+        profile (architecture, profile, Portage version); the installed
+        packages and the full `emerge --info` only when the user adds them on
+        the screen that says what will be sent. An investigation's screen
+        also says what the agent may do: read the files the user can read,
+        and run the read-only commands of the configuration. One
+        confirmation covers the investigation; anything else the agent
+        tries is refused, not asked (AI-4).
+      - One conversation per question, shared by its AI actions (AI-9): with
+        Claude Code, `claude -p --session-id <uuid>`, then `--resume <uuid>`,
+        so a chat goes on from an explanation. The API backend keeps the
+        messages; the command backend is sent the material again.
+      - Applying (open question 6): both, one per action. A proposal, such as
+        an investigation's fix, the news' commands or a merged config file,
+        is the exact command or diff, applied by emergup, elevated when it
+        needs root, only after the user confirms it (AI-4, AI-7, AI-5). In a
+        chat, Claude Code's own permission prompts and the elevation confirm
+        each command, and emergup applies nothing (AI-10).
+      - Decision points: the news questions, explained against the installed
+        packages if the user adds them, and `d` after reading them (AI-3,
+        AI-7); the update's and the depclean's plans (AI-12); a failed step
+        (AI-4); each pending config file, in phase 10 (AI-5).
+      - A failed step asks what to do with AI on or off (UPD-17): `r` runs it
+        again, `s` goes on with the next step, `a` aborts. No usual action,
+        so Enter is not an answer; under `--yes` the run ends, as today. A
+        run can then have several failures, each with its report (`failure`,
+        `failure-2`, …), all listed at the end.
+      - Setup (AI-11): AI stays off until the user enables it (AI-1), and
+        `emergup config ai` helps: it detects Claude Code for the invoking
+        user (`claude` on `PATH`, logged in according to `claude auth
+        status`), shows the drop-in it would write in
+        `/etc/emergup/config.d/` and writes it through elevation after
+        confirmation; `emergup config check` mentions it when Claude Code is
+        found and AI is off. The configuration is system-wide while Claude
+        Code is per user, so a user without it gets no AI actions. Any other
+        AI tool is configured by hand with the generic command backend;
+        further backends behind the interface are welcome as contributions,
+        Claude Code being the reference one. The ebuild names
         `dev-util/claude-code` with `optfeature`.
-      - Decision points: unread news (explained also against the installed
-        packages, if the user agrees to send them; at the question after
-        reading them, the AI takes the actions they ask for before the
-        update, each command confirmed, AI-7); the `@world` plan before
-        the update (open question 4); a failed step (retry, skip, abort,
-        explain, investigate, chat; no default action), where investigate is
-        a read-only agent that ends with a diagnosis and a proposed fix; each
-        pending config file (the configured tool, diff, keep, take, postpone,
-        explain, an AI merge shown as a diff); the depclean list.
-      - A proposed fix is shown as the exact command or diff and applied by
-        emergup, elevated, only after confirmation; chat hands over to Claude
-        Code, whose own permission prompts and `sudo` confirm each command
-        (open question 6). After a chat the failed step can be retried.
-      - With `--yes` there are no menus and no AI: a failure aborts the run
-        and writes the report.
-      - The keys are read one at a time, without Enter, as 3.3 decided.
-        To decide then: how much system context is sent by default;
-        investigate as its own key or a deeper explain; explain and chat
-        sharing one session.
-- [ ] **9.1** Backend interface, configuration, "what will be sent" confirmation,
-      refusal to run as root (AI-1, AI-2, AI-6).
-- [ ] **9.2** Claude Code backend, with its detection and the setup command
-      (9.0).
-- [ ] **9.3** Explain news, and take the actions they ask for (AI-3, AI-7).
-- [ ] **9.4** Analyse a failure and propose a fix (AI-4; open question 6).
-- [ ] **9.5** Anthropic API backend (official Go SDK).
-- [ ] **9.6** Generic command backend.
+      - Claude Code 2.1, measured: `-p` with `--output-format stream-json
+        --include-partial-messages` streams the answer; `--session-id` and
+        `--resume` name and continue a session, interactive or not;
+        `--tools`, `--allowedTools`, `--disallowedTools` and
+        `--permission-mode` restrict what it may do; `--append-system-prompt`
+        adds emergup's instructions; `claude auth status` says whether it is
+        logged in.
+- [ ] **9.1** The question after a failed step, without AI (UPD-17): a
+      question without a usual action in the menu; running again runs the
+      step's command, without its question and its hooks before; the hooks
+      after it run once it has ended; each failure has its own report, and
+      the end of the run lists them. HOOK-3 then says that a custom step's
+      failure is asked about too.
+- [ ] **9.2** Backend interface and configuration; the screen of what will be
+      sent, with the system profile and what the user can add; AI off as
+      root; the AI keys in the questions (AI-1, AI-2, AI-6, AI-8).
+- [ ] **9.3** Claude Code backend: the explanation streamed, the shared
+      session, the chat; `emergup config ai` and its mention in
+      `config check` (AI-9, AI-10, AI-11).
+- [ ] **9.4** The news: explain them, and take the actions they ask for
+      (AI-3, AI-7).
+- [ ] **9.5** A failed step: explain and investigate it, and apply the fix
+      proposed after confirmation; the investigation's read-only commands in
+      the configuration, with generic defaults (AI-4).
+- [ ] **9.6** Explain the plans of the update and of the depclean (AI-12).
+- [ ] **9.7** Anthropic API backend (official Go SDK).
+- [ ] **9.8** Generic command backend.
 
 ## Phase 10 — Config-file updates without dispatch-conf  `[ ]`  (ETC-*)
 
@@ -817,7 +851,7 @@ automatic updates.
       there: config-files is skipped already; the depclean perhaps only
       shown, or as the configuration says.
 - [ ] **13.3** `emergup cron install` and its removal: shows the entry, then
-      writes it through elevation, as the AI setup of 9.0; finds the
+      writes it through elevation, as `emergup config ai` does (9.3); finds the
       scheduler (cronie and `/etc/cron.d`, fcron, dcron, a systemd timer).
 - [ ] **13.4** Elevation with nobody there: a sudo rule for those commands
       only, or root's crontab (PRIV-4). A root run and a user's run are not
