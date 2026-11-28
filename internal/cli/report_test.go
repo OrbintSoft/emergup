@@ -219,6 +219,9 @@ func TestPretendWritesNoFailureReport(t *testing.T) {
 	assert.Empty(t, sess.reports.opened)
 }
 
+// buildProgram is the program of the custom step build.
+const buildProgram = "/usr/local/bin/build"
+
 // onlyFailingBuild is a configuration whose run has one step, the custom
 // step build, which fails.
 const onlyFailingBuild = "[steps.sync]\nenabled = false\n[steps.news]\nenabled = false\n" +
@@ -232,7 +235,7 @@ func TestRunWritesAFailureReportForEachFailure(t *testing.T) {
 
 	sess := newSession(t, 'y', 'r', 'a')
 	sess.root = fstest.MapFS{configFile: {Data: []byte(onlyFailingBuild)}}
-	sess.runner.codes = map[string]int{"/usr/local/bin/build": 1}
+	sess.runner.codes = map[string]int{buildProgram: 1}
 
 	code, stdout, _ := sess.run(t, commandRun)
 	assert.Equal(t, 1, code, "ended at the question after the failure, the run failed")

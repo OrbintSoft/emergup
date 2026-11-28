@@ -14,8 +14,8 @@ import (
 
 // The files of a report that do not depend on a package.
 const (
-	summaryFile = "summary.txt"
-	outputFile  = "output.txt"
+	SummaryFile = "summary.txt"
+	OutputFile  = "output.txt"
 )
 
 // compressions are the suffixes of a build log that Portage compressed,
@@ -59,11 +59,11 @@ func Write(ctx context.Context, files Files, run runner.Runner, failure Failure)
 			packages = append(packages, collector.collect(ctx, pkg))
 		}
 
-		collector.write(outputFile, strings.Join(failure.Ran.Output.Lines(), ""))
+		collector.write(OutputFile, strings.Join(failure.Ran.Output.Lines(), ""))
 	}
 
 	problems := collector.problems
-	if !collector.write(summaryFile, summaryText(failure, packages, problems)) {
+	if !collector.write(SummaryFile, summaryText(failure, packages, problems)) {
 		return collector.problems
 	}
 
@@ -103,18 +103,18 @@ func (c *collector) collect(ctx context.Context, pkg Package) collected {
 	} else {
 		name := base + ".build.log" + compression(pkg.Log)
 		command := runner.Command{
-			Args: []string{"cat", "--", pkg.Log}, Mode: runner.Save, Root: true, Env: nil, Watch: nil, Into: nil,
+			Args: []string{"cat", "--", pkg.Log}, Mode: runner.Save, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil,
 		}
 		files.buildLog = c.save(ctx, name, command, "the build log of "+pkg.CPV+" could not be copied")
 	}
 
 	info := runner.Command{
-		Args: []string{"emerge", "--info", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil,
+		Args: []string{"emerge", "--info", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
 	}
 	files.info = c.save(ctx, base+".emerge-info.txt", info, "emerge --info for "+pkg.CPV+" could not run")
 
 	pqv := runner.Command{
-		Args: []string{"emerge", "-pqv", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil,
+		Args: []string{"emerge", "-pqv", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
 	}
 	files.pqv = c.save(ctx, base+".emerge-pqv.txt", pqv, "emerge -pqv for "+pkg.CPV+" could not run")
 
@@ -199,7 +199,7 @@ func summaryText(failure Failure, packages []collected, problems []string) strin
 	if failure.RanAny {
 		writePackages(&text, packages)
 		text.WriteString("\nThe end of the command's output, its last 1000 lines at most, without colours,\n" +
-			"is in " + outputFile + "; the run log has all of it.\n")
+			"is in " + OutputFile + "; the run log has all of it.\n")
 	}
 
 	if len(problems) > 0 {

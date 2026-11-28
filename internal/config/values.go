@@ -97,6 +97,39 @@ func (m *ElevationMethod) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// aiBackendNames are the names of the AI backends, in the order of their
+// constants.
+func aiBackendNames() []string {
+	return []string{"none", "command"}
+}
+
+// String returns the name the configuration uses for the backend.
+func (b AIBackend) String() string {
+	return nameOf("AIBackend", int(b), aiBackendNames())
+}
+
+// MarshalText writes the name of the backend.
+func (b AIBackend) MarshalText() ([]byte, error) {
+	return []byte(b.String()), nil
+}
+
+// expected says what an AI backend looks like in a configuration file.
+func (*AIBackend) expected() string {
+	return "one of " + strings.Join(aiBackendNames(), ", ")
+}
+
+// UnmarshalText reads the name of an AI backend.
+func (b *AIBackend) UnmarshalText(text []byte) error {
+	index, err := indexOf("AI backend", string(text), aiBackendNames())
+	if err != nil {
+		return err
+	}
+
+	*b = AIBackend(index)
+
+	return nil
+}
+
 // liveRebuildModeNames are the names of the live-rebuild modes, in the order
 // of their constants.
 func liveRebuildModeNames() []string {

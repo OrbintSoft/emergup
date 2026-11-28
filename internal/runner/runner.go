@@ -21,6 +21,7 @@ var (
 	errNoProgram   = errors.New("no program to run")
 	errUnknownMode = errors.New("unknown mode")
 	errNoInto      = errors.New("a Save command needs somewhere to write")
+	errTerminalIn  = errors.New("a Terminal command reads emergup's own standard input, not one of its own")
 )
 
 // Mode says what happens to the output of a command.
@@ -64,6 +65,10 @@ type Command struct {
 	Watch io.Writer
 	// Into gets the standard output of a Save command.
 	Into io.Writer
+	// Stdin, when set, is the standard input of the command, such as a
+	// request it reads; without it the command reads nothing. A Terminal
+	// command reads emergup's own and cannot have one.
+	Stdin io.Reader
 }
 
 // Result is how a command ended.
@@ -167,13 +172,16 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 	return result, nil
 }
 
-// connect gives child the standard streams of cmd's mode: output to show
-// goes to emergup's own streams, output to collect to output, output to
-// save to cmd.Into, and what is logged to log and watch. Each stream has
+// connect gives child the standard streams of cmd's mode: its input is
+// cmd.Stdin, output to show goes to emergup's own streams, output to
+// collect to output, output to save to cmd.Into, and what is logged to log
+// and watch. Each stream has
 // its own plainWriter: they are written to at the same time, and an escape
 // sequence of one must not end in the other.
 func (e *Exec) connect(child *exec.Cmd, cmd Command, log io.Writer, watch *watcher, output io.Writer) error {
 	logged := func() io.Writer { return newPlainWriter(io.MultiWriter(log, watch.stream())) }
+
+	child.Stdin = cmd.Stdin
 
 	switch cmd.Mode {
 	case Stream:
@@ -183,6 +191,10 @@ func (e *Exec) connect(child *exec.Cmd, cmd Command, log io.Writer, watch *watch
 		child.Stdout = io.MultiWriter(output, logged())
 		child.Stderr = io.MultiWriter(orDiscard(e.Stderr), logged())
 	case Terminal:
+		if cmd.Stdin != nil {
+			return errTerminalIn
+		}
+
 		child.Stdin, child.Stdout, child.Stderr = e.Stdin, e.Stdout, e.Stderr
 	case StreamCapture:
 		child.Stdout = io.MultiWriter(orDiscard(e.Stdout), logged(), output)

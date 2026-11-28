@@ -221,3 +221,24 @@
 # set. The oldest run directories are removed when a run starts; 0 keeps
 # them all.
 #keep = 10
+
+[ai]
+# AI assistance, off by default: at a question of a run, such as the one
+# after a step fails, an AI can explain what it is about. Before anything
+# is sent, emergup lists what it would send and asks; it sends nothing
+# without an answer, nor under --yes, nor when it runs as root. backend is
+# the one that answers:
+#
+#   none        no AI assistance;
+#   command     the program of [ai.command].
+#
+#backend = "none"
+
+[ai.command]
+# A program that reads the request on its standard input and writes the
+# answer on its standard output, run as the user who started emergup: a
+# script around the command line of an AI tool, for example,
+#
+# command = ["/usr/local/bin/ask-ai"]
+#
+#command = []

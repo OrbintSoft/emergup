@@ -3,6 +3,9 @@
 package pipeline_test
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -193,4 +196,76 @@ func TestTheObserverIsToldOfEachRunOfAFailedStep(t *testing.T) {
 		startedUpdate,
 		"failed update (emerge exited with status 2), after 0 hook commands",
 	}, seen.events)
+}
+
+// errNoAnswer is the error of an explanation that did not come.
+var errNoAnswer = errors.New("no answer from ask-ai: it exited with status 3")
+
+// explained records the failures a rig's explain is asked about, and
+// answers each with err.
+func explained(rig *testRig, err error) *[]string {
+	asked := &[]string{}
+
+	rig.explain = func(_ context.Context, step pipeline.Step, report pipeline.StepReport) error {
+		*asked = append(*asked, fmt.Sprintf("%s: %s, %s", step.Name(), report.Status, report.Reason))
+
+		return err
+	}
+
+	return asked
+}
+
+// explainPrompt is the question after a failed step that can be explained.
+const explainPrompt = "==> Run this step again? [r/s/a/e/?] "
+
+func TestAFailedStepCanBeExplained(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'e', 'a')
+	asked := explained(rig, nil)
+
+	report := runSteps(t, rig, steps)
+
+	assert.Contains(t, rig.out.String(), failedUpdate+explainPrompt+"explain the failure\n"+
+		explainPrompt+"end the run\n", "then the same question again")
+	assert.Equal(t, []string{"update: failed, " + emergeFailed}, *asked)
+	assert.Equal(t, pipeline.RunFailed, report.Result)
+}
+
+func TestAnExplanationThatFailsIsSaid(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'e', 's', 'y')
+	explained(rig, errNoAnswer)
+
+	report := runSteps(t, rig, steps)
+
+	assert.Contains(t, rig.out.String(), explainPrompt+"explain the failure\n"+
+		"==> "+errNoAnswer.Error()+"\n"+
+		explainPrompt+"go on with the next step\n", "a notice, not a second failure")
+	assert.True(t, steps[2].ran)
+	assert.Equal(t, pipeline.RunFailed, report.Result)
+}
+
+func TestAnAbortedExplanationStopsTheRun(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'e')
+	explained(rig, fmt.Errorf("asking whether to send it: %w", ui.ErrAborted))
+
+	report := runSteps(t, rig, steps)
+
+	assert.Equal(t, pipeline.RunStopped, report.Result)
+	assert.NotContains(t, rig.out.String(), "asking whether", "an abort is no failure to tell")
+}
+
+func TestWithoutAnExplainerTheFailureHasNoExplanation(t *testing.T) {
+	t.Parallel()
+
+	rig, steps := failedThen(t, nil, 'y', 'y', 'e', 'a')
+
+	runSteps(t, rig, steps)
+
+	assert.Contains(t, rig.out.String(), failedPrompt+"\n"+notAnAnswer+failedPrompt+"end the run\n",
+		"e is not an answer")
 }

@@ -96,6 +96,7 @@ func valueRules() []valueRule {
 		{key: "steps.sync.always-sync", check: func(cfg *Config) error { return checkEntries(cfg.Steps.Sync.AlwaysSync) }},
 		{key: "elevation.keep-env", check: func(cfg *Config) error { return checkVariables(cfg.Elevation.KeepEnv) }},
 		{key: "runs.keep", check: func(cfg *Config) error { return checkKeep(cfg.Runs.Keep) }},
+		{key: "ai.command.command", check: func(cfg *Config) error { return checkTableCommand(cfg.AI.Command.Command) }},
 	}
 }
 
@@ -221,9 +222,9 @@ func keyProblems(file string, keys map[string]keyPlace, checks []keyCheck) []*Er
 	return problems
 }
 
-// checkTableCommand rejects the command of a hook or a custom step, or a
-// hook's remedy, whose program is empty; an empty one is left to the checks
-// made once every file is read.
+// checkTableCommand rejects the command of a hook, a custom step or an AI
+// backend, or a hook's remedy, whose program is empty; an empty one is left
+// to the checks made once every file is read.
 func checkTableCommand(command []string) error {
 	if len(command) == 0 {
 		return nil
@@ -281,10 +282,30 @@ func firstPlace(keys map[string]keyPlace, prefix string) keyPlace {
 
 // configProblems returns the problems that only the whole configuration
 // shows, once every file is read: those of the custom steps, then those of
-// the hooks.
+// the hooks, then that of the AI backend.
 func configProblems(cfg Config, origins Origins) []error {
-	return slices.Concat(incompleteCustomSteps(cfg, origins), misplacedHooks(cfg, origins), incompleteHooks(cfg, origins))
+	return slices.Concat(incompleteCustomSteps(cfg, origins), misplacedHooks(cfg, origins), incompleteHooks(cfg, origins),
+		incompleteAI(cfg, origins))
 }
+
+// incompleteAI returns a problem when the AI backend of cfg lacks what it
+// needs once every file is read, against the file that chooses it.
+func incompleteAI(cfg Config, origins Origins) []error {
+	if cfg.AI.Backend != BackendCommand || len(cfg.AI.Command.Command) > 0 {
+		return nil
+	}
+
+	return []error{&Error{
+		File: origins.Of(aiBackendKey), Line: 0, Column: 0, Key: aiBackendKey,
+		Err: message("the command backend has no command: give the program that answers in [ai.command] command"),
+	}}
+}
+
+// aiBackendKey is the key that chooses the AI backend.
+const aiBackendKey = "ai.backend"
+
+// commandKey is the key of the command of a hook or a custom step.
+const commandKey = "command"
 
 // missingValue is a value that a hook or a custom step that runs needs, and
 // whether it is missing or does not go with the others.
@@ -324,7 +345,7 @@ func incompleteCustomSteps(cfg Config, origins Origins) []error {
 
 		problems = append(problems, tableProblems(origins, customStepsTable+"."+name, []missingValue{
 			{"after", step.After == "", `missing: say which built-in step it follows, such as after = "preserved-rebuild"`},
-			{"command", len(step.Command) == 0, "missing: give the program the step runs and its arguments"},
+			{commandKey, len(step.Command) == 0, "missing: give the program the step runs and its arguments"},
 		})...)
 	}
 
@@ -374,7 +395,7 @@ func incompleteHooks(cfg Config, origins Origins) []error {
 
 		problems = append(problems, tableProblems(origins, hooksTable+"."+name, []missingValue{
 			{"at", hook.At == "", `missing: say where the hook runs, such as at = "before-update"`},
-			{"command", len(hook.Command) == 0, "missing: give the program the hook runs and its arguments"},
+			{commandKey, len(hook.Command) == 0, "missing: give the program the hook runs and its arguments"},
 			{
 				"remedy", len(hook.Remedy) > 0 && hook.OnFailure != HookAsk,
 				`only a hook that asks has a remedy: set on-failure = "ask"`,

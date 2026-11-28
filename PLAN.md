@@ -95,7 +95,9 @@ split into sub-steps in a gitignored `<activity>-steps.md`.
   have no linter: `visudo --check` checks the sudoers file when the image is
   built, and Portage reads the Portage files (make.conf, repos.conf, the set,
   the test repository's layout.conf and ebuilds) in every integration test,
-  and its news item, a GLEP 42 text file, in the news tests.
+  and its news item, a GLEP 42 text file, in the news tests. The
+  instructions emergup sends to an AI are plain text files embedded in the
+  binary, prose with no linter; the unit tests read them.
   pkgcheck is not used on the synthetic ebuilds: it needs the Gentoo tree and
   judges ebuilds meant for a real repository. The two C sources of the test
   library and program have no linter either: a few lines each, compiled by
@@ -803,9 +805,32 @@ check before the run (6.2, 6.4).
       pipeline asks "Run this step again?" after each failure, and the cli
       numbers the reports. The runner tests' child that waits for a signal
       gives up after a minute, so none outlives a test binary that died.
-- [ ] **9.2** Backend interface and configuration; the screen of what will be
-      sent, with the system profile and what the user can add; AI off as
-      root; the AI keys in the questions (AI-1, AI-2, AI-6, AI-8).
+- [x] **9.2** Backend interface and configuration, with the generic command
+      backend (9.8, moved here) and `e` at the question after a failed step,
+      so that AI works end to end; decided with the maintainer on 2026-11-28
+      (AI-1, AI-2, AI-4 in part, AI-6, AI-8):
+      - `[ai] backend` chooses (`none` by default, `command`), and each
+        backend has a table of its own: `[ai.command] command`.
+      - The screen of what will be sent (AI-2): a line for each part with
+        its size, then `y` sends, `v` shows all of it, `p` adds the
+        installed packages, `i` adds `emerge --info`, `n` sends nothing;
+        before every request. The system profile is the line of
+        `emerge --version`; the installed packages come from the package
+        database, `emerge --info` runs unprivileged.
+      - emergup's instructions to the AI are a file of their own, embedded
+        in the binary.
+      - The command runs as the invoking user, the request on its standard
+        input (the runner gets a standard input for a command), its
+        standard output the answer, shown and logged as it comes; then the
+        question again.
+      - No AI action as root (PRIV-4), under `--yes`, or with `none`.
+      - Built: `internal/ai` (the request and its parts, the command
+        backend, the profile and the extras, the screen), `e` at the
+        question after a failed step, its material the summary and the
+        output of the report just written, kept in memory as they are
+        written; the installed packages through `steps.InstalledPackages`.
+        AI-1, AI-4 and AI-8 are partial until the other backends and
+        actions; AI-2 and AI-6 hold for every request.
 - [ ] **9.3** Claude Code backend: the explanation streamed, the shared
       session, the chat; `emergup config ai` and its mention in
       `config check` (AI-9, AI-10, AI-11).
@@ -816,7 +841,7 @@ check before the run (6.2, 6.4).
       the configuration, with generic defaults (AI-4).
 - [ ] **9.6** Explain the plans of the update and of the depclean (AI-12).
 - [ ] **9.7** Anthropic API backend (official Go SDK).
-- [ ] **9.8** Generic command backend.
+- **9.8** Generic command backend: moved into 9.2.
 
 ## Phase 10 — Config-file updates without dispatch-conf  `[ ]`  (ETC-*)
 

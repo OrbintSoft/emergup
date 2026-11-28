@@ -15,6 +15,35 @@ type Config struct {
 	Hooks       Hooks       `toml:"hooks"`
 	Colors      Colors      `toml:"colors"`
 	Runs        Runs        `toml:"runs"`
+	AI          AI          `toml:"ai"`
+}
+
+// AI says which backend, if any, assists at the questions of a run, and
+// how each backend is set up, in a table of its own.
+type AI struct {
+	// Backend is the one that answers; BackendNone turns AI off.
+	Backend AIBackend `toml:"backend"`
+	// Command is the command backend.
+	Command CommandBackend `toml:"command"`
+}
+
+// AIBackend names the backend that answers; the configuration writes it by
+// name, see String.
+type AIBackend int
+
+// The AI backends.
+const (
+	// BackendNone turns AI assistance off.
+	BackendNone AIBackend = iota
+	// BackendCommand runs the program of the command backend.
+	BackendCommand
+)
+
+// CommandBackend is a program that reads a request on its standard input
+// and writes the answer on its standard output.
+type CommandBackend struct {
+	// Command is the program and its first arguments.
+	Command []string `toml:"command"`
 }
 
 // Runs says how many run directories, each with the log of its run, are
@@ -277,5 +306,6 @@ func Default() Config {
 			Notice:  style(0, named(magenta)),
 		},
 		Runs: Runs{Keep: defaultKeep},
+		AI:   AI{Backend: BackendNone, Command: CommandBackend{Command: []string{}}},
 	}
 }

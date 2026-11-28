@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The AI of the integration tests as the command backend.
+
+[ai]
+backend = "command"
+
+[ai.command]
+command = ["/usr/local/bin/emergup-test-ai"]

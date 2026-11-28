@@ -343,5 +343,6 @@ func TestTextKeysAreTheNamedValuesDurationsAndStyles(t *testing.T) {
 		"colors.failure",
 		"colors.notice",
 		"hooks.*.on-failure",
+		"ai.backend",
 	}, textKeys())
 }

@@ -121,6 +121,10 @@ type Env struct {
 	// Observer, when set, is told how the steps of a run go, as a failure
 	// report needs to know.
 	Observer StepObserver
+	// ExplainFailure, when set, explains a step that failed, as report
+	// says, at the question after it, which then offers it; it returns an
+	// error that wraps ui.ErrAborted when the user stops the run there.
+	ExplainFailure func(ctx context.Context, step Step, report StepReport) error
 }
 
 // StepObserver is told how the steps of a run go, as they go.
@@ -357,7 +361,7 @@ func runTheStep(ctx context.Context, env Env, step Step, report *StepReport) Res
 			return result
 		}
 
-		if again, result := askAfterFailure(ctx, env); !again {
+		if again, result := askAfterFailure(ctx, env, step, *report); !again {
 			return result
 		}
 	}
@@ -438,33 +442,65 @@ func askToRun(ctx context.Context, env Env) (bool, Result) {
 	return action == run, RunFinished
 }
 
-// askAfterFailure asks what to do after a step failed, and returns whether
-// to run it again and, when not, how the run goes on: RunFinished to go on
-// with the next step, RunFailed to end it as a failure, as a run that
-// answers by itself does, and RunStopped when the question is aborted.
-func askAfterFailure(ctx context.Context, env Env) (bool, Result) {
+// askAfterFailure asks what to do after step failed, as report says, and
+// returns whether to run it again and, when not, how the run goes on:
+// RunFinished to go on with the next step, RunFailed to end it as a
+// failure, as a run that answers by itself does, and RunStopped when the
+// question is aborted. With env.ExplainFailure the failure can be explained
+// too, and the question is asked again after.
+func askAfterFailure(ctx context.Context, env Env, step Step, report StepReport) (bool, Result) {
 	again := ui.Action{Key: 'r', Name: "run it again"}
 	goOn := ui.Action{Key: 's', Name: "go on with the next step"}
 	end := ui.Action{Key: 'a', Name: "end the run"}
+	explain := ui.Action{Key: 'e', Name: "explain the failure"}
 
-	action, err := env.Menu.Choose(ctx, againQuestion, again, goOn, end)
-
-	switch {
-	case errors.Is(err, ui.ErrNoUsualAction):
-		return false, RunFailed
-	case errors.Is(err, ui.ErrAborted), ctx.Err() != nil:
-		return false, RunStopped
-	case err != nil:
-		env.Printer.Failure(err.Error())
-
-		return false, RunFailed
-	case action == again:
-		return true, RunFinished
-	case action == goOn:
-		return false, RunFinished
+	actions := []ui.Action{again, goOn, end}
+	if env.ExplainFailure != nil {
+		actions = append(actions, explain)
 	}
 
-	return false, RunFailed
+	for {
+		action, err := env.Menu.Choose(ctx, againQuestion, actions...)
+
+		switch {
+		case errors.Is(err, ui.ErrNoUsualAction):
+			return false, RunFailed
+		case errors.Is(err, ui.ErrAborted), ctx.Err() != nil:
+			return false, RunStopped
+		case err != nil:
+			env.Printer.Failure(err.Error())
+
+			return false, RunFailed
+		case action == again:
+			return true, RunFinished
+		case action == goOn:
+			return false, RunFinished
+		case action == explain:
+			if !explainFailure(ctx, env, step, report) {
+				return false, RunStopped
+			}
+
+			continue
+		}
+
+		return false, RunFailed
+	}
+}
+
+// explainFailure explains step, which failed as report says, and returns
+// whether the run goes on: an explanation that does not come is said, and
+// is no failure of the run, but an abort stops it.
+func explainFailure(ctx context.Context, env Env, step Step, report StepReport) bool {
+	err := env.ExplainFailure(ctx, step, report)
+
+	switch {
+	case errors.Is(err, ui.ErrAborted), ctx.Err() != nil:
+		return false
+	case err != nil:
+		env.Printer.Notice(err.Error())
+	}
+
+	return true
 }
 
 // writeEnd writes how the step of report ended.
