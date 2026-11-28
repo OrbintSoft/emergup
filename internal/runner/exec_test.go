@@ -162,6 +162,42 @@ func TestStreamAndCaptureGiveNoStandardInput(t *testing.T) {
 	}
 }
 
+func TestACommandReadsItsStandardInput(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []runner.Mode{runner.Stream, runner.Capture, runner.StreamCapture} {
+		exec, out := newExec("typed\n")
+
+		cmd := childCommand(mode, "echo-stdin")
+		cmd.Stdin = strings.NewReader("the request\nin two lines\n")
+
+		result, err := exec.Run(t.Context(), cmd)
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.ExitCode)
+
+		if mode == runner.Capture {
+			assert.Equal(t, "the request\nin two lines\n", string(result.Output), "the mode %d", mode)
+		} else {
+			assert.Equal(t, "the request\nin two lines\n", out.stdout.String(), "the mode %d", mode)
+		}
+
+		assert.NotContains(t, out.stdout.String(), "typed", "not emergup's own standard input")
+	}
+}
+
+func TestATerminalCommandReadsNoOtherStandardInput(t *testing.T) {
+	t.Parallel()
+
+	exec, out := newExec("typed\n")
+
+	cmd := childCommand(runner.Terminal, "echo-stdin")
+	cmd.Stdin = strings.NewReader("the request\n")
+
+	_, err := exec.Run(t.Context(), cmd)
+	require.ErrorContains(t, err, "a Terminal command reads emergup's own standard input")
+	assert.Empty(t, out.stdout.String(), "it does not run")
+}
+
 // The test sets emergup's own environment, so it does not run in parallel.
 func TestTheCommandGetsItsVariablesOnTopOfTheEnvironment(t *testing.T) {
 	t.Setenv("EMERGUP_TEST_KEPT", "kept")

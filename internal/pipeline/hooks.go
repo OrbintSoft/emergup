@@ -198,7 +198,9 @@ func runAsHook(ctx context.Context, env Env, hook Hook, args []string, root bool
 		envStep + "=" + hook.Step,
 	}, extra)
 
-	command := runner.Command{Args: args, Mode: runner.Stream, Root: root, Env: variables, Watch: nil, Into: nil}
+	command := runner.Command{
+		Args: args, Mode: runner.Stream, Root: root, Env: variables, Watch: nil, Into: nil, Stdin: nil,
+	}
 	result, err := env.Runner.Run(ctx, command)
 
 	switch {

@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -253,6 +254,7 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 	failures := newFailureReport(env, stepsEnv.Runner, run, printer)
 	stepsEnv.Runner = failures.recorder
 	stepsEnv.Observer = failures
+	stepsEnv.ExplainFailure = failureExplainer(cfg.AI, env, stepsEnv, failures)
 
 	sayWhatDoasMustKeep(printer, program, cfg.Elevation.KeepEnv, stepsEnv.Hooks)
 
@@ -278,6 +280,7 @@ func newFailureReport(env Env, next runner.Runner, run rundir.Run, printer ui.Pr
 		printer:  printer,
 		failures: 0,
 		written:  nil,
+		kept:     nil,
 	}
 }
 
@@ -296,6 +299,9 @@ type failureReport struct {
 	// reports written, in order.
 	failures int
 	written  []string
+	// kept holds the files of the last report that an explanation of its
+	// failure reads, by name; none when it could not be written.
+	kept map[string]*bytes.Buffer
 }
 
 // Started implements pipeline.StepObserver: what ran before the step, its
@@ -314,6 +320,8 @@ func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepRepo
 		path = f.dir + "-" + strconv.Itoa(f.failures)
 	}
 
+	f.kept = nil
+
 	dir, err := f.open(path)
 	if err != nil {
 		f.printer.Notice("no failure report: " + err.Error())
@@ -322,8 +330,9 @@ func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepRepo
 	}
 
 	ran, ranAny := f.recorder.Last()
+	kept := map[string]*bytes.Buffer{}
 
-	problems := report.Write(ctx, dir, f.recorder, report.Failure{
+	problems := report.Write(ctx, keepingFiles{Files: dir, kept: kept}, f.recorder, report.Failure{
 		Step: step.Name(), Title: step.Title(), Reason: stepReport.Reason, Ran: ran, RanAny: ranAny, Log: f.log,
 	})
 
@@ -336,6 +345,7 @@ func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepRepo
 	}
 
 	f.written = append(f.written, path)
+	f.kept = kept
 }
 
 // sayWhatDoasMustKeep says, when program is doas, which variables doas.conf
@@ -381,6 +391,8 @@ func newStepsEnv(env Env, printer ui.Printer, program string, keep []string, log
 		Hooks:     nil,
 		HookEnv:   nil,
 		Observer:  nil,
+
+		ExplainFailure: nil,
 	}
 }
 

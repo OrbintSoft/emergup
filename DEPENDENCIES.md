@@ -78,7 +78,7 @@ own: emergup does not pin or update them.
 
 | Command | Purpose | Package |
 | --- | --- | --- |
-| `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. For the failure report, `emerge --info` and `emerge -pqv` for each package that failed, unprivileged. | `sys-apps/portage` |
+| `emerge` | Running the steps of the update; the command line of each step can be changed in the configuration. For the failure report, `emerge --info` and `emerge -pqv` for each package that failed, unprivileged. For a request to an AI backend, `emerge --version`, the profile of the system, and `emerge --info` when the user adds it, unprivileged. | `sys-apps/portage` |
 | `portageq` | Asking Portage about the system, read-only: unprivileged for the repositories (`repos_config`), the package database (`vdb_path`) and the protected configuration paths (`envvar`); elevated for the preserved libraries (`list_preserved_libs`), since only root and the portage group can read their registry. | `sys-apps/portage` |
 | `smart-live-rebuild` | Listing the live packages whose upstream changed (`--pretend`), elevated, in the smart mode of the live-package rebuild; optional: without it the rebuild goes by the time of the last build. | `app-portage/smart-live-rebuild` |
 | `dispatch-conf` | Merging the pending configuration-file updates, the default tool of the config-files step; `etc-update` can be configured instead. | `sys-apps/portage` |

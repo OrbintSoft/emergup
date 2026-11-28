@@ -143,7 +143,9 @@ func showNews(env pipeline.Env, items []newsItem) {
 // readNews runs the command of step, which shows the unread items and
 // marks them read, as root when root is true, and returns how it ended.
 func readNews(ctx context.Context, env pipeline.Env, step config.Step, root bool) pipeline.Outcome {
-	command := runner.Command{Args: step.Command, Mode: runner.Stream, Root: root, Env: nil, Watch: nil, Into: nil}
+	command := runner.Command{
+		Args: step.Command, Mode: runner.Stream, Root: root, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+	}
 
 	return runCommand(ctx, env, command, filepath.Base(step.Command[0]))
 }

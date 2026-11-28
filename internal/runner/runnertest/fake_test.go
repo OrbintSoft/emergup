@@ -99,3 +99,19 @@ func TestFakeSavesTheOutputOfASaveCommand(t *testing.T) {
 	assert.Equal(t, "the content\n", into.String())
 	assert.Empty(t, result.Output, "a Save command collects nothing")
 }
+
+func TestFakeReadsTheStandardInputOfACommand(t *testing.T) {
+	t.Parallel()
+
+	var fake runnertest.Fake
+
+	_, err := fake.Run(t.Context(), runner.Command{
+		Args: []string{"ask"}, Mode: runner.Stream, Stdin: strings.NewReader("the request\n"),
+	})
+	require.NoError(t, err)
+
+	_, err = fake.Run(t.Context(), runner.Command{Args: []string{emerge}, Mode: runner.Stream})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"the request\n", ""}, fake.Inputs(), "what each command read, nothing without an input")
+}

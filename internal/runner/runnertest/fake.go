@@ -22,14 +22,15 @@ type Answer struct {
 	Watched string
 }
 
-// Fake is a runner.Runner that runs nothing: it records every command and
-// answers each with the next scripted Answer, or with a successful Result
-// once they are used up. A command run after its context ended is recorded
+// Fake is a runner.Runner that runs nothing: it records every command, and
+// what it reads on its standard input, and answers each with the next
+// scripted Answer, or with a successful Result once they are used up. A command run after its context ended is recorded
 // and answered with the context's error. Its zero value is ready to use.
 type Fake struct {
 	mu       sync.Mutex
 	answers  []Answer
 	commands []runner.Command
+	inputs   []string
 }
 
 // Script adds answers to give, in order, to the next commands.
@@ -48,12 +49,22 @@ func (f *Fake) Commands() []runner.Command {
 	return slices.Clone(f.commands)
 }
 
+// Inputs returns what each command run so far read on its standard input,
+// in order: "" for a command without one.
+func (f *Fake) Inputs() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.inputs)
+}
+
 // Run implements runner.Runner.
 func (f *Fake) Run(ctx context.Context, cmd runner.Command) (runner.Result, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	f.commands = append(f.commands, cmd)
+	f.inputs = append(f.inputs, readAll(cmd.Stdin))
 
 	success := runner.Result{ExitCode: 0, Output: nil, Duration: 0}
 
@@ -79,4 +90,19 @@ func (f *Fake) Run(ctx context.Context, cmd runner.Command) (runner.Result, erro
 	}
 
 	return answer.Result, answer.Err
+}
+
+// readAll returns what input holds, as a command reads its standard input
+// to the end; "" when there is none, or it cannot be read.
+func readAll(input io.Reader) string {
+	if input == nil {
+		return ""
+	}
+
+	data, err := io.ReadAll(input)
+	if err != nil {
+		return ""
+	}
+
+	return string(data)
 }

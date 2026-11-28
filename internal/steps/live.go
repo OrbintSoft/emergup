@@ -125,7 +125,9 @@ func (l liveStep) runSmart(ctx context.Context, env pipeline.Env, installed bool
 		return pipeline.Skip(l.smartProgram() + " is not installed")
 	}
 
-	command := runner.Command{Args: l.smartList(), Mode: runner.Capture, Root: true, Env: nil, Watch: nil, Into: nil}
+	command := runner.Command{
+		Args: l.smartList(), Mode: runner.Capture, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+	}
 
 	result, err := env.Runner.Run(ctx, command)
 
@@ -206,7 +208,7 @@ func runElevatedIn(ctx context.Context, env pipeline.Env, mode runner.Mode, comm
 	program string,
 ) pipeline.Outcome {
 	return runCommand(ctx, env, runner.Command{
-		Args: command, Mode: mode, Root: true, Env: nil, Watch: nil, Into: nil,
+		Args: command, Mode: mode, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil,
 	}, program)
 }
 
@@ -317,7 +319,7 @@ func packageDatabase(ctx context.Context, run runner.Runner) (string, error) {
 	command := []string{portageq, "vdb_path"}
 
 	result, err := run.Run(ctx, runner.Command{
-		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil,
+		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
 	})
 	if err != nil {
 		return "", fmt.Errorf("could not find the installed packages: %w", err)
@@ -348,35 +350,19 @@ type installedPackage struct {
 // livePackages returns the live packages of the database at database on
 // root: those with the live property, which make up @live-rebuild.
 func livePackages(root fs.FS, database string) ([]installedPackage, error) {
-	dir := strings.TrimPrefix(path.Clean(database), "/")
-
-	categories, err := fs.ReadDir(root, dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-
+	names, err := databaseEntries(root, database)
 	if err != nil {
-		return nil, fmt.Errorf("could not read the installed packages: %w", err)
+		return nil, err
 	}
+
+	dir := strings.TrimPrefix(path.Clean(database), "/")
 
 	var packages []installedPackage
 
-	for _, category := range categories {
-		if !category.IsDir() {
-			continue
-		}
-
-		entries, err := fs.ReadDir(root, path.Join(dir, category.Name()))
-		if err != nil {
-			return nil, fmt.Errorf("could not read the installed packages: %w", err)
-		}
-
-		for _, entry := range entries {
-			name := path.Join(category.Name(), entry.Name())
-			if entry.IsDir() && !strings.HasPrefix(entry.Name(), mergingPrefix) && isLive(root, path.Join(dir, name)) {
-				built, known := buildTime(root, path.Join(dir, name))
-				packages = append(packages, installedPackage{atom: name, built: built, known: known})
-			}
+	for _, name := range names {
+		if isLive(root, path.Join(dir, name)) {
+			built, known := buildTime(root, path.Join(dir, name))
+			packages = append(packages, installedPackage{atom: name, built: built, known: known})
 		}
 	}
 

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The command backend without a command, which emergup config check
+# reports.
+
+[ai]
+backend = "command"
