@@ -184,3 +184,16 @@ func TestPrinterCopiesEveryLineToTheLogWithoutColours(t *testing.T) {
 		"==> info\n", out.String(), "an info line has no colour")
 	assert.Equal(t, "==> heading\n==> notice\n    row\n==> info\n", log.String())
 }
+
+func TestPrinterWritesTextAsItIs(t *testing.T) {
+	t.Parallel()
+
+	var out, log bytes.Buffer
+
+	printer := ui.Printer{Out: &out, Colors: config.Default().Colors, Color: true, Log: &log}
+	printer.Text("The build ")
+	printer.Text("fails.\n")
+
+	assert.Equal(t, "The build fails.\n", out.String(), "no prefix, no colour, no newline of its own")
+	assert.Equal(t, "The build fails.\n", log.String())
+}

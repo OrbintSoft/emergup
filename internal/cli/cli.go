@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OrbintSoft/emergup/internal/ai"
 	"github.com/OrbintSoft/emergup/internal/config"
 	"github.com/OrbintSoft/emergup/internal/elevation"
 	"github.com/OrbintSoft/emergup/internal/lock"
@@ -254,7 +255,9 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 	failures := newFailureReport(env, stepsEnv.Runner, run, printer)
 	stepsEnv.Runner = failures.recorder
 	stepsEnv.Observer = failures
-	stepsEnv.ExplainFailure = failureExplainer(cfg.AI, env, stepsEnv, failures)
+	// A run directory is runs/<name> in the state directory.
+	stepsEnv.ExplainFailure, stepsEnv.ChatAboutFailure = failureAssistant(cfg.AI, env, stepsEnv, failures,
+		filepath.Dir(filepath.Dir(run.Dir)))
 
 	sayWhatDoasMustKeep(printer, program, cfg.Elevation.KeepEnv, stepsEnv.Hooks)
 
@@ -281,6 +284,8 @@ func newFailureReport(env Env, next runner.Runner, run rundir.Run, printer ui.Pr
 		failures: 0,
 		written:  nil,
 		kept:     nil,
+		talk:     nil,
+		talkOf:   0,
 	}
 }
 
@@ -302,6 +307,10 @@ type failureReport struct {
 	// kept holds the files of the last report that an explanation of its
 	// failure reads, by name; none when it could not be written.
 	kept map[string]*bytes.Buffer
+	// talk is the conversation with the AI about the failure talkOf
+	// counts, the last one.
+	talk   *ai.Conversation
+	talkOf int
 }
 
 // Started implements pipeline.StepObserver: what ran before the step, its
@@ -392,7 +401,8 @@ func newStepsEnv(env Env, printer ui.Printer, program string, keep []string, log
 		HookEnv:   nil,
 		Observer:  nil,
 
-		ExplainFailure: nil,
+		ExplainFailure:   nil,
+		ChatAboutFailure: nil,
 	}
 }
 

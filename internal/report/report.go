@@ -103,18 +103,21 @@ func (c *collector) collect(ctx context.Context, pkg Package) collected {
 	} else {
 		name := base + ".build.log" + compression(pkg.Log)
 		command := runner.Command{
-			Args: []string{"cat", "--", pkg.Log}, Mode: runner.Save, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+			Args: []string{"cat", "--", pkg.Log}, Mode: runner.Save, Root: true, Env: nil, Watch: nil, Into: nil,
+			Stdin: nil, Dir: "",
 		}
 		files.buildLog = c.save(ctx, name, command, "the build log of "+pkg.CPV+" could not be copied")
 	}
 
 	info := runner.Command{
-		Args: []string{"emerge", "--info", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: []string{"emerge", "--info", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil,
+		Stdin: nil, Dir: "",
 	}
 	files.info = c.save(ctx, base+".emerge-info.txt", info, "emerge --info for "+pkg.CPV+" could not run")
 
 	pqv := runner.Command{
-		Args: []string{"emerge", "-pqv", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: []string{"emerge", "-pqv", atom}, Mode: runner.Save, Root: false, Env: nil, Watch: nil, Into: nil,
+		Stdin: nil, Dir: "",
 	}
 	files.pqv = c.save(ctx, base+".emerge-pqv.txt", pqv, "emerge -pqv for "+pkg.CPV+" could not run")
 

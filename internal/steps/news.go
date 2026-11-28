@@ -144,7 +144,7 @@ func showNews(env pipeline.Env, items []newsItem) {
 // marks them read, as root when root is true, and returns how it ended.
 func readNews(ctx context.Context, env pipeline.Env, step config.Step, root bool) pipeline.Outcome {
 	command := runner.Command{
-		Args: step.Command, Mode: runner.Stream, Root: root, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: step.Command, Mode: runner.Stream, Root: root, Env: nil, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	}
 
 	return runCommand(ctx, env, command, filepath.Base(step.Command[0]))

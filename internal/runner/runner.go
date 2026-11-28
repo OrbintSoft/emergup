@@ -69,6 +69,9 @@ type Command struct {
 	// request it reads; without it the command reads nothing. A Terminal
 	// command reads emergup's own and cannot have one.
 	Stdin io.Reader
+	// Dir, when set, is the working directory of the command; without it,
+	// the command runs in emergup's own.
+	Dir string
 }
 
 // Result is how a command ended.
@@ -127,6 +130,8 @@ func (e *Exec) Run(ctx context.Context, cmd Command) (Result, error) {
 	child := exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
 	child.Cancel = func() error { return child.Process.Signal(syscall.SIGTERM) }
 	child.WaitDelay = e.gracePeriod()
+
+	child.Dir = cmd.Dir
 
 	if len(cmd.Env) > 0 {
 		// exec keeps the last value of a name that appears twice.

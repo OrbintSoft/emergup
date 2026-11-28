@@ -85,4 +85,5 @@ own: emergup does not pin or update them.
 | `find` | Looking for the pending configuration-file updates, elevated since some protected directories can be read by root alone; read-only. | `sys-apps/findutils` |
 | `eselect` | Showing the unread news items and marking them read (`eselect news read new`), the default command of the news step and of `emergup news`: as the invoking user when they can write Portage's record of the news read, elevated otherwise. | `app-admin/eselect` |
 | `cat` | Copying the build log of a package that failed into the failure report, elevated and read-only, since only Portage's own user can read it. | `sys-apps/coreutils` |
+| `claude` | The Claude Code backend of AI assistance, when the configuration chooses it: explaining a question's material (`claude -p`, the answer streamed) and chatting about it (`claude --resume`), as the invoking user, in emergup's state directory. Optional. | `dev-util/claude-code` |
 | `sudo`, `doas` or `run0` | Running the commands that need root, when emergup is not root; the first one installed, or the one the configuration names. | `app-admin/sudo`, `app-admin/doas`, `sys-apps/systemd` |

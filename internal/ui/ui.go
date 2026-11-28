@@ -75,6 +75,12 @@ func (p Printer) Row(kind Kind, text string) {
 	p.styled(rowIndent, p.kindStyle(kind), text, "\n")
 }
 
+// Text writes text as it is, without a prefix, a style or a newline of its
+// own, and copies it to the log: the answer of a program, as it arrives.
+func (p Printer) Text(text string) {
+	p.write(text)
+}
+
 // kindStyle returns the style of kind, nil for KindPlain.
 func (p Printer) kindStyle(kind Kind) *config.Style {
 	switch kind {

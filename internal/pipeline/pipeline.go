@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"time"
 
 	"github.com/OrbintSoft/emergup/internal/runner"
@@ -125,6 +126,10 @@ type Env struct {
 	// says, at the question after it, which then offers it; it returns an
 	// error that wraps ui.ErrAborted when the user stops the run there.
 	ExplainFailure func(ctx context.Context, step Step, report StepReport) error
+	// ChatAboutFailure, when set, opens a chat about a step that failed, at
+	// the question after it, which then offers it; its errors are as those
+	// of ExplainFailure.
+	ChatAboutFailure func(ctx context.Context, step Step, report StepReport) error
 }
 
 // StepObserver is told how the steps of a run go, as they go.
@@ -446,17 +451,20 @@ func askToRun(ctx context.Context, env Env) (bool, Result) {
 // returns whether to run it again and, when not, how the run goes on:
 // RunFinished to go on with the next step, RunFailed to end it as a
 // failure, as a run that answers by itself does, and RunStopped when the
-// question is aborted. With env.ExplainFailure the failure can be explained
-// too, and the question is asked again after.
+// question is aborted. The AI actions of env are offered too, and the
+// question is asked again after one.
 func askAfterFailure(ctx context.Context, env Env, step Step, report StepReport) (bool, Result) {
 	again := ui.Action{Key: 'r', Name: "run it again"}
 	goOn := ui.Action{Key: 's', Name: "go on with the next step"}
 	end := ui.Action{Key: 'a', Name: "end the run"}
-	explain := ui.Action{Key: 'e', Name: "explain the failure"}
 
-	actions := []ui.Action{again, goOn, end}
-	if env.ExplainFailure != nil {
-		actions = append(actions, explain)
+	helps := failureHelps(env)
+
+	actions := make([]ui.Action, 0, len(helps)+3) //nolint:mnd // again, goOn, end.
+	actions = append(actions, again, goOn, end)
+
+	for _, each := range helps {
+		actions = append(actions, each.action)
 	}
 
 	for {
@@ -475,23 +483,50 @@ func askAfterFailure(ctx context.Context, env Env, step Step, report StepReport)
 			return true, RunFinished
 		case action == goOn:
 			return false, RunFinished
-		case action == explain:
-			if !explainFailure(ctx, env, step, report) {
-				return false, RunStopped
-			}
-
-			continue
+		case action == end:
+			return false, RunFailed
 		}
 
-		return false, RunFailed
+		chosen := helps[slices.IndexFunc(helps, func(each aiHelp) bool { return each.action == action })]
+		if !assist(ctx, env, chosen.help, step, report) {
+			return false, RunStopped
+		}
 	}
 }
 
-// explainFailure explains step, which failed as report says, and returns
-// whether the run goes on: an explanation that does not come is said, and
-// is no failure of the run, but an abort stops it.
-func explainFailure(ctx context.Context, env Env, step Step, report StepReport) bool {
-	err := env.ExplainFailure(ctx, step, report)
+// aiHelp is an AI action of the question after a failure, and what does it.
+type aiHelp struct {
+	action ui.Action
+	help   func(ctx context.Context, step Step, report StepReport) error
+}
+
+// failureHelps returns the AI actions env offers after a failure, in the
+// order of their keys.
+func failureHelps(env Env) []aiHelp {
+	var helps []aiHelp
+
+	if env.ExplainFailure != nil {
+		helps = append(helps, aiHelp{
+			action: ui.Action{Key: 'e', Name: "explain the failure"}, help: env.ExplainFailure,
+		})
+	}
+
+	if env.ChatAboutFailure != nil {
+		helps = append(helps, aiHelp{
+			action: ui.Action{Key: 'c', Name: "chat about the failure"}, help: env.ChatAboutFailure,
+		})
+	}
+
+	return helps
+}
+
+// assist does an AI action of env, help, about step, which failed as report
+// says, and returns whether the run goes on: an action that fails is said,
+// and is no failure of the run, but an abort stops it.
+func assist(ctx context.Context, env Env, help func(ctx context.Context, step Step, report StepReport) error,
+	step Step, report StepReport,
+) bool {
+	err := help(ctx, step, report)
 
 	switch {
 	case errors.Is(err, ui.ErrAborted), ctx.Err() != nil:

@@ -37,7 +37,7 @@ func (p pretended) run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	pretend := p.command(env, true)
 
 	result, err := env.Runner.Run(ctx, runner.Command{
-		Args: pretend, Mode: runner.StreamCapture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: pretend, Mode: runner.StreamCapture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	})
 	if err != nil {
 		return pipeline.Fail(err.Error())

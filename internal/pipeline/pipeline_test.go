@@ -130,8 +130,10 @@ type testRig struct {
 	hookEnv []string
 	// observer is told how the steps go, when it is set.
 	observer pipeline.StepObserver
-	// explain explains a failed step, when it is set.
+	// explain explains a failed step, and chat chats about it, when they
+	// are set.
 	explain func(ctx context.Context, step pipeline.Step, report pipeline.StepReport) error
+	chat    func(ctx context.Context, step pipeline.Step, report pipeline.StepReport) error
 }
 
 func newRig(t *testing.T, keys ...rune) *testRig {
@@ -160,7 +162,8 @@ func (rig *testRig) env() pipeline.Env {
 		HookEnv:  rig.hookEnv,
 		Observer: rig.observer,
 
-		ExplainFailure: rig.explain,
+		ExplainFailure:   rig.explain,
+		ChatAboutFailure: rig.chat,
 	}
 }
 

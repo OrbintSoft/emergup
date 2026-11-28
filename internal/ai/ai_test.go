@@ -68,7 +68,7 @@ func TestTheCommandBackendSendsTheRequestOnItsStandardInput(t *testing.T) {
 	backend := ai.Command{Runner: &fake, Args: []string{askAI, "--short"}}
 	assert.Equal(t, "ask-ai", backend.Name())
 
-	require.NoError(t, backend.Explain(t.Context(), failure()))
+	require.NoError(t, backend.Explain(t.Context(), ai.NewConversation(), failure()))
 
 	commands := fake.Commands()
 	require.Len(t, commands, 1)
@@ -105,7 +105,7 @@ func TestTheCommandBackendSaysWhenThereIsNoAnswer(t *testing.T) {
 
 			fake.Script(tt.answer)
 
-			err := ai.Command{Runner: &fake, Args: []string{askAI}}.Explain(t.Context(), failure())
+			err := ai.Command{Runner: &fake, Args: []string{askAI}}.Explain(t.Context(), ai.NewConversation(), failure())
 			require.EqualError(t, err, tt.want)
 		})
 	}
@@ -306,7 +306,8 @@ func TestAskSendsWhatIsConfirmed(t *testing.T) {
 
 	menu, out := screen('y')
 
-	require.NoError(t, ai.Ask(t.Context(), menu, ai.Command{Runner: &fake, Args: []string{askAI}}, failure(), ai.Extras{}))
+	backend := ai.Command{Runner: &fake, Args: []string{askAI}}
+	require.NoError(t, ai.Ask(t.Context(), menu, backend, ai.NewConversation(), failure(), ai.Extras{}))
 	assert.Equal(t, []string{failure().Text()}, fake.Inputs())
 	assert.True(t, strings.HasSuffix(out.String(), "send them\n==> The answer of ask-ai:\n"), "the answer is introduced")
 }
@@ -318,7 +319,8 @@ func TestAskSendsNothingUnconfirmed(t *testing.T) {
 
 	menu, out := screen('n')
 
-	require.NoError(t, ai.Ask(t.Context(), menu, ai.Command{Runner: &fake, Args: []string{askAI}}, failure(), ai.Extras{}))
+	backend := ai.Command{Runner: &fake, Args: []string{askAI}}
+	require.NoError(t, ai.Ask(t.Context(), menu, backend, ai.NewConversation(), failure(), ai.Extras{}))
 	assert.Empty(t, fake.Commands())
 	assert.NotContains(t, out.String(), "The answer")
 }

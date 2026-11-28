@@ -185,6 +185,27 @@ func TestACommandReadsItsStandardInput(t *testing.T) {
 	}
 }
 
+func TestACommandRunsInItsDirectory(t *testing.T) {
+	t.Parallel()
+
+	exec, _ := newExec("")
+	dir := t.TempDir()
+
+	cmd := childCommand(runner.Capture, "cwd")
+	cmd.Dir = dir
+
+	result, err := exec.Run(t.Context(), cmd)
+	require.NoError(t, err)
+	assert.Equal(t, dir+"\n", string(result.Output))
+
+	here, err := os.Getwd()
+	require.NoError(t, err)
+
+	result, err = exec.Run(t.Context(), childCommand(runner.Capture, "cwd"))
+	require.NoError(t, err)
+	assert.Equal(t, here+"\n", string(result.Output), "without one, in emergup's own")
+}
+
 func TestATerminalCommandReadsNoOtherStandardInput(t *testing.T) {
 	t.Parallel()
 

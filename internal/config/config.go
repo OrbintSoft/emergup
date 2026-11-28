@@ -23,8 +23,17 @@ type Config struct {
 type AI struct {
 	// Backend is the one that answers; BackendNone turns AI off.
 	Backend AIBackend `toml:"backend"`
+	// ClaudeCode is the Claude Code backend.
+	ClaudeCode ClaudeCodeBackend `toml:"claude-code"`
 	// Command is the command backend.
 	Command CommandBackend `toml:"command"`
+}
+
+// ClaudeCodeBackend is Claude Code, run as the invoking user.
+type ClaudeCodeBackend struct {
+	// Command is its program and first arguments, such as a model, to
+	// which emergup appends the options of each request.
+	Command []string `toml:"command"`
 }
 
 // AIBackend names the backend that answers; the configuration writes it by
@@ -37,6 +46,8 @@ const (
 	BackendNone AIBackend = iota
 	// BackendCommand runs the program of the command backend.
 	BackendCommand
+	// BackendClaudeCode runs Claude Code.
+	BackendClaudeCode
 )
 
 // CommandBackend is a program that reads a request on its standard input
@@ -306,6 +317,10 @@ func Default() Config {
 			Notice:  style(0, named(magenta)),
 		},
 		Runs: Runs{Keep: defaultKeep},
-		AI:   AI{Backend: BackendNone, Command: CommandBackend{Command: []string{}}},
+		AI: AI{
+			Backend:    BackendNone,
+			ClaudeCode: ClaudeCodeBackend{Command: []string{"claude", "--safe-mode"}},
+			Command:    CommandBackend{Command: []string{}},
+		},
 	}
 }

@@ -138,7 +138,7 @@ func protectedPaths(ctx context.Context, run runner.Runner) ([]string, []string,
 	command := []string{portageq, "envvar", "CONFIG_PROTECT", "CONFIG_PROTECT_MASK"}
 
 	result, err := run.Run(ctx, runner.Command{
-		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not find the protected configuration: %w", err)
@@ -181,7 +181,7 @@ func findPending(ctx context.Context, run runner.Runner, dirs []string, shallow 
 	command = append(command, "-name", pendingPattern, "-print")
 
 	result, err := run.Run(ctx, runner.Command{
-		Args: command, Mode: runner.Capture, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil,
+		Args: command, Mode: runner.Capture, Root: true, Env: nil, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not look for the configuration files to update: %w", err)

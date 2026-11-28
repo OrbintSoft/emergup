@@ -97,6 +97,7 @@ func valueRules() []valueRule {
 		{key: "elevation.keep-env", check: func(cfg *Config) error { return checkVariables(cfg.Elevation.KeepEnv) }},
 		{key: "runs.keep", check: func(cfg *Config) error { return checkKeep(cfg.Runs.Keep) }},
 		{key: "ai.command.command", check: func(cfg *Config) error { return checkTableCommand(cfg.AI.Command.Command) }},
+		commandRule("ai.claude-code.command", func(cfg *Config) []string { return cfg.AI.ClaudeCode.Command }),
 	}
 }
 

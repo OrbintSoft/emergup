@@ -199,7 +199,7 @@ func runAsHook(ctx context.Context, env Env, hook Hook, args []string, root bool
 	}, extra)
 
 	command := runner.Command{
-		Args: args, Mode: runner.Stream, Root: root, Env: variables, Watch: nil, Into: nil, Stdin: nil,
+		Args: args, Mode: runner.Stream, Root: root, Env: variables, Watch: nil, Into: nil, Stdin: nil, Dir: "",
 	}
 	result, err := env.Runner.Run(ctx, command)
 
