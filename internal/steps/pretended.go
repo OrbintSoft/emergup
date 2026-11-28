@@ -36,7 +36,9 @@ type pretended struct {
 func (p pretended) run(ctx context.Context, env pipeline.Env) pipeline.Outcome {
 	pretend := p.command(env, true)
 
-	result, err := env.Runner.Run(ctx, runner.Command{Args: pretend, Mode: runner.StreamCapture, Root: false, Env: nil})
+	result, err := env.Runner.Run(ctx, runner.Command{
+		Args: pretend, Mode: runner.StreamCapture, Root: false, Env: nil, Watch: nil, Into: nil,
+	})
 	if err != nil {
 		return pipeline.Fail(err.Error())
 	}

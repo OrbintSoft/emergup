@@ -113,7 +113,9 @@ func (u updateStep) heldBack(ctx context.Context, env pipeline.Env) []pipeline.N
 
 	command := u.heldBackCommand(atoms)
 
-	result, err := env.Runner.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false, Env: nil})
+	result, err := env.Runner.Run(ctx, runner.Command{
+		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil,
+	})
 
 	switch {
 	case err != nil:

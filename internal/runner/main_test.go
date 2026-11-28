@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 //	err:TEXT     writes TEXT and a newline to standard error
 //	green:TEXT   writes TEXT in green and a newline to standard output
 //	bold:TEXT    writes TEXT in bold and a newline to standard error
+//	part:TEXT    writes TEXT, without a newline, to standard output
+//	long:N       writes N times "x", without a newline, to standard output
 //	env:NAME     writes the value of the variable NAME, or "unset", and a
 //	             newline to standard output
 //	echo-stdin   copies standard input to standard output
@@ -47,20 +49,7 @@ func TestMain(m *testing.M) {
 //	ignore-term  ignores SIGTERM, writes "ready" and waits for a minute
 //	exit:N       exits with status N
 func child(ops []string) int {
-	writes := map[string]func(text string){
-		"out":   func(text string) { _, _ = fmt.Fprintln(os.Stdout, text) },
-		"err":   func(text string) { _, _ = fmt.Fprintln(os.Stderr, text) },
-		"green": func(text string) { _, _ = fmt.Fprintln(os.Stdout, greenEscape+text+resetEscape) },
-		"bold":  func(text string) { _, _ = fmt.Fprintln(os.Stderr, boldEscape+text+resetEscape) },
-		"env": func(name string) {
-			value, isSet := os.LookupEnv(name)
-			if !isSet {
-				value = "unset"
-			}
-
-			_, _ = fmt.Fprintln(os.Stdout, value)
-		},
-	}
+	writes := childWrites()
 
 	for _, operation := range ops {
 		name, arg, _ := strings.Cut(operation, ":")
@@ -106,4 +95,27 @@ func child(ops []string) int {
 	}
 
 	return 0
+}
+
+// childWrites returns the operations of child that write their argument.
+func childWrites() map[string]func(text string) {
+	return map[string]func(text string){
+		"out":   func(text string) { _, _ = fmt.Fprintln(os.Stdout, text) },
+		"err":   func(text string) { _, _ = fmt.Fprintln(os.Stderr, text) },
+		"green": func(text string) { _, _ = fmt.Fprintln(os.Stdout, greenEscape+text+resetEscape) },
+		"bold":  func(text string) { _, _ = fmt.Fprintln(os.Stderr, boldEscape+text+resetEscape) },
+		"part":  func(text string) { _, _ = fmt.Fprint(os.Stdout, text) },
+		"long": func(count string) {
+			times, _ := strconv.Atoi(count)
+			_, _ = fmt.Fprint(os.Stdout, strings.Repeat("x", times))
+		},
+		"env": func(name string) {
+			value, isSet := os.LookupEnv(name)
+			if !isSet {
+				value = "unset"
+			}
+
+			_, _ = fmt.Fprintln(os.Stdout, value)
+		},
+	}
 }

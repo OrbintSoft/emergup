@@ -118,6 +118,20 @@ type Env struct {
 	// HookEnv holds the variables, NAME=value, that every hook gets, such as
 	// the run directory.
 	HookEnv []string
+	// Observer, when set, is told how the steps of a run go, as a failure
+	// report needs to know.
+	Observer StepObserver
+}
+
+// StepObserver is told how the steps of a run go, as they go.
+type StepObserver interface {
+	// Started is told that step is about to run: its hooks before it have
+	// run, and it is not skipped.
+	Started(step Step)
+	// Failed is told that step failed, as report says, as soon as it has:
+	// the hooks after it have not run yet. A step stopped by an
+	// interruption has not failed.
+	Failed(ctx context.Context, step Step, report StepReport)
 }
 
 // Step is one step of a run.
@@ -316,6 +330,16 @@ func askAndRun(ctx context.Context, env Env, step Step, report *StepReport) Resu
 		}
 	}
 
+	return runTheStep(ctx, env, step, report)
+}
+
+// runTheStep runs step, recording in report how it went and telling the
+// observer, and returns whether the run goes on: RunFinished when it does.
+func runTheStep(ctx context.Context, env Env, step Step, report *StepReport) Result {
+	if env.Observer != nil {
+		env.Observer.Started(step)
+	}
+
 	begin := env.Now()
 	outcome := step.Run(ctx, env)
 	report.Ran, report.Duration = true, env.Now().Sub(begin)
@@ -329,6 +353,10 @@ func askAndRun(ctx context.Context, env Env, step Step, report *StepReport) Resu
 
 	switch report.Status {
 	case Failed:
+		if env.Observer != nil {
+			env.Observer.Failed(ctx, step, *report)
+		}
+
 		return RunFailed
 	case Stopped:
 		return RunStopped

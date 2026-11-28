@@ -5,6 +5,7 @@ package runnertest_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,4 +66,36 @@ func TestFakeIsARunner(t *testing.T) {
 	t.Parallel()
 
 	var _ runner.Runner = &runnertest.Fake{}
+}
+
+func TestFakeGivesTheWatchWhatTheAnswerSays(t *testing.T) {
+	t.Parallel()
+
+	var fake runnertest.Fake
+
+	fake.Script(runnertest.Answer{Watched: "a line\nanother\n"}, runnertest.Answer{})
+
+	var watch strings.Builder
+
+	_, err := fake.Run(t.Context(), runner.Command{Args: []string{emerge}, Mode: runner.Stream, Watch: &watch})
+	require.NoError(t, err)
+	assert.Equal(t, "a line\nanother\n", watch.String())
+
+	_, err = fake.Run(t.Context(), runner.Command{Args: []string{emerge}, Mode: runner.Stream})
+	require.NoError(t, err, "a command without a watch")
+}
+
+func TestFakeSavesTheOutputOfASaveCommand(t *testing.T) {
+	t.Parallel()
+
+	var fake runnertest.Fake
+
+	fake.Script(runnertest.Answer{Result: runner.Result{ExitCode: 0, Output: []byte("the content\n")}})
+
+	var into strings.Builder
+
+	result, err := fake.Run(t.Context(), runner.Command{Args: []string{"cat"}, Mode: runner.Save, Into: &into})
+	require.NoError(t, err)
+	assert.Equal(t, "the content\n", into.String())
+	assert.Empty(t, result.Output, "a Save command collects nothing")
 }

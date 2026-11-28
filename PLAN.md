@@ -681,10 +681,48 @@ check before the run (6.2, 6.4).
         items cannot be listed or read; 130 for Ctrl-C or the end of the
         input at the question (CLI-3).
 
-## Phase 8 — Failure diagnostics  `[ ]`  (DIAG-*)
+## Phase 8 — Failure diagnostics  `[x]`  (DIAG-*)
 
-- [ ] **8.1** Detect the failed package and collect the failure report (DIAG-1).
-- [ ] **8.2** Print where the report is (DIAG-2).
+- [x] **8.1** Detect the failed package and collect the failure report (DIAG-1).
+      - The report is a directory of the run directory, `failure/`, a
+        file each: a summary (the step, its command, how it ended, each
+        failed package with its phase and the path of its build log),
+        the step's output, and for each failed package its build log,
+        `emerge --info '=cpv::repo'` and `emerge -pqv '=cpv::repo'`, the
+        separate attachments Portage's own message and a Gentoo bug
+        report ask for.
+      - Every failed step gets one, built-in or custom: the command and
+        its output always, the package parts when emerge names failed
+        packages; a sync that cannot reach its mirror has only the
+        first. A failed hook gets none: its output is in the log, and it
+        is the user's own command. The run stops at the first failure,
+        so a run has one report at most.
+      - The output of a step is watched as it streams, not kept: the
+        report has its last 1000 lines, without colours, and the run log
+        everything. In it emerge names each package that failed, `>>>
+        Failed to emerge <cpv>, Log file:` and the path of its log on the
+        next line, and the phase that failed, `* ERROR: <cpv>::<repo>
+        failed (<phase> phase):`; with `--keep-going` there can be
+        several. The colours are taken off first: the ebuild's own
+        messages keep theirs even with `--color=n`.
+      - Portage's build directory is `0700` and `build.log` `0660`, both
+        of the portage user: neither the invoking user nor the portage
+        group can read the log. It is read by an elevated read-only
+        command, through the configured method, whose output goes
+        straight to the report's file, written as the invoking user, so
+        that a large log is never held in memory. A log that Portage
+        compressed is copied as it is.
+      - `emerge --info` and `emerge -pqv` run unprivileged: they change
+        nothing.
+      - What cannot be collected (a log already removed, a missing
+        elevation, a query that fails) is said in the summary and as a
+        notice; it does not fail the run a second time.
+      - `--pretend` writes no report, having no run directory; a run
+        under `--yes` writes one, where nobody is there to see the
+        failure.
+- [x] **8.2** Print where the report is (DIAG-2).
+      - The end of a run that failed says where the report is, just
+        before where its log is, which stays the last line.
 
 ## Phase 9 — AI assistance  `[ ]`  (AI-*)
 

@@ -7,6 +7,7 @@ package runnertest
 import (
 	"context"
 	"fmt"
+	"io"
 	"slices"
 	"sync"
 
@@ -17,6 +18,8 @@ import (
 type Answer struct {
 	Result runner.Result
 	Err    error
+	// Watched is what the command shows, which Fake writes to its Watch.
+	Watched string
 }
 
 // Fake is a runner.Runner that runs nothing: it records every command and
@@ -64,6 +67,16 @@ func (f *Fake) Run(ctx context.Context, cmd runner.Command) (runner.Result, erro
 
 	answer := f.answers[0]
 	f.answers = f.answers[1:]
+
+	if cmd.Watch != nil && answer.Watched != "" {
+		_, _ = io.WriteString(cmd.Watch, answer.Watched)
+	}
+
+	// A Save command writes its output to Into and collects none.
+	if cmd.Mode == runner.Save && cmd.Into != nil {
+		_, _ = cmd.Into.Write(answer.Result.Output)
+		answer.Result.Output = nil
+	}
 
 	return answer.Result, answer.Err
 }

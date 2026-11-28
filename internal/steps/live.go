@@ -125,7 +125,7 @@ func (l liveStep) runSmart(ctx context.Context, env pipeline.Env, installed bool
 		return pipeline.Skip(l.smartProgram() + " is not installed")
 	}
 
-	command := runner.Command{Args: l.smartList(), Mode: runner.Capture, Root: true, Env: nil}
+	command := runner.Command{Args: l.smartList(), Mode: runner.Capture, Root: true, Env: nil, Watch: nil, Into: nil}
 
 	result, err := env.Runner.Run(ctx, command)
 
@@ -205,7 +205,9 @@ func runElevated(ctx context.Context, env pipeline.Env, command []string, progra
 func runElevatedIn(ctx context.Context, env pipeline.Env, mode runner.Mode, command []string,
 	program string,
 ) pipeline.Outcome {
-	return runCommand(ctx, env, runner.Command{Args: command, Mode: mode, Root: true, Env: nil}, program)
+	return runCommand(ctx, env, runner.Command{
+		Args: command, Mode: mode, Root: true, Env: nil, Watch: nil, Into: nil,
+	}, program)
 }
 
 // runCommand runs command and returns how it ended; program names it in a
@@ -314,7 +316,9 @@ func (l liveStep) plan(ctx context.Context, env pipeline.Env, mode config.LiveRe
 func packageDatabase(ctx context.Context, run runner.Runner) (string, error) {
 	command := []string{portageq, "vdb_path"}
 
-	result, err := run.Run(ctx, runner.Command{Args: command, Mode: runner.Capture, Root: false, Env: nil})
+	result, err := run.Run(ctx, runner.Command{
+		Args: command, Mode: runner.Capture, Root: false, Env: nil, Watch: nil, Into: nil,
+	})
 	if err != nil {
 		return "", fmt.Errorf("could not find the installed packages: %w", err)
 	}

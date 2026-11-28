@@ -85,8 +85,8 @@ name the id they verify. Ids are never reused; a dropped feature is marked
 
 | Id | Feature | Status |
 | --- | --- | --- |
-| DIAG-1 | When a step fails, emergup collects a failure report in the run directory: the command, its output, the failed package's build log and `emerge --info`. | planned |
-| DIAG-2 | The location of the failure report is printed, ready to be read or attached to a bug report. | planned |
+| DIAG-1 | When a step fails, emergup collects a failure report in a directory of the run directory: a summary of what failed and how, the last 1000 lines of the step's output without colours, and for each package emerge names as failed its build log, copied as root since only Portage can read it, with the output of `emerge --info` and `emerge -pqv` for it, the attachments a Gentoo bug report asks for. Every failed step gets a report, a custom one too; a failed hook does not, and `--pretend` writes none. What cannot be collected is said in the summary, and does not fail the run a second time. | done |
+| DIAG-2 | The end of a run that failed says where the failure report is, before where the log is, ready to be read or attached to a bug report. | done |
 
 ## Config-file updates (ETC)
 

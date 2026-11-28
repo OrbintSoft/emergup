@@ -14,6 +14,7 @@ import (
 
 	"github.com/OrbintSoft/emergup/internal/cli"
 	"github.com/OrbintSoft/emergup/internal/elevation"
+	"github.com/OrbintSoft/emergup/internal/report"
 	"github.com/OrbintSoft/emergup/internal/rundir"
 	"github.com/OrbintSoft/emergup/internal/runner"
 	"github.com/OrbintSoft/emergup/internal/ui"
@@ -47,6 +48,9 @@ func main() {
 		Lock:   store,
 		Color:  ui.ColorEnabled(ui.IsTerminal(os.Stdout), os.Getenv),
 		Now:    time.Now,
+		OpenReport: func(path string) (cli.ReportDir, error) {
+			return report.OpenDir(path)
+		},
 	}
 	code := cli.Main(ctx, env, os.Args[0], os.Args[1:])
 
