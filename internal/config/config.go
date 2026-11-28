@@ -205,7 +205,7 @@ type HookFailure int
 
 // The hook failures.
 const (
-	// HookStop fails the run, as a failed step does.
+	// HookStop ends the run as a failure.
 	HookStop HookFailure = iota
 	// HookContinue only shows a notice, and the run goes on.
 	HookContinue

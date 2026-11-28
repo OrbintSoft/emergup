@@ -119,7 +119,8 @@
 #               file adds with enabled = false.
 #
 # A custom step is announced, asked about and listed in the summary like a
-# built-in step, and fails the run when its command fails; hooks run before
+# built-in step, and when its command fails emergup asks, as for a built-in
+# step, whether to run it again, to go on or to end the run; hooks run before
 # and after it as they do around a built-in step. For example, haskell-updater
 # rebuilds the Haskell packages that an update has broken. emergup asks before
 # the step, so the options passed to emerge, after "--", have no --ask:
@@ -146,8 +147,8 @@
 #               true runs the hook only when someone answers the questions:
 #               a run that answers them by itself, as under --yes, skips
 #               it, with a notice, and goes on;
-#   on-failure  "stop", the default, fails the run when the hook fails, as a
-#               failed step does; "continue" only shows a notice; "ask" makes
+#   on-failure  "stop", the default, ends the run as a failure when the hook
+#               fails; "continue" only shows a notice; "ask" makes
 #               the hook a check: its failure asks whether to run its remedy
 #               and check again, to go on, or to abort the run;
 #   remedy      the command a check offers to run, then checks again; Enter

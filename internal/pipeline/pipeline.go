@@ -222,12 +222,17 @@ const runQuestion = "Run this step?"
 // skippedAtTheQuestion is the reason of a step skipped at its question.
 const skippedAtTheQuestion = "you chose to skip it"
 
+// The question asked after a step fails.
+const againQuestion = "Run this step again?"
+
 // Run runs the enabled steps in order, with their hooks and those of the
 // run, and writes the summary. Before each step it writes the step's
 // heading, runs its before hooks and asks whether to run it, then writes how
-// it ended and how long it took, and runs its after hooks. A failure, an
-// abort or the end of ctx stops the run; the hooks after the run still run
-// after a failure.
+// it ended and how long it took, and runs its after hooks. After a step
+// fails it asks whether to run it again, to go on with the next step or to
+// end the run, which a run that answers by itself does. A failure that ends
+// the run, an abort or the end of ctx ends it; the hooks after the run
+// still run after a failure, not after an abort or the end of ctx.
 func Run(ctx context.Context, env Env, steps []Step) Report {
 	start := env.Now()
 	report := Report{
@@ -262,9 +267,11 @@ func Run(ctx context.Context, env Env, steps []Step) Report {
 }
 
 // runSteps runs the enabled steps in order, recording in report how each
-// went, until one stops the run, and returns how the run goes on.
+// went, until one stops the run, and returns how the run goes on: a step
+// that failed and was passed over fails the run once the steps are done.
 func runSteps(ctx context.Context, env Env, steps []Step, report *Report) Result {
 	headings := newHeadings(steps)
+	passedOver := false
 
 	for index, step := range steps {
 		if !step.Enabled() {
@@ -279,6 +286,12 @@ func runSteps(ctx context.Context, env Env, steps []Step, report *Report) Result
 		if result != RunFinished {
 			return result
 		}
+
+		passedOver = passedOver || report.Steps[index].Status == Failed
+	}
+
+	if passedOver {
+		return RunFailed
 	}
 
 	return RunFinished
@@ -333,23 +346,44 @@ func askAndRun(ctx context.Context, env Env, step Step, report *StepReport) Resu
 	return runTheStep(ctx, env, step, report)
 }
 
-// runTheStep runs step, recording in report how it went and telling the
-// observer, and returns whether the run goes on: RunFinished when it does.
+// runTheStep runs step, and runs it again for as long as it fails and the
+// user asks for it, recording in report how it went, with the time of all
+// its runs. It returns whether the run goes on: RunFinished when it does, a
+// failed step passed over included.
 func runTheStep(ctx context.Context, env Env, step Step, report *StepReport) Result {
+	for {
+		result := runOnce(ctx, env, step, report)
+		if report.Status != Failed {
+			return result
+		}
+
+		if again, result := askAfterFailure(ctx, env); !again {
+			return result
+		}
+	}
+}
+
+// runOnce runs step once, recording in report how it ended and adding the
+// time it took, and tells the observer. It returns whether the run goes on:
+// RunFinished when it does.
+func runOnce(ctx context.Context, env Env, step Step, report *StepReport) Result {
 	if env.Observer != nil {
 		env.Observer.Started(step)
 	}
 
 	begin := env.Now()
 	outcome := step.Run(ctx, env)
-	report.Ran, report.Duration = true, env.Now().Sub(begin)
+	took := env.Now().Sub(begin)
+	report.Ran, report.Duration = true, report.Duration+took
 	report.Status, report.Reason, report.Notes = outcome.Status, outcome.Reason, outcome.Notes
 
 	if ctx.Err() != nil && outcome.Status != Succeeded {
 		report.Status = Stopped
 	}
 
-	writeEnd(env.Printer, *report)
+	end := *report
+	end.Duration = took
+	writeEnd(env.Printer, end)
 
 	switch report.Status {
 	case Failed:
@@ -402,6 +436,35 @@ func askToRun(ctx context.Context, env Env) (bool, Result) {
 	}
 
 	return action == run, RunFinished
+}
+
+// askAfterFailure asks what to do after a step failed, and returns whether
+// to run it again and, when not, how the run goes on: RunFinished to go on
+// with the next step, RunFailed to end it as a failure, as a run that
+// answers by itself does, and RunStopped when the question is aborted.
+func askAfterFailure(ctx context.Context, env Env) (bool, Result) {
+	again := ui.Action{Key: 'r', Name: "run it again"}
+	goOn := ui.Action{Key: 's', Name: "go on with the next step"}
+	end := ui.Action{Key: 'a', Name: "end the run"}
+
+	action, err := env.Menu.Choose(ctx, againQuestion, again, goOn, end)
+
+	switch {
+	case errors.Is(err, ui.ErrNoUsualAction):
+		return false, RunFailed
+	case errors.Is(err, ui.ErrAborted), ctx.Err() != nil:
+		return false, RunStopped
+	case err != nil:
+		env.Printer.Failure(err.Error())
+
+		return false, RunFailed
+	case action == again:
+		return true, RunFinished
+	case action == goOn:
+		return false, RunFinished
+	}
+
+	return false, RunFailed
 }
 
 // writeEnd writes how the step of report ended.

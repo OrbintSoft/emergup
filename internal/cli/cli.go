@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,8 +97,8 @@ type ReportDir interface {
 	Close() error
 }
 
-// reportDirName is the directory of a run's failure report, in the run
-// directory.
+// reportDirName is the directory of the first failure report of a run, in
+// the run directory.
 const reportDirName = "failure"
 
 // Main runs one invocation and returns the process exit status.
@@ -257,8 +258,8 @@ func runSteps(ctx context.Context, env Env, cfg config.Config, printer ui.Printe
 
 	result := pipeline.Run(ctx, stepsEnv, stepsOf(cfg, options)).Result
 
-	if failures.written {
-		printer.Info("The failure report is in " + failures.dir)
+	for _, dir := range failures.written {
+		printer.Info("The failure report is in " + dir)
 	}
 
 	return exitStatus(result)
@@ -275,22 +276,26 @@ func newFailureReport(env Env, next runner.Runner, run rundir.Run, printer ui.Pr
 		dir:      filepath.Join(run.Dir, reportDirName),
 		log:      run.LogPath,
 		printer:  printer,
-		written:  false,
+		failures: 0,
+		written:  nil,
 	}
 }
 
-// failureReport writes the failure report of the step of a run that
-// fails, in dir. It is the run's pipeline.StepObserver.
+// failureReport writes a failure report for each failure of a step of a
+// run: the first in dir, the next ones in dir-2, dir-3 and so on. It is the
+// run's pipeline.StepObserver.
 type failureReport struct {
 	recorder *report.Recorder
 	open     func(path string) (ReportDir, error)
-	// dir is where the report goes, log the path of the run's log.
+	// dir is where the first report goes, log the path of the run's log.
 	dir string
 	log string
-	// printer says what the report could not have.
+	// printer says what a report could not have.
 	printer ui.Printer
-	// written is whether a report was written.
-	written bool
+	// failures counts the failures; written are the directories of the
+	// reports written, in order.
+	failures int
+	written  []string
 }
 
 // Started implements pipeline.StepObserver: what ran before the step, its
@@ -302,7 +307,14 @@ func (f *failureReport) Started(pipeline.Step) {
 // Failed implements pipeline.StepObserver: it writes the report of step,
 // whose last command, if it ran one, is the recorder's last.
 func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepReport pipeline.StepReport) {
-	dir, err := f.open(f.dir)
+	f.failures++
+
+	path := f.dir
+	if f.failures > 1 {
+		path = f.dir + "-" + strconv.Itoa(f.failures)
+	}
+
+	dir, err := f.open(path)
 	if err != nil {
 		f.printer.Notice("no failure report: " + err.Error())
 
@@ -323,7 +335,7 @@ func (f *failureReport) Failed(ctx context.Context, step pipeline.Step, stepRepo
 		f.printer.Notice("not in the failure report: " + problem)
 	}
 
-	f.written = true
+	f.written = append(f.written, path)
 }
 
 // sayWhatDoasMustKeep says, when program is doas, which variables doas.conf

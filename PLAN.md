@@ -728,7 +728,7 @@ check before the run (6.2, 6.4).
       - The end of a run that failed says where the report is, just
         before where its log is, which stays the last line.
 
-## Phase 9 — AI assistance  `[ ]`  (AI-*)
+## Phase 9 — AI assistance  `[~]`  (AI-*)
 
 - [x] **9.0** Interaction design, written into docs/FEATURES.md (UPD-17,
       AI-1 to AI-12) and decided with the maintainer on 2026-11-28:
@@ -789,12 +789,20 @@ check before the run (6.2, 6.4).
         `--permission-mode` restrict what it may do; `--append-system-prompt`
         adds emergup's instructions; `claude auth status` says whether it is
         logged in.
-- [ ] **9.1** The question after a failed step, without AI (UPD-17): a
-      question without a usual action in the menu; running again runs the
-      step's command, without its question and its hooks before; the hooks
-      after it run once it has ended; each failure has its own report, and
-      the end of the run lists them. HOOK-3 then says that a custom step's
-      failure is asked about too.
+- [x] **9.1** The question after a failed step, without AI (UPD-17): a
+      question without a usual action in the menu; running the step again
+      calls it again, without its question and its hooks before, so a step
+      that asks its own question asks it again; the hooks after it run once
+      it has ended, and its time is that of all its runs; each failure has
+      its own report, and the end of the run lists them (DIAG-2). `a` ends
+      the run as a failure, as `--yes` does (exit status 1, the hooks after
+      the run run), decided with the maintainer; Ctrl-C and the end of the
+      input still stop it (130). HOOK-1 and HOOK-3 say what changes for the
+      hooks and the custom steps. `ui.Menu.Choose` asks a question without a
+      usual action, and returns `ErrNoUsualAction` under `--yes`; the
+      pipeline asks "Run this step again?" after each failure, and the cli
+      numbers the reports. The runner tests' child that waits for a signal
+      gives up after a minute, so none outlives a test binary that died.
 - [ ] **9.2** Backend interface and configuration; the screen of what will be
       sent, with the system profile and what the user can add; AI off as
       root; the AI keys in the questions (AI-1, AI-2, AI-6, AI-8).

@@ -54,7 +54,7 @@ func summaryRuns() []summaryRun {
 		},
 		{
 			name:    "failed",
-			answers: []string{"s", "y"},
+			answers: []string{"s", "y", "a"},
 			code:    1,
 			rows: []string{
 				`sync +skipped +you chose to skip it`,
